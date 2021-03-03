@@ -1,0 +1,9 @@
+pandas
+numpy
+matplotlib
+wordcloud
+periodictable
+seaborn
+xmltodict
+requests
+nvcl_kit
