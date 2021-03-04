@@ -8,3 +8,4 @@ xmltodict
 requests
 nvcl_kit
 fpdf2
+pillow

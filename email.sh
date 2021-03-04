@@ -3,4 +3,4 @@
 # First address is 'To:' address, second is 'From:'
 TO_ADDR=`head -1 .email_addr`
 FROM_ADDR=`tail -1 .email_addr`
-mail -r $FROM_ADDR -s 'NVCL Report' -A report.pdf $TO_ADDR
+echo "   " | mail -r $FROM_ADDR -s 'NVCL Report' -A report.pdf $TO_ADDR

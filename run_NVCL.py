@@ -25,7 +25,10 @@ import xmltodict
 import requests
 import seaborn as sns
 sns.set_context("talk")
-plt.style.use('csiro-basic')
+try:
+    plt.style.use('csiro-basic')
+except OSError:
+    print("WARNING: Cannot load 'csiro-basic' style")
 
 from nvcl_kit.reader import NVCLReader
 from types import SimpleNamespace
@@ -241,7 +244,7 @@ def read_data(prov_list):
                         if ild.log_type == '1':
                             bh_data = reader.get_borehole_data(ild.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                             if bh_data:
-                                [minerals, nmetres] = list(np.unique([bh_data[i].classText for i in bh_data.keys()], return_counts=True))
+                                [minerals, nmetres] = list(np.unique([getattr(bh_data[i], 'classText',"Unknown") for i in bh_data.keys()], return_counts=True))
                             data = [state, nvcl_id, ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, minerals, nmetres, bh_data]
                             #print(data)
                         else:
