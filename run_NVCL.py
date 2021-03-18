@@ -2,7 +2,6 @@
 
 import sys
 
-###
 # Append windows-specific path
 if sys.platform == 'win32':
     module_paths = ['D:\\Software\\']
@@ -10,9 +9,9 @@ if sys.platform == 'win32':
     for md in module_paths:
         if not (md in sys.path):
             sys.path.append(md)
-###
 
 from pathlib import Path
+import argparse
 import re
 import pandas as pd
 pd.options.mode.chained_assignment = None
@@ -37,7 +36,7 @@ except OSError:
 from nvcl_kit.reader import NVCLReader
 from types import SimpleNamespace
 
-# Provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
+# NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
 PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, False, "1.1.0"),
              'NT':  ("http://geology.data.nt.gov.au:80/geoserver/ows", "http://geology.data.nt.gov.au:80/NVCLDataServices", None, True, "2.0.0"),
              'TAS': ("http://www.mrt.tas.gov.au:80/web-services/ows", "http://www.mrt.tas.gov.au/NVCLDataServices/", None, False, "1.1.0"),
@@ -54,12 +53,13 @@ OFILES_DATA = {'log1': "./NVCL_data.pkl",
                'log2': "./NVCL_data_other.pkl",
                'empty': "./NVCL_errors_emptyrecs.pkl",
                'nodata': "./NVCL_errors_nodata.pkl"}
+
 # Pickled output stats files
 OFILES_STATS = {'stats_all': "./NVCL_allstats.pkl",
                 'stats_byalgorithms': "./NVCL_algorithm_stats_all.pkl",
                 'stats_bystate': "./NVCL_algorithm_stats_bystate.pkl"}
 
-# Dict to store stats
+# Dataset dictionary - stores current NVCL datasets
 dfs = {}
 
 '''
@@ -68,10 +68,20 @@ Internal functions
 
 
 def get_algorithms():
+    """
+    Fetches a dict of algorithms from CSIRO NVCL service
+    NB: Exits upon exception
+
+    :returns: dictionary, {algorithm id: algorithm version, ...}
+    """
     algo2ver_url = 'https://nvclwebservices.csiro.au/NVCLDataServices/getAlgorithms.html'
-    r = requests.get(algo2ver_url)
+    try:
+        r = requests.get(algo2ver_url)
+    except requests.RequestException as exc:
+        print(f"Cannot connect to {algo2ver_url}: {exc}")
+        sys.exit(1)
     algo2ver_xml = xmltodict.parse(r.content)
-    algoid2ver_byname = {}
+    # algoid2ver_byname = {}
     algoid2ver = {}
     for i in algo2ver_xml['Algorithms']['algorithms']:
         for j in i['outputs']:
@@ -82,13 +92,19 @@ def get_algorithms():
                     ver_dict.update({v['algorithmoutputID']: v['version']})
             else:
                 ver_dict.update({j['versions']['algorithmoutputID']: j['versions']['version']})
-            algoid2ver_byname.update({name: ver_dict})
+            # algoid2ver_byname.update({name: ver_dict})
             algoid2ver.update(ver_dict)
     algoid2ver['0'] = '0'
     return algoid2ver
 
 
 def create_stats(cdf):
+    """
+    Create statistics
+
+    :param cdf: input data in a pandas dataframe
+    :returns: statistics as another pandas dataframe
+    """
     ca_stats = pd.DataFrame()
     nbores = cdf.loc['nbores']
     if isinstance(nbores, pd.DataFrame):
@@ -111,22 +127,47 @@ def create_stats(cdf):
 
 
 def export_pkl(files2export):
-    for outfile in files2export.keys():
-        print(f"Exporting to {outfile} ...")
-        if isinstance(files2export[outfile], pd.DataFrame):
-            files2export[outfile].to_pickle(outfile)
-        else:
-            with open(outfile, 'wb') as handle:
-                pickle.dump(files2export[outfile], handle)
+    """ Writes datasets to pickle files
+    NB: exits upon exception
+
+    :param files2export: dictionary of { filename: dataset, ... }
+    """
+    for outfile, dataset in files2export.items():
+        try:
+            print(f"Exporting to {outfile} ...")
+            if isinstance(dataset, pd.DataFrame):
+                dataset.to_pickle(outfile)
+            else:
+                with open(outfile, 'wb') as handle:
+                    pickle.dump(dataset, handle)
+        except pickle.PicklingError as pe:
+            print(f"Could not save pickle {outfile}: {pe}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"Error writing pickle file {outfile}: {exc}")
+            sys.exit(1)
 
 
 def import_pkl(infile):
+    """ Reads pickle file and returns its data
+    NB: exits upon exception
+
+    :param infile: filename of pickle file
+    :returns: pickle file data
+    """
     print(f"Importing {infile} ...")
     try:
         data = pd.read_pickle(infile)
     except ValueError:
-        with open(infile, 'rb') as handle:
-            data = pickle.load(handle)
+        try:
+            with open(infile, 'rb') as handle:
+                data = pickle.load(handle)
+        except pickle.UnpicklingError as pe:
+            print(f"Could not load pickle {infile}: {pe}")
+            sys.exit(1)
+    except Exception as exc:
+        print(f"Error reading pickle file {infile}: {exc}")
+        sys.exit(1)
     return(data)
 
 
@@ -134,45 +175,13 @@ def import_pkl(infile):
 Primary functions
 '''
 
-
-def read_borehole(prov_list, state, nvcl_id):
-    # Optional maximum number of boreholes to fetch, default is no limit
-    # MAX_BOREHOLES = 2
-
-    columns = ['state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
-
-    param = SimpleNamespace()
-    wfs, nvcl, bbox, local_filt, version = prov_list[state]
-
-    # URL of the GeoSciML v4.1 BoreHoleView Web Feature Service
-    param.WFS_URL = wfs
-
-    # URL of NVCL service
-    param.NVCL_URL = nvcl
-
-    # NB: If you set this to true then WFS_VERSION must be 2.0.0
-    param.USE_LOCAL_FILTERING = local_filt
-    param.WFS_VERSION = version
-
-    # Additional options
-    if bbox:
-        param.BBOX = bbox
-    if 'MAX_BOREHOLES' in locals():
-        param.MAX_BOREHOLES = MAX_BOREHOLES
-
-    # Instantiate class and search for boreholes
-    reader = NVCLReader(param)
-
-    if not reader.wfs:
-        print("ERROR!", wfs, nvcl)
-
-    imagelog_data_list = reader.get_imagelog_data(nvcl_id)
-    for ild in imagelog_data_list:
-        print(ild.log_name)
-    return imagelog_data_list
-
-
 def read_data(prov_list):
+    """ Read pickle files for any past data and poll NVCL services to see if there is any new data
+        Save updates to pickle files
+        Upon keyboard interrupt save updates to pickle files and exit
+
+        :param prov_list: list of NVCL service providers
+    """
     # Optional maximum number of boreholes to fetch, default is no limit
     # MAX_BOREHOLES = 2
 
@@ -180,6 +189,7 @@ def read_data(prov_list):
 
     columns = ['state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
 
+    # Compile a list of known NVCL ids from pickled data
     ids = []
     for df, ofile in OFILES_DATA.items():
         if Path(ofile).is_file():
@@ -193,8 +203,8 @@ def read_data(prov_list):
             remove = f.readlines()
             ids = np.delete(ids, np.argwhere(ids == remove))
 
-    print("Reading NVCL data ...")
-    # read data
+    print("Reading NVCL data services ...")
+    # Read data from NVCL services
     cid = ''
     try:
         for state in prov_list:
@@ -230,20 +240,21 @@ def read_data(prov_list):
             bh_list = reader.get_boreholes_list()
             nvcl_id_list = reader.get_nvcl_id_list()
 
-            # Get NVCL log id for first borehole in list
+            # Check for no NVCL ids & skip to next service
             if not nvcl_id_list:
                 print(f"!!!! No NVCL ids for {nvcl}")
                 continue
 
-            for iID in range(len(nvcl_id_list)):
-                nvcl_id = nvcl_id_list[iID]
+            for iID, nvcl_id in enumerate(nvcl_id_list):
                 print('-'*50)
                 print(f"{nvcl_id} - {state} ({iID+1} of {len(nvcl_id_list)})")
                 print('-'*10)
                 cid = nvcl_id
+                # Is this a known NVCL id? Then ignore
                 if (SW_ignore_importedIDs and nvcl_id in ids):
                     print("Already imported, next...")
                 else:
+                    # Download previously unknown NVCL id dataset from service
                     imagelog_data_list = reader.get_imagelog_data(nvcl_id)
                     if not imagelog_data_list:
                         print("No NVCL data!")
@@ -263,9 +274,8 @@ def read_data(prov_list):
                         if ild.log_type == '1':
                             bh_data = reader.get_borehole_data(ild.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                             if bh_data:
-                                [minerals, nmetres] = list(np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True))
+                                minerals, nmetres = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
                             data = [state, nvcl_id, ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, minerals, nmetres, bh_data]
-                            # print(data)
                         else:
                             data = [state, nvcl_id, ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, np.nan, np.nan, np.nan]
 
@@ -274,7 +284,10 @@ def read_data(prov_list):
                             dfs[key].append(pd.Series(data, index=dfs[key].columns), ignore_index=True)
                         else:
                             dfs['empty'] = dfs['empty'].append(pd.Series(data, index=dfs['empty'].columns), ignore_index=True)
+                    # Append new NVCL id to list of known NVCL ids
                     np.append(ids, nvcl_id)
+
+    # If user presses Ctrl-C then save out data to pickle file & exit
     except KeyboardInterrupt:
         with open(ABORT_FILE, 'w') as f:
             f.write(cid)
@@ -282,6 +295,7 @@ def read_data(prov_list):
             export_pkl({ofile: dfs[df]})
         sys.exit()
 
+    # Once finished, save out data to pickle file
     for df, ofile in OFILES_DATA.items():
         export_pkl({ofile: dfs[df]})
 
@@ -289,6 +303,11 @@ def read_data(prov_list):
 
 
 def calc_stats(prov_list, dfs):
+    """
+    Calculates statistics based on input dataset dictionary
+
+    :param dfs: dataset dictionary
+    """
     df_allstats = pd.DataFrame()
     # munge data
     print("Calculating initial statistics ...")
@@ -366,6 +385,11 @@ def calc_stats(prov_list, dfs):
 
 
 def plot_results(dfs):
+    """
+    Generates a set of plot files
+
+    :param dfs: dataset dictionary
+    """
     df_all = pd.concat([dfs['log1'], dfs['log2'], dfs['empty'], dfs['nodata']])
     dfs_log2_all = pd.concat([dfs['log2'], dfs['empty'][dfs['empty']['log_type'] == '2']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
@@ -376,7 +400,7 @@ def plot_results(dfs):
     empty_states, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     BBX2A = (1.0, 0.5)
 
-    # Percentage of boreholes by state and data present
+    # Plot percentage of boreholes by state and data present
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
     # log1_rel = [i / j * 100 for i, j in zip(log1_counts, all_counts)]
@@ -391,7 +415,7 @@ def plot_results(dfs):
     plt.legend(loc="lower left")
     plt.savefig("borehole_percent.png")
 
-    # Number of boreholes by state
+    # Plot number of boreholes by state
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
     ax1 = ax.bar(all_states, all_counts)
@@ -437,14 +461,14 @@ def plot_results(dfs):
         vers = ['version_' + x for x in IDs]
         df_algoID_stats = pd.concat([df_algoID_stats, pd.DataFrame([np.array(count)], columns=vers, index=[suffix])], sort=False)
 
-    # Number of boreholes for geology by state
+    # Plot number of boreholes for geology by state
     dfs_log1_geology = dfs['log1'][dfs['log1']['algorithm'].str.contains(('^(Strat|Form|Lith)'), case=False)]
     ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for geology by state")
     ax.set(xlabel='State', ylabel="Number of boreholes")
     plt.tight_layout()
     plt.savefig("log1_geology.png")
 
-    # Number of boreholes for non-standard algorithms by state
+    # Plot number of boreholes for non-standard algorithms by state
     dfs_log1_nonstd = dfs['log1'][~(dfs['log1']['algorithm'].str.contains(('^(Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
     dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
     ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['state', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by state")
@@ -452,7 +476,7 @@ def plot_results(dfs):
     plt.tight_layout()
     plt.savefig("log1_nonstdalgos.png")
 
-    # Number of boreholes by algorithm and state
+    # Plot number of boreholes by algorithm and state
     ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and state")
     ax.set(ylabel="Number of boreholes")
     # for p in ax.patches:
@@ -460,7 +484,7 @@ def plot_results(dfs):
     plt.tight_layout()
     plt.savefig("log1_algos.png")
 
-    # Number of data records of standard algorithms by version
+    # Plot number of data records of standard algorithms by version
     ax = df_algoID_stats[sort_cols(df_algoID_stats)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
     ax.legend(loc="center left", bbox_to_anchor=BBX2A)
     # ax.grid(True, which='major', linestyle='-')
@@ -469,7 +493,7 @@ def plot_results(dfs):
     plt.tight_layout()
     plt.savefig("log1_algoIDs.png")
 
-    # Number of data records of standard algorithms by version and state
+    # Plot number of data records of standard algorithms by version and state
     ax = dfs['log1'].groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and state")
     ax.legend(loc='center left', bbox_to_anchor=BBX2A)
     ax.set(xlabel='State', ylabel="Number of data records")
@@ -477,7 +501,7 @@ def plot_results(dfs):
     plt.savefig("log1_algoIDs_state.png")
     plt.close('all')
 
-    # Number of data records of algorithmXXX by version and state
+    # Plot number of data records of algorithmXXX by version and state
     for alg in df_algo_stats.columns:
         cAlg = dfs['log1'][dfs['log1'].algorithm.str.endswith(alg)]
         ax = cAlg.drop_duplicates('nvcl_id').groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and state")
@@ -501,13 +525,13 @@ def plot_results(dfs):
             Min_uTSAS = pd.concat([Min_uTSAS, value]).fillna(0).groupby(level=0).sum()
     Min_uTSAS = dfcol_algoid2ver(Min_uTSAS)
 
-    # Grp_uTSAS sorted by group name and version
+    # Plot Grp_uTSAS sorted by group name and version
     ax = Grp_uTSAS[sort_cols(Grp_uTSAS)].plot(kind='bar', figsize=(30, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(xlabel='Group', ylabel="Number of data records")
     plt.tight_layout()
     plt.savefig("grp_utsas.png")
 
-    # Min_uTSAS sorted by group name and version
+    # Plot Min_uTSAS sorted by group name and version
     ax = Grp_uTSAS[sort_cols(Grp_uTSAS)].loc[['Carbonates', 'CARBONATE']].plot(kind='barh', figsize=(20, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
     plt.tight_layout()
@@ -517,7 +541,7 @@ def plot_results(dfs):
     plt.tight_layout()
     plt.savefig("min_utsas.png")
 
-    # Min_uTSAS sorted by group name and version
+    # Plot Min_uTSAS sorted by group name and version
     ax = Min_uTSAS[sort_cols(Grp_uTSAS)].loc[["Illitic Muscovite", "Muscovitic Illite", "MuscoviticIllite"]].plot(kind='barh', figsize=(20, 10), title="Min_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
     plt.tight_layout()
@@ -542,7 +566,7 @@ def plot_results(dfs):
     df_log2_el['suffix'] = df_log2_el['suffix'].replace({'^(_.*)': r' \1'}, regex=True)
     df_log2_el['element'] = df_log2_el['element'].replace({'(?i)Arsen$': 'Arsenic'}, regex=True).apply(lambda x: (x[0].upper() + x[1].lower() + x[2:]) if len(x) > 2 else x[0].upper()+x[1].lower() if len(x) > 1 else x[0].upper())
 
-    # Element data by state
+    # Plot element data by state
     ax = df_log2_el.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Element data by state")
     ax.set(xlabel='state', ylabel="Number of boreholes")
     plt.tight_layout()
@@ -552,28 +576,28 @@ def plot_results(dfs):
     plt.tight_layout()
     plt.savefig("elems_count.png")
 
-    # Element suffixes sorted by element
+    # Plot element suffixes sorted by element
     ax = df_log2_el.groupby(['element', 'suffix']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), title="Element suffixes sorted by element")
     ax.legend(loc="center left", bbox_to_anchor=BBX2A)
     ax.set(xlabel='Element', ylabel="Number of data records")
     plt.tight_layout()
     plt.savefig("elems_suffix.png")
 
-    # Element suffixes for Sulfur
+    # Plot element suffixes for Sulfur
     ax = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack().plot(kind='bar', stacked=False, rot=0, figsize=(10, 10), title="Element suffixes for Sulfur")
     ax.set(xlabel='Element', ylabel="Number of data records")
     plt.tight_layout()
     plt.savefig("elem_S.png")
     plt.close('all')
 
-    # Element suffixes
+    # Plot element suffixes
     ax = df_log2_el['suffix'].value_counts().plot(kind='barh', figsize=(20, 10), title="Element suffixes")
     ax.set(ylabel="Element suffix", xlabel="Number of data records")
     plt.tight_layout()
     plt.savefig("elem_suffix_stats.png")
     plt.close('all')
 
-    # Geophysics data by state
+    # PLot geophysics data by state
     phys_include = ['magsus', 'mag sus', 'cond']
     df_phys = dfs_log2_all[(dfs_log2_all['algorithm'].str.contains(('|'.join(phys_include)), case=False))]
     ax = df_phys.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Geophysics data by state")
@@ -582,7 +606,7 @@ def plot_results(dfs):
     plt.savefig("geophys_state.png")
     plt.close('all')
 
-    # Geophysics
+    # Plot geophysics
     ax = df_phys['algorithm'].value_counts().plot(kind='bar', figsize=(10, 10), rot=90, title='Geophysics')
     ax.set(xlabel='data', ylabel="Number of data records")
     plt.tight_layout()
@@ -591,41 +615,68 @@ def plot_results(dfs):
 
 
 def dfcol_algoid2ver(df, algoid2ver):
+    """ Renames columns in dataframe from algorithm id to version id
+
+    :param df: pandas dataframe
+    :param algoid2ver: dictionary of algorithm id -> version id
+    :returns: transformed dataframe
+    """
     df = df.rename({y: re.sub(r'algorithm_(\d+)', lambda x: f"version_{algoid2ver[x.group(1)]}", y) for y in df.columns}, axis='columns')
     df = df.fillna(0).groupby(level=0).sum()
     return df
 
 
-def sort_cols(df, prefix='version', split='_'):
+def sort_cols(df, prefix='version', split_tok='_'):
+    """ Sort columns by value in pandas dataframe
+    Column names are assumed to be in format '<prefix><split_tok><value>'
+
+    :param df: pandas dataframe
+    :param prefix: optional column prefix to search for in column names, default value is 'version'
+    :param split_tok: optional split token in column names, default value is '_'
+    :returns: list of sorted & transformed columns
+    """
     cols = sorted(df.columns)
-    anums = list()
+    anums = []
     for c in cols:
         if (re.match('^' + prefix, c)):
-            anums.append(c.split(split)[1])
-    return [prefix + split + str(x) for x in sorted([int(x) for x in anums])]
+            anums.append(c.split(split_tok)[1])
+    return [prefix + split_tok + str(x) for x in sorted([int(x) for x in anums])]
 
 
 if __name__ == "__main__":
-    sw_read_data = True
-    sw_calc_stats = True
-    sw_plot = True
-    sw_load_data = True
+    # Configure command line arguments
+    parser = argparse.ArgumentParser(description="NVCL report data creator")
+    parser.add_argument('-r', '--read', action='store_true')
+    parser.add_argument('-s', '--stats', action='store_true')
+    parser.add_argument('-p', '--plot', action='store_true')
+    parser.add_argument('-l', '--load', action='store_true')
 
-    # data = read_borehole(prov_list,'NT','8601229_MCDD0005')
+    # Parse command line arguments
+    args = parser.parse_args()
 
-    if sw_read_data:
+    # Complain & exit if nothing selected
+    if not (args.read or args.stats or args.plot or args.load):
+        print("No options were selected. Please select an option")
+        parser.print_usage()
+
+    # Open up pickle files, talk to services, update pickle files
+    if args.read:
         dfs = read_data(PROV_LIST)
     else:
-        if sw_load_data:
+        # Load pickle files
+        if args.load:
             for df, ofile in OFILES_DATA.items():
                 dfs[df] = import_pkl(ofile)
 
-    if sw_calc_stats:
+    # Update/calculate statistics
+    if args.stats:
         dfs = calc_stats(PROV_LIST, dfs)
     else:
-        if sw_load_data:
+        # Load pickle files
+        if args.load:
             for df, ofile in OFILES_STATS.items():
                 dfs[df] = import_pkl(ofile)
 
-    if sw_plot:
+    # Plot results
+    if args.plot:
         plot_results(dfs)
