@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# Simple script used to send NVCL reports to people via email
+#
 [ ! -e .email_addr ] && echo "Missing '.email_addr' file with email address inside" && exit 1
 # First address is 'To:' address, second is 'From:'
 TO_ADDR=`head -1 .email_addr`
