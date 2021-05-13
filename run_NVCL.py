@@ -53,6 +53,9 @@ TEST_RUN = True
 # Directory where pickle files are stored
 PICKLE_DIR = 'pkl'
 
+# Directory where plots are found
+PLOT_DIR = 'plots'
+
 # Abort information file - contains the NVCL log id at which run was aborted
 ABORT_FILE = Path('./run_NVCL_abort.txt')
 
@@ -69,6 +72,9 @@ OFILES_STATS = {'stats_all': "NVCL_allstats.pkl",
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
+
+# Matplotlib legend positioning constant
+BBX2A = (1.0, 0.5)
 
 '''
 Internal functions
@@ -367,7 +373,7 @@ def calc_stats(prov_dict):
 
     print(f"df_allstats = {df_allstats}")
     df_allstats = df_allstats.set_index(['state', 'algorithm', 'stat'])
-    export_pkl({OFILES_STATS['stats_all']: df_allstats})
+    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_all']): df_allstats})
 
     algorithm_stats_all = {}
     algorithms = np.unique(g_dfs['log1']['algorithm'])
@@ -376,7 +382,7 @@ def calc_stats(prov_dict):
         cdf = df_allstats.xs(algorithm, level='algorithm').dropna(axis=1, how='all').droplevel(0)
         algorithm_stats_all[algorithm] = create_stats(cdf)
 
-    export_pkl({OFILES_STATS['stats_byalgorithms']: algorithm_stats_all})
+    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
 
     algorithm_stats_bystate = {}
     print("Calculating state based statistics ...")
@@ -388,7 +394,7 @@ def calc_stats(prov_dict):
             cdf = sdf.xs(state, level='state').dropna(axis=1, how='all')
             algorithm_stats_bystate[algorithm][state] = create_stats(cdf)
 
-    export_pkl({OFILES_STATS['stats_bystate']: algorithm_stats_bystate})
+    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_bystate']): algorithm_stats_bystate})
     if ABORT_FILE.is_file():
         ABORT_FILE.unlink()
 
@@ -411,7 +417,7 @@ def plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, n
     plt.ylabel("Percentage of boreholes (%)")
     plt.title("Percentage of boreholes by state and data present")
     plt.legend(loc="lower left")
-    plt.savefig("borehole_percent.png")
+    plt.savefig(os.path.join(PLOT_DIR, "borehole_percent.png"))
 
 def plot_borehole_number(all_states, all_counts):
     # Plot number of boreholes by state
@@ -423,14 +429,15 @@ def plot_borehole_number(all_states, all_counts):
         plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
     plt.ylabel("Number of boreholes")
     plt.title("Number of boreholes by state")
-    plt.savefig("borehole_number.png")
+    plt.savefig(os.path.join(PLOT_DIR, "borehole_number.png"))
 
     # Plot number of boreholes for geology by state
     dfs_log1_geology = g_dfs['log1'][g_dfs['log1']['algorithm'].str.contains(('^(Strat|Form|Lith)'), case=False)]
-    ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for geology by state")
-    ax.set(xlabel='State', ylabel="Number of boreholes")
-    plt.tight_layout()
-    plt.savefig("log1_geology.png")
+    if not dfs_log1_geology.empty:
+        ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for geology by state")
+        ax.set(xlabel='State', ylabel="Number of boreholes")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "log1_geology.png"))
 
 def plot_wordclouds(dfs_log2_all):
     # Plot word clouds
@@ -441,7 +448,7 @@ def plot_wordclouds(dfs_log2_all):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
-    plt.savefig('log2_wordcloud.png')
+    plt.savefig(os.path.join(PLOT_DIR, 'log2_wordcloud.png'))
 
     words = [x.replace(' ','_') for x in list(dfs_log2_all['algorithm'])]
     wordcloud = WordCloud(width=1600, height=800, background_color="white", stopwords = STOPWORDS, max_words=200).generate(' '.join(words))
@@ -450,25 +457,26 @@ def plot_wordclouds(dfs_log2_all):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
-    plt.savefig('log1_wordcloud.png')
+    plt.savefig(os.path.join(PLOT_DIR, 'log1_wordcloud.png'))
 
 
 def plot_geophysics(dfs_log2_all):
     # Plot geophysics data by state
     phys_include = ['magsus', 'mag sus', 'cond']
     df_phys = dfs_log2_all[(dfs_log2_all['algorithm'].str.contains(('|'.join(phys_include)), case=False))]
-    ax = df_phys.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Geophysics data by state")
-    ax.set(xlabel='state', ylabel="Number of boreholes")
-    plt.tight_layout()
-    plt.savefig("geophys_state.png")
-    plt.close('all')
+    if not df_phys.empty:
+        ax = df_phys.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Geophysics data by state")
+        ax.set(xlabel='state', ylabel="Number of boreholes")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "geophys_state.png"))
+        plt.close('all')
 
-    # Plot geophysics
-    ax = df_phys['algorithm'].value_counts().plot(kind='bar', figsize=(10, 10), rot=90, title='Geophysics')
-    ax.set(xlabel='data', ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig("geophys_count.png")
-    plt.close('all')
+        # Plot geophysics
+        ax = df_phys['algorithm'].value_counts().plot(kind='bar', figsize=(10, 10), rot=90, title='Geophysics')
+        ax.set(xlabel='data', ylabel="Number of data records")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "geophys_count.png"))
+        plt.close('all')
 
 
 
@@ -485,37 +493,46 @@ def plot_elements(dfs_log2_all):
     df_log2_el['element'] = df_log2_el['element'].replace({'(?i)Arsen$': 'Arsenic'}, regex=True).apply(lambda x: (x[0].upper() + x[1].lower() + x[2:]) if len(x) > 2 else x[0].upper()+x[1].lower() if len(x) > 1 else x[0].upper())
 
     # Plot element data by state
-    ax = df_log2_el.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Element data by state")
-    ax.set(xlabel='state', ylabel="Number of boreholes")
-    plt.tight_layout()
-    plt.savefig("elems_state.png")
-    ax = df_log2_el['element'].value_counts().plot(kind='bar', figsize=(20, 10), title='Elements')
-    ax.set(xlabel='Element', ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig("elems_count.png")
+    if not df_log2_el.empty:
+        ax = df_log2_el.drop_duplicates('nvcl_id')['state'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Element data by state")
+        ax.set(xlabel='state', ylabel="Number of boreholes")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "elems_state.png"))
+        ax = df_log2_el['element'].value_counts()
+        if not ax.empty:
+            p = ax.plot(kind='bar', figsize=(20, 10), title='Elements')
+            p.set(xlabel='Element', ylabel="Number of data records")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, "elems_count.png"))
 
-    # Plot element suffixes sorted by element
-    ax = df_log2_el.groupby(['element', 'suffix']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), title="Element suffixes sorted by element")
-    ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-    ax.set(xlabel='Element', ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig("elems_suffix.png")
+        # Plot element suffixes sorted by element
+        ax = df_log2_el.groupby(['element', 'suffix']).size().unstack()
+        if not ax.empty:
+            p = ax.plot(kind='bar', stacked=False, figsize=(30, 10), title="Element suffixes sorted by element")
+            p.legend(loc="center left", bbox_to_anchor=BBX2A)
+            p.set(xlabel='Element', ylabel="Number of data records")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, "elems_suffix.png"))
 
-    # Plot element suffixes for Sulfur
-    ax = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack().plot(kind='bar', stacked=False, rot=0, figsize=(10, 10), title="Element suffixes for Sulfur")
-    ax.set(xlabel='Element', ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig("elem_S.png")
-    plt.close('all')
+        # Plot element suffixes for Sulfur
+        ax = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
+        if not ax.empty:
+            p = ax.plot(kind='bar', stacked=False, rot=0, figsize=(10, 10), title="Element suffixes for Sulfur")
+            p.set(xlabel='Element', ylabel="Number of data records")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, "elem_S.png"))
+            plt.close('all')
 
-    # Plot element suffixes
-    ax = df_log2_el['suffix'].value_counts().plot(kind='barh', figsize=(20, 10), title="Element suffixes")
-    ax.set(ylabel="Element suffix", xlabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig("elem_suffix_stats.png")
-    plt.close('all')
+        # Plot element suffixes
+        ax = df_log2_el['suffix'].value_counts()
+        if not ax.empty:
+            p = ax.plot(kind='barh', figsize=(20, 10), title="Element suffixes")
+            p.set(ylabel="Element suffix", xlabel="Number of data records")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, "elem_suffix_stats.png"))
+            plt.close('all')
 
-def plot_spectrum_group():
+def plot_spectrum_group(algoid2ver):
     # Grp=uTSAS[uTSAS.algorithm.str.startswith('Grp')]
     # [grp_algos, grp_counts] = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.startswith('Grp')]['algorithm'], return_counts=True)
 
@@ -528,34 +545,37 @@ def plot_spectrum_group():
     for key, value in g_dfs['stats_byalgorithms'].items():
         if key.startswith('Min') and key.endswith('uTSAS'):
             Min_uTSAS = pd.concat([Min_uTSAS, value]).fillna(0).groupby(level=0).sum()
-    Min_uTSAS = dfcol_algoid2ver(Min_uTSAS)
+    Min_uTSAS = dfcol_algoid2ver(Min_uTSAS, algoid2ver)
 
     # Plot Grp_uTSAS sorted by group name and version
     ax = Grp_uTSAS[sort_cols(Grp_uTSAS)].plot(kind='bar', figsize=(30, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(xlabel='Group', ylabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("grp_utsas.png")
+    plt.savefig(os.path.join(PLOT_DIR, "grp_utsas.png"))
 
     # Plot Min_uTSAS sorted by group name and version
-    ax = Grp_uTSAS[sort_cols(Grp_uTSAS)].loc[['Carbonates', 'CARBONATE']].plot(kind='barh', figsize=(20, 10), title="Grp_uTSAS sorted by group name and version")
+    ax = Grp_uTSAS[sort_cols(Grp_uTSAS)]
+    # TODO: Standardise names before inserted into DataFrame
+    ax = ax.loc[ax.index.intersection(['Carbonates', 'CARBONATE'])].plot(kind='barh', figsize=(20, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("grp_utsas_carbonate.png")
+    plt.savefig(os.path.join(PLOT_DIR, "grp_utsas_carbonate.png"))
     ax = Min_uTSAS[sort_cols].plot(kind='bar', figsize=(30, 10), title="Min_uTSAS sorted by group name and version")
     ax.set(xlabel='Mineral', ylabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("min_utsas.png")
+    plt.savefig(os.path.join(PLOT_DIR, "min_utsas.png"))
 
     # Plot Min_uTSAS sorted by group name and version
-    ax = Min_uTSAS[sort_cols(Grp_uTSAS)].loc[["Illitic Muscovite", "Muscovitic Illite", "MuscoviticIllite"]].plot(kind='barh', figsize=(20, 10), title="Min_uTSAS sorted by group name and version")
+    ax = Min_uTSAS[sort_cols(Grp_uTSAS)]
+    # TODO: Standardise names before inserted into DataFrame
+    ax = ax.loc[ax.index.intersection(["Illitic Muscovite", "Muscovitic Illite", "MuscoviticIllite"])].plot(kind='barh', figsize=(20, 10), title="Min_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("min_utsas_musc.png")
+    plt.savefig(os.path.join(PLOT_DIR, "min_utsas_musc.png"))
     plt.close('all')
 
 
-def plot_algorithms():
-    algoid2ver = get_algorithms()
+def plot_algorithms(algoid2ver):
     algos = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.contains('^Min|Grp')]['algorithm'])
     suffixes = np.unique([x.split()[1] for x in algos])
     g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver[row['algorithmID']], axis=1)
@@ -572,11 +592,12 @@ def plot_algorithms():
 
     # Plot number of boreholes for non-standard algorithms by state
     dfs_log1_nonstd = g_dfs['log1'][~(g_dfs['log1']['algorithm'].str.contains(('^(Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
-    dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
-    ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['state', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by state")
-    ax.set(xlabel='State', ylabel="Number of boreholes")
-    plt.tight_layout()
-    plt.savefig("log1_nonstdalgos.png")
+    if not dfs_log1_nonstd.empty:
+        dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
+        ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['state', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by state")
+        ax.set(xlabel='State', ylabel="Number of boreholes")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "log1_nonstdalgos.png"))
 
     # Plot number of boreholes by algorithm and state
     ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and state")
@@ -584,7 +605,7 @@ def plot_algorithms():
     # for p in ax.patches:
     #    ax.annotate(str(int(p.get_height())), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', va='center', xytext=(0, 10), textcoords="offset points", size=4, fontweight='bold')
     plt.tight_layout()
-    plt.savefig("log1_algos.png")
+    plt.savefig(os.path.join(PLOT_DIR, "log1_algos.png"))
 
     # Plot number of data records of standard algorithms by version
     ax = df_algoID_stats[sort_cols(df_algoID_stats)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
@@ -593,14 +614,14 @@ def plot_algorithms():
     # ax.grid(True, which='minor', linestyle='--')
     ax.set(ylabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("log1_algoIDs.png")
+    plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs.png"))
 
     # Plot number of data records of standard algorithms by version and state
     ax = g_dfs['log1'].groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and state")
     ax.legend(loc='center left', bbox_to_anchor=BBX2A)
     ax.set(xlabel='State', ylabel="Number of data records")
     plt.tight_layout()
-    plt.savefig("log1_algoIDs_state.png")
+    plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs_state.png"))
     plt.close('all')
 
     # Plot number of data records of algorithmXXX by version and state
@@ -610,7 +631,7 @@ def plot_algorithms():
         ax.legend(loc="center left", bbox_to_anchor=BBX2A)
         ax.set(xlabel='State', ylabel="Number of boreholes")
         plt.tight_layout()
-        plt.savefig(f"log1_{alg}-IDs_state.png")
+        plt.savefig(os.path.join(PLOT_DIR, f"log1_{alg}-IDs_state.png"))
     plt.close('all')
 
 
@@ -619,6 +640,10 @@ def plot_results():
     Generates a set of plot files
 
     """
+    if not all(key in g_dfs for key in ('log1','log2','empty','nodata')):
+        print("Stats datasets are empty, please create them before enabling plots")
+        print(f"g_dfs.keys()={g_dfs.keys()}")
+        sys.exit(1)
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     dfs_log2_all = pd.concat([g_dfs['log2'], g_dfs['empty'][g_dfs['empty']['log_type'] == '2']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
@@ -627,10 +652,9 @@ def plot_results():
     nodata_states, nodata_counts = np.unique(g_dfs['nodata'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     df_empty_log1 = g_dfs['empty'][g_dfs['empty']['log_type'] == '1']
     empty_states, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    BBX2A = (1.0, 0.5)
 
     # Plot percentage of boreholes by state and data present
-    plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states, nodata_counts)
+    plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states)
 
     # Plot number of boreholes by state
     plot_borehole_number(all_states, all_counts)
@@ -638,11 +662,13 @@ def plot_results():
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
 
+    algoid2ver = get_algorithms()
+
     # Plot algorithms
-    plot_algorithms()
+    plot_algorithms(algoid2ver)
 
     # Plot uTSAS graphs
-    plot_spectrum_group()
+    plot_spectrum_group(algoid2ver)
 
     '''
     pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
@@ -715,6 +741,11 @@ if __name__ == "__main__":
     data_loaded = False
     stats_loaded = False
 
+    # Create pickle dir if doesn't exist
+    pkl_path = Path(PICKLE_DIR)
+    if not pkl_path.exists():
+        os.mkdir(PICKLE_DIR)
+
     # Open up pickle files, talk to services, update pickle files
     if args.read:
         read_data(PROV_LIST)
@@ -736,6 +767,13 @@ if __name__ == "__main__":
 
     # Plot results
     if args.plot:
+        # Create plot dir if doesn't exist
+        plot_path = Path(PLOT_DIR)
+        if not plot_path.exists():
+            os.mkdir(PLOT_DIR)
+        # Load data & stats
+        if not data_loaded:
+            load_data()
         if not stats_loaded:
             load_stats()
         plot_results()
