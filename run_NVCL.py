@@ -50,7 +50,7 @@ PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://
 # Test run
 TEST_RUN = True
 
-# Directory where pickle files are stored
+# Default directory where pickle files are stored
 PICKLE_DIR = 'pkl'
 
 # Directory where plots are found
@@ -81,19 +81,23 @@ Internal functions
 '''
 
 
-def get_algorithms():
+def get_algorithms(url=None):
     """
     Fetches a dict of algorithms from CSIRO NVCL service
     NB: Exits upon exception
 
-    :returns: dictionary, {algorithm id: algorithm version, ...}
+    :param url: optional URL of service to contact (without trailing slash)
+    :returns: dictionary, {algorithm id: algorithm version, ...} or None if cannot contact service
     """
-    algo2ver_url = 'https://nvclwebservices.csiro.au/NVCLDataServices/getAlgorithms.html'
+    if url is None:
+        algo2ver_url = 'https://nvclwebservices.csiro.au/NVCLDataServices/getAlgorithms.html'
+    else:
+        algo2ver_url = url + '/getAlgorithms.html'
     try:
         r = requests.get(algo2ver_url)
     except requests.RequestException as exc:
         print(f"Cannot connect to {algo2ver_url}: {exc}")
-        sys.exit(1)
+        return None
     algo2ver_xml = xmltodict.parse(r.content)
     # algoid2ver_byname = {}
     algoid2ver = {}
@@ -193,12 +197,13 @@ def import_pkl(infile, empty={}):
 Primary functions
 '''
 
-def read_data(prov_dict):
+def read_data(prov_dict, pickle_dir):
     """ Read pickle files for any past data and poll NVCL services to see if there is any new data
         Save updates to pickle files
         Upon keyboard interrupt save updates to pickle files and exit
 
         :param prov_dict: dictionary of NVCL service providers, key is state name in capitals
+        :param pickle_dir: directory where pickle files are written to
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
@@ -212,7 +217,7 @@ def read_data(prov_dict):
     # Compile a list of known NVCL ids from pickled data
     ids = []
     for df, ofile in OFILES_DATA.items():
-        p = Path(PICKLE_DIR, ofile)
+        p = Path(pickle_dir, ofile)
         if p.is_file():
             g_dfs[df] = import_pkl(str(p))
             ids = np.append(ids, g_dfs[df].nvcl_id.values)
@@ -313,20 +318,21 @@ def read_data(prov_dict):
         with open(ABORT_FILE, 'w') as f:
             f.write(cid)
         for df, ofile in OFILES_DATA.items():
-            export_pkl({os.path.join(PICKLE_DIR, ofile): g_dfs[df]})
+            export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df]})
         sys.exit()
 
     # Once finished, save out data to pickle file
     for df, ofile in OFILES_DATA.items():
-        export_pkl({os.path.join(PICKLE_DIR, ofile): g_dfs[df]})
+        export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df]})
 
 
 
-def calc_stats(prov_dict):
+def calc_stats(prov_dict, pickle_dir):
     """
     Calculates statistics based on input dataset dictionary
 
         :param prov_dict: dictionary of NVCL service providers, key is state name in capitals
+        :param pickle_dir: directory where pickle files are written to
     """
     df_allstats = pd.DataFrame()
     # Munge data
@@ -373,7 +379,7 @@ def calc_stats(prov_dict):
 
     print(f"df_allstats = {df_allstats}")
     df_allstats = df_allstats.set_index(['state', 'algorithm', 'stat'])
-    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_all']): df_allstats})
+    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
 
     algorithm_stats_all = {}
     algorithms = np.unique(g_dfs['log1']['algorithm'])
@@ -382,7 +388,7 @@ def calc_stats(prov_dict):
         cdf = df_allstats.xs(algorithm, level='algorithm').dropna(axis=1, how='all').droplevel(0)
         algorithm_stats_all[algorithm] = create_stats(cdf)
 
-    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
+    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
 
     algorithm_stats_bystate = {}
     print("Calculating state based statistics ...")
@@ -394,7 +400,7 @@ def calc_stats(prov_dict):
             cdf = sdf.xs(state, level='state').dropna(axis=1, how='all')
             algorithm_stats_bystate[algorithm][state] = create_stats(cdf)
 
-    export_pkl({os.path.join(PICKLE_DIR, OFILES_STATS['stats_bystate']): algorithm_stats_bystate})
+    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_bystate']): algorithm_stats_bystate})
     if ABORT_FILE.is_file():
         ABORT_FILE.unlink()
 
@@ -532,7 +538,7 @@ def plot_elements(dfs_log2_all):
             plt.savefig(os.path.join(PLOT_DIR, "elem_suffix_stats.png"))
             plt.close('all')
 
-def plot_spectrum_group(algoid2ver):
+def plot_spectrum_group(algoid2ver, pickle_dir):
     # Grp=uTSAS[uTSAS.algorithm.str.startswith('Grp')]
     # [grp_algos, grp_counts] = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.startswith('Grp')]['algorithm'], return_counts=True)
 
@@ -548,25 +554,25 @@ def plot_spectrum_group(algoid2ver):
     Min_uTSAS = dfcol_algoid2ver(Min_uTSAS, algoid2ver)
 
     # Plot Grp_uTSAS sorted by group name and version
-    ax = Grp_uTSAS[sort_cols(Grp_uTSAS)].plot(kind='bar', figsize=(30, 10), title="Grp_uTSAS sorted by group name and version")
+    ax = Grp_uTSAS[sort_cols(Grp_uTSAS, pickle_dir)].plot(kind='bar', figsize=(30, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(xlabel='Group', ylabel="Number of data records")
     plt.tight_layout()
     plt.savefig(os.path.join(PLOT_DIR, "grp_utsas.png"))
 
     # Plot Min_uTSAS sorted by group name and version
-    ax = Grp_uTSAS[sort_cols(Grp_uTSAS)]
+    ax = Grp_uTSAS[sort_cols(Grp_uTSAS, pickle_dir)]
     # TODO: Standardise names before inserted into DataFrame
     ax = ax.loc[ax.index.intersection(['Carbonates', 'CARBONATE'])].plot(kind='barh', figsize=(20, 10), title="Grp_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
     plt.tight_layout()
     plt.savefig(os.path.join(PLOT_DIR, "grp_utsas_carbonate.png"))
-    ax = Min_uTSAS[sort_cols].plot(kind='bar', figsize=(30, 10), title="Min_uTSAS sorted by group name and version")
+    ax = Min_uTSAS[sort_cols(Grp_uTSAS, pickle_dir)].plot(kind='bar', figsize=(30, 10), title="Min_uTSAS sorted by group name and version")
     ax.set(xlabel='Mineral', ylabel="Number of data records")
     plt.tight_layout()
     plt.savefig(os.path.join(PLOT_DIR, "min_utsas.png"))
 
     # Plot Min_uTSAS sorted by group name and version
-    ax = Min_uTSAS[sort_cols(Grp_uTSAS)]
+    ax = Min_uTSAS[sort_cols(Grp_uTSAS, pickle_dir)]
     # TODO: Standardise names before inserted into DataFrame
     ax = ax.loc[ax.index.intersection(["Illitic Muscovite", "Muscovitic Illite", "MuscoviticIllite"])].plot(kind='barh', figsize=(20, 10), title="Min_uTSAS sorted by group name and version")
     ax.set(ylabel='Group', xlabel="Number of data records")
@@ -608,7 +614,7 @@ def plot_algorithms(algoid2ver):
     plt.savefig(os.path.join(PLOT_DIR, "log1_algos.png"))
 
     # Plot number of data records of standard algorithms by version
-    ax = df_algoID_stats[sort_cols(df_algoID_stats)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
+    ax = df_algoID_stats[sort_cols(df_algoID_stats, pickle_dir)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
     ax.legend(loc="center left", bbox_to_anchor=BBX2A)
     # ax.grid(True, which='major', linestyle='-')
     # ax.grid(True, which='minor', linestyle='--')
@@ -635,15 +641,18 @@ def plot_algorithms(algoid2ver):
     plt.close('all')
 
 
-def plot_results():
+def plot_results(pickle_dir):
     """
     Generates a set of plot files
 
+    :param pickle_dir: directory where pickle files are found
     """
-    if not all(key in g_dfs for key in ('log1','log2','empty','nodata')):
-        print("Stats datasets are empty, please create them before enabling plots")
+    if not any(key in g_dfs and not g_dfs[key].empty for key in ('log1','log2','empty','nodata')):
+        print("Dataset are empty, please create them before enabling plots")
         print(f"g_dfs.keys()={g_dfs.keys()}")
+        print(f"g_dfs={g_dfs}")
         sys.exit(1)
+    print(f"g_dfs={g_dfs}")
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     dfs_log2_all = pd.concat([g_dfs['log2'], g_dfs['empty'][g_dfs['empty']['log_type'] == '2']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
@@ -662,13 +671,23 @@ def plot_results():
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
 
+    # Get algorithms from any available service
     algoid2ver = get_algorithms()
+    if algoid2ver is None: 
+        for provider in PROV_LIST.values():
+            print(f"Getting algorithms failed, trying {provider[1]}")
+            algoid2ver = get_algorithms(provider[1])
+            if algoid2ver is not None:
+                break
+    if algoid2ver is None:
+        print("Network problem: cannot find algorithms from *ANY* service")
+        sys.exit(1)
 
     # Plot algorithms
     plot_algorithms(algoid2ver)
 
     # Plot uTSAS graphs
-    plot_spectrum_group(algoid2ver)
+    plot_spectrum_group(algoid2ver, pickle_dir)
 
     '''
     pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
@@ -696,10 +715,11 @@ def dfcol_algoid2ver(df, algoid2ver):
     return df
 
 
-def sort_cols(df, prefix='version', split_tok='_'):
+def sort_cols(df, pickle_dir, prefix='version', split_tok='_'):
     """ Sort columns by value in pandas dataframe
     Column names are assumed to be in format '<prefix><split_tok><value>'
 
+    :param pickle_dir: directory where pickle files are stored
     :param df: pandas dataframe
     :param prefix: optional column prefix to search for in column names, default value is 'version'
     :param split_tok: optional split token in column names, default value is '_'
@@ -714,12 +734,12 @@ def sort_cols(df, prefix='version', split_tok='_'):
 
 def load_data():
     for df, ofile in OFILES_DATA.items():
-        g_dfs[df] = import_pkl(os.path.join(PICKLE_DIR, ofile))
+        g_dfs[df] = import_pkl(os.path.join(pickle_dir, ofile))
 
 
 def load_stats():
     for df, ofile in OFILES_STATS.items():
-        g_dfs[df] = import_pkl(os.path.join(PICKLE_DIR, ofile), pd.DataFrame())
+        g_dfs[df] = import_pkl(os.path.join(pickle_dir, ofile), pd.DataFrame())
 
 
 if __name__ == "__main__":
@@ -729,6 +749,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--stats', action='store_true', help="calculate statistics")
     parser.add_argument('-p', '--plot', action='store_true', help="create plots")
     parser.add_argument('-l', '--load', action='store_true', help="load data from pickle files")
+    parser.add_argument('-d', '--dbdir', action='store', help="database directory")
 
     # Parse command line arguments
     args = parser.parse_args()
@@ -741,14 +762,19 @@ if __name__ == "__main__":
     data_loaded = False
     stats_loaded = False
 
+    if args.dbdir is not None:
+        pickle_dir = args.dbdir
+    else:
+        pickle_dir = PICKLE_DIR
+
     # Create pickle dir if doesn't exist
-    pkl_path = Path(PICKLE_DIR)
+    pkl_path = Path(pickle_dir)
     if not pkl_path.exists():
-        os.mkdir(PICKLE_DIR)
+        os.mkdir(pickle_dir)
 
     # Open up pickle files, talk to services, update pickle files
     if args.read:
-        read_data(PROV_LIST)
+        read_data(PROV_LIST, pickle_dir)
         data_loaded = True
 
     # Update/calculate statistics
@@ -758,7 +784,7 @@ if __name__ == "__main__":
             data_loaded = True
         load_stats()
         stats_loaded = True
-        calc_stats(PROV_LIST)
+        calc_stats(PROV_LIST, pickle_dir)
 
     # Load pickle files
     elif not data_loaded and args.load:
@@ -776,4 +802,4 @@ if __name__ == "__main__":
             load_data()
         if not stats_loaded:
             load_stats()
-        plot_results()
+        plot_results(pickle_dir)
