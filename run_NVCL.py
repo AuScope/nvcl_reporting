@@ -446,6 +446,8 @@ def plot_borehole_number(all_states, all_counts):
         ax.set(xlabel='State', ylabel="Number of boreholes")
         plt.tight_layout()
         plt.savefig(os.path.join(PLOT_DIR, "log1_geology.png"))
+        df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack()
+        return df.to_numpy().tolist()
 
 def plot_wordclouds(dfs_log2_all):
     # Plot word clouds
@@ -663,7 +665,9 @@ def plot_results(pickle_dir):
 
     :param pickle_dir: directory where pickle files are found
     """
-    if not any(key in g_dfs and ((type(g_dfs[key]) is dict and g_dfs[key] != {}) or (type(g_dfs[key]) is pd.core.frame.DataFrame and not g_dfs[key].empty)) for key in ('log1','log2','empty','nodata')):
+    table_data = []
+    title_list = []
+    if not any(key in g_dfs and ((type(g_dfs[key]) is dict and g_dfs[key] != {}) or (isinstance(g_dfs[key], pd.DataFrame) and not g_dfs[key].empty)) for key in ('log1','log2','empty','nodata')):
         print("Datasets are empty, please create them before enabling plots")
         print(f"g_dfs.keys()={g_dfs.keys()}")
         print(f"g_dfs={g_dfs}")
@@ -676,18 +680,30 @@ def plot_results(pickle_dir):
     # Insert zeros for any states that are missing
     if len(all_states) > len(log1_states):
         log1_counts, log1_states = fill_in(all_states, log1_counts, log1_states)
+    table_rows = [list(log1_states)]
+    table_rows.append(list(log1_counts))
+    table_data.append(table_rows)
+    title_list.append("Log 1 Counts by State")
 
     # Count log2 data for all states
     log2_states, log2_counts = np.unique(g_dfs['log2'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     # Insert zeros for any states that are missing
     if len(all_states) > len(log2_states):
         log2_counts, log2_states = fill_in(all_states, log2_counts, log2_states)
+    table_rows = [list(log2_states)]
+    table_rows.append(list(log2_counts))
+    table_data.append(table_rows)
+    title_list.append("Log 2 Counts by State")
 
     # Count 'nodata' data for all states
     nodata_states, nodata_counts = np.unique(g_dfs['nodata'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     # Insert zeros for any states that are missing
     if len(all_states) > len(nodata_states):
         nodata_counts, nodata_states = fill_in(all_states, nodata_counts, nodata_states)
+    table_rows = [list(nodata_states)]
+    table_rows.append(list(nodata_counts))
+    table_data.append(table_rows)
+    title_list.append("'No data' Counts by State")
 
     # Count 'empty' data for all states
     df_empty_log1 = g_dfs['empty'][g_dfs['empty']['log_type'] == '1']
@@ -695,12 +711,24 @@ def plot_results(pickle_dir):
     # Insert zeros for any states that are missing
     if len(all_states) > len(empty_states):
         empty_counts, empty_states = fill_in(all_states, empty_counts, empty_states)
+    table_rows = [list(empty_states)]
+    table_rows.append(list(empty_counts))
+    table_data.append(table_rows)
+    title_list.append("'empty' Counts by State")
 
     # Plot percentage of boreholes by state and data present
     plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states)
 
     # Plot number of boreholes by state
-    plot_borehole_number(all_states, all_counts)
+    tl = plot_borehole_number(all_states, all_counts)
+    table_rows = tl
+    table_data.append(table_rows)
+    title_list.append("Number of boreholes by geology for each state")
+
+    table_rows = [list(all_states)]
+    table_rows.append(list(all_counts))
+    table_data.append(table_rows)
+    title_list.append("Number of boreholes by state")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -737,7 +765,7 @@ def plot_results(pickle_dir):
     plot_geophysics(dfs_log2_all)
 
     # Finally write out pdf report
-    write_report("report.pdf", PLOT_DIR)
+    write_report("report.pdf", PLOT_DIR, table_data, title_list)
 
 
 def dfcol_algoid2ver(df, algoid2ver):
