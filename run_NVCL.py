@@ -38,6 +38,8 @@ except OSError:
 from nvcl_kit.reader import NVCLReader
 from types import SimpleNamespace
 
+from make_pdf import write_report
+
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
 PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, False, "1.1.0"),
              'NT':  ("http://geology.data.nt.gov.au:80/geoserver/ows", "http://geology.data.nt.gov.au:80/NVCLDataServices", None, True, "2.0.0"),
@@ -641,26 +643,58 @@ def plot_algorithms(algoid2ver):
     plt.close('all')
 
 
+def fill_in(src_labels, dest, dest_labels):
+    """
+    Fills in the missing data points when a state is missing data
+
+    :param src_labels: numpy array of all state labels
+    :param dest: numpy array of count labels for all states with nonzero counts
+    :param dest_labels: numpt array of state labels, for all states with nonzero counts
+    """
+    for idx in range(len(src_labels)):
+        if len(dest_labels) <= idx or src_labels[idx] != dest_labels[idx]:
+            dest_labels = np.insert(dest_labels, idx, src_labels[idx])
+            dest = np.insert(dest, idx, 0.0)
+    return dest, dest_labels
+
 def plot_results(pickle_dir):
     """
     Generates a set of plot files
 
     :param pickle_dir: directory where pickle files are found
     """
-    if not any(key in g_dfs and not g_dfs[key].empty for key in ('log1','log2','empty','nodata')):
-        print("Dataset are empty, please create them before enabling plots")
+    if not any(key in g_dfs and ((type(g_dfs[key]) is dict and g_dfs[key] != {}) or (type(g_dfs[key]) is pd.core.frame.DataFrame and not g_dfs[key].empty)) for key in ('log1','log2','empty','nodata')):
+        print("Datasets are empty, please create them before enabling plots")
         print(f"g_dfs.keys()={g_dfs.keys()}")
         print(f"g_dfs={g_dfs}")
         sys.exit(1)
-    print(f"g_dfs={g_dfs}")
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     dfs_log2_all = pd.concat([g_dfs['log2'], g_dfs['empty'][g_dfs['empty']['log_type'] == '2']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    # Count log1 data for all states
     log1_states, log1_counts = np.unique(g_dfs['log1'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    # Insert zeros for any states that are missing
+    if len(all_states) > len(log1_states):
+        log1_counts, log1_states = fill_in(all_states, log1_counts, log1_states)
+
+    # Count log2 data for all states
     log2_states, log2_counts = np.unique(g_dfs['log2'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    # Insert zeros for any states that are missing
+    if len(all_states) > len(log2_states):
+        log2_counts, log2_states = fill_in(all_states, log2_counts, log2_states)
+
+    # Count 'nodata' data for all states
     nodata_states, nodata_counts = np.unique(g_dfs['nodata'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    # Insert zeros for any states that are missing
+    if len(all_states) > len(nodata_states):
+        nodata_counts, nodata_states = fill_in(all_states, nodata_counts, nodata_states)
+
+    # Count 'empty' data for all states
     df_empty_log1 = g_dfs['empty'][g_dfs['empty']['log_type'] == '1']
     empty_states, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    # Insert zeros for any states that are missing
+    if len(all_states) > len(empty_states):
+        empty_counts, empty_states = fill_in(all_states, empty_counts, empty_states)
 
     # Plot percentage of boreholes by state and data present
     plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states)
@@ -701,6 +735,9 @@ def plot_results(pickle_dir):
 
     # Plot geophysics
     plot_geophysics(dfs_log2_all)
+
+    # Finally write out pdf report
+    write_report("report.pdf", PLOT_DIR)
 
 
 def dfcol_algoid2ver(df, algoid2ver):
