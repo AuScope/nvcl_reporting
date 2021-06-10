@@ -15,8 +15,16 @@ pip3 install --upgrade pip
 pip3 install -r requirements.txt
 
 # Add email address
+# First line is the "To:" address
+# Second line is the "From:" address
 vi .email_addr
 
-# Send off email report
-./email.sh
+# Send off annual email report
+./run_reports.sh A
+
+# Send off quarterly email report
+./run_reports.sh Q
+
+# Send off weekly email report
+./run_reports.sh W
 ```
