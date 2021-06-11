@@ -1,0 +1,4 @@
+yearly_pkl_dir: pkl-yearly
+quarterly_pkl_dir: pkl-quarterly
+weekly_pkl_dir: pkl-weekly
+plot_dir: plots

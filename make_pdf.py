@@ -59,17 +59,22 @@ def write_table(pdf, title, data, new_page):
         pdf.ln(2*text_height)
 
 
-def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], title_list=[]):
+def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], title_list=[], brief=True):
 
     #
     # Main part starts here
     #
-    report_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_state.png',
+    if brief:
+        report_sections = { 'Boreholes Graphs': [ 'borehole_number.png', 'borehole_metres.png', 'borehole_number_q.png', 'borehole_number_y.png', 
+                             'borehole_metres_q.png', 'borehole_metres_y.png'  ]
+        }
+    else:
+        report_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_state.png',
                                             'elem_suffix_stats.png', 'elem_S.png',
                                             'elems_suffix.png'],
            'Geophysics Graphs': [ 'geophys_count.png', 'geophys_state.png' ],
-           'Boreholes Graphs': [ 'log1_geology.png', 'log1_nonstdalgos.png' ]
-         }
+           'Boreholes Graphs': [ 'borehole_number.png', 'borehole_metres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
+        }
 
     # Create an A4 portrait PDF file
     pdf = PDF(orientation="P", unit="mm", format="A4")

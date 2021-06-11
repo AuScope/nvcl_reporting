@@ -2,21 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import sys
-
-# Append windows-specific path
-if sys.platform == 'win32':
-    module_paths = ['D:\\Software\\']
-
-    for md in module_paths:
-        if not (md in sys.path):
-            sys.path.append(md)
-
 import os
+import shutil
 from pathlib import Path
 import argparse
 import re
 import pandas as pd
 pd.options.mode.chained_assignment = None
+import yaml
 
 import numpy as np
 from itertools import zip_longest
@@ -28,12 +21,7 @@ import xmltodict
 import requests
 import seaborn as sns
 sns.set_context("talk")
-
 import matplotlib.pyplot as plt
-try:
-    plt.style.use('csiro-basic')
-except OSError:
-    print("WARNING: Cannot load 'csiro-basic' style")
 
 from nvcl_kit.reader import NVCLReader
 from types import SimpleNamespace
@@ -49,14 +37,11 @@ PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://
              'SA':  ("https://sarigdata.pir.sa.gov.au/geoserver/ows", "https://sarigdata.pir.sa.gov.au/nvcl/NVCLDataServices", None, False, "1.1.0"),
              'WA':  ("http://geossdi.dmp.wa.gov.au/services/ows",  "http://geossdi.dmp.wa.gov.au/NVCLDataServices", None, False, "2.0.0")}
 
+# Configuration file
+CONFIG_FILE = "config.yaml"
+
 # Test run
 TEST_RUN = True
-
-# Default directory where pickle files are stored
-PICKLE_DIR = 'pkl'
-
-# Directory where plots are found
-PLOT_DIR = 'plots'
 
 # Abort information file - contains the NVCL log id at which run was aborted
 ABORT_FILE = Path('./run_NVCL_abort.txt')
@@ -77,6 +62,8 @@ g_dfs = {}
 
 # Matplotlib legend positioning constant
 BBX2A = (1.0, 0.5)
+
+EXTRACT_FILE = 'extract.pkl'
 
 '''
 Internal functions
@@ -427,7 +414,7 @@ def plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, n
     plt.legend(loc="lower left")
     plt.savefig(os.path.join(PLOT_DIR, "borehole_percent.png"))
 
-def plot_borehole_number(all_states, all_counts):
+def plot_borehole_number(all_states, all_counts, title="Number of boreholes by state", filename="borehole_number.png"):
     # Plot number of boreholes by state
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
@@ -436,8 +423,8 @@ def plot_borehole_number(all_states, all_counts):
         h1 = r1.get_height()
         plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
     plt.ylabel("Number of boreholes")
-    plt.title("Number of boreholes by state")
-    plt.savefig(os.path.join(PLOT_DIR, "borehole_number.png"))
+    plt.title(title)
+    plt.savefig(os.path.join(PLOT_DIR, filename))
 
     # Plot number of boreholes for geology by state
     dfs_log1_geology = g_dfs['log1'][g_dfs['log1']['algorithm'].str.contains(('^(Strat|Form|Lith)'), case=False)]
@@ -448,6 +435,19 @@ def plot_borehole_number(all_states, all_counts):
         plt.savefig(os.path.join(PLOT_DIR, "log1_geology.png"))
         df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack()
         return df.to_numpy().tolist()
+
+def plot_borehole_metres(all_states, all_counts, title="Number of boreholes metres by state", filename="borehole_metres.png"):
+    # Plot number of borehole metres by state
+    fig = plt.figure(figsize=(15, 10))
+    ax = fig.add_subplot(1, 1, 1)
+    ax1 = ax.bar(all_states, all_counts)
+    for r1 in ax1:
+        h1 = r1.get_height()
+        plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
+    plt.ylabel("Number of borehole metres")
+    plt.title(title)
+    plt.savefig(os.path.join(PLOT_DIR, filename))
+
 
 def plot_wordclouds(dfs_log2_all):
     # Plot word clouds
@@ -659,12 +659,17 @@ def fill_in(src_labels, dest, dest_labels):
             dest = np.insert(dest, idx, 0.0)
     return dest, dest_labels
 
-def plot_results(pickle_dir):
+def plot_results(pickle_dir, brief, config):
     """
     Generates a set of plot files
 
     :param pickle_dir: directory where pickle files are found
+    :param brief: if True will create a smaller report
     """
+    # Remove old plots
+    shutil.rmtree(PLOT_DIR)
+    os.mkdir(PLOT_DIR)
+
     table_data = []
     title_list = []
     if not any(key in g_dfs and ((type(g_dfs[key]) is dict and g_dfs[key] != {}) or (isinstance(g_dfs[key], pd.DataFrame) and not g_dfs[key].empty)) for key in ('log1','log2','empty','nodata')):
@@ -675,66 +680,107 @@ def plot_results(pickle_dir):
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     dfs_log2_all = pd.concat([g_dfs['log2'], g_dfs['empty'][g_dfs['empty']['log_type'] == '2']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    # Count log1 data for all states
-    log1_states, log1_counts = np.unique(g_dfs['log1'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    # Insert zeros for any states that are missing
-    if len(all_states) > len(log1_states):
-        log1_counts, log1_states = fill_in(all_states, log1_counts, log1_states)
-    table_rows = [list(log1_states)]
-    table_rows.append(list(log1_counts))
-    table_data.append(table_rows)
-    title_list.append("Log 1 Counts by State")
 
-    # Count log2 data for all states
-    log2_states, log2_counts = np.unique(g_dfs['log2'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    # Insert zeros for any states that are missing
-    if len(all_states) > len(log2_states):
-        log2_counts, log2_states = fill_in(all_states, log2_counts, log2_states)
-    table_rows = [list(log2_states)]
-    table_rows.append(list(log2_counts))
-    table_data.append(table_rows)
-    title_list.append("Log 2 Counts by State")
+    if not brief:
+        # Count log1 data for all states
+        log1_states, log1_counts = np.unique(g_dfs['log1'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+        # Insert zeros for any states that are missing
+        if len(all_states) > len(log1_states):
+            log1_counts, log1_states = fill_in(all_states, log1_counts, log1_states)
+        # Make log1 table
+        make_table(table_data, title_list, list(log1_states), list(log1_counts), "Log 1 Counts by State")
 
-    # Count 'nodata' data for all states
-    nodata_states, nodata_counts = np.unique(g_dfs['nodata'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    # Insert zeros for any states that are missing
-    if len(all_states) > len(nodata_states):
-        nodata_counts, nodata_states = fill_in(all_states, nodata_counts, nodata_states)
-    table_rows = [list(nodata_states)]
-    table_rows.append(list(nodata_counts))
-    table_data.append(table_rows)
-    title_list.append("'No data' Counts by State")
+        # Count log2 data for all states
+        log2_states, log2_counts = np.unique(g_dfs['log2'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+        # Insert zeros for any states that are missing
+        if len(all_states) > len(log2_states):
+            log2_counts, log2_states = fill_in(all_states, log2_counts, log2_states)
+        # Make log2 table
+        make_table(table_data, title_list, list(log2_states), list(log2_counts), "Log 2 Counts by State")
 
-    # Count 'empty' data for all states
-    df_empty_log1 = g_dfs['empty'][g_dfs['empty']['log_type'] == '1']
-    empty_states, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
-    # Insert zeros for any states that are missing
-    if len(all_states) > len(empty_states):
-        empty_counts, empty_states = fill_in(all_states, empty_counts, empty_states)
-    table_rows = [list(empty_states)]
-    table_rows.append(list(empty_counts))
-    table_data.append(table_rows)
-    title_list.append("'empty' Counts by State")
+        # Count 'nodata' data for all states
+        nodata_states, nodata_counts = np.unique(g_dfs['nodata'].drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+        # Insert zeros for any states that are missing
+        if len(all_states) > len(nodata_states):
+            nodata_counts, nodata_states = fill_in(all_states, nodata_counts, nodata_states)
+        # Make nodata table
+        make_table(table_data, title_list, list(nodata_states), list(nodata_counts), "'No data' Counts by State")
 
-    # Plot percentage of boreholes by state and data present
-    plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states)
+        # Count 'empty' data for all states
+        df_empty_log1 = g_dfs['empty'][g_dfs['empty']['log_type'] == '1']
+        empty_states, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+        # Insert zeros for any states that are missing
+        if len(all_states) > len(empty_states):
+            empty_counts, empty_states = fill_in(all_states, empty_counts, empty_states)
+        # Make empty counts table
+        make_table(table_data, title_list, list(empty_states), list(empty_counts), "'empty' Counts by State")
+
+        # Plot percentage of boreholes by state and data present
+        plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_states, nodata_states, empty_states)
 
     # Plot number of boreholes by state
     tl = plot_borehole_number(all_states, all_counts)
-    table_rows = tl
-    table_data.append(table_rows)
-    title_list.append("Number of boreholes by geology for each state")
+    
+    if not brief:
+        # FIXME: Not working
+        table_rows = [list(all_states)] # was tl
+        table_data.append(table_rows)
+        title_list.append("Number of boreholes by geology for each state")
 
-    table_rows = [list(all_states)]
-    table_rows.append(list(all_counts))
-    table_data.append(table_rows)
-    title_list.append("Number of boreholes by state")
+    # Table of number of boreholes by state
+    make_table(table_data, title_list, list(all_states), list(all_counts), "Number of boreholes by state")
+
+    # Calculate number of metres by state
+    nmetres_totals = calc_metric_by_state('nmetres', all_states)
+
+    # Make number of metres by state table
+    make_table(table_data, title_list, list(all_states), nmetres_totals, "Number of metres by state")
+    
+    # Plot borehole metres by state
+    plot_borehole_metres(all_states, nmetres_totals)
+
+    # Load quarterly and yearly extract data
+    try:
+        q_file = os.path.join(config['quarterly_pkl_dir'], EXTRACT_FILE)
+        with open(q_file, 'rb') as fp:
+            q_cnts, q_metres = pickle.load(fp)
+        y_file = os.path.join(config['yearly_pkl_dir'], EXTRACT_FILE)
+        with open(y_file, 'rb') as fp:
+            y_cnts, y_metres = pickle.load(fp)
+    except OSError as oe:
+        print(f"Cannot open pickle extract file {q_file} or {y_file}: {oe}")
+        sys.exit(1)
+    # All possible states are taken from annual data
+    all_keys = list(y_cnts.keys())
+
+    # Plot yearly and quarterly comparisons for counts by state
+    all_cnts_dict = dict(zip(all_states, all_counts))
+    q_diffs = calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
+    y_diffs = calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
+    plot_borehole_number(all_keys, y_diffs, title="Borehole counts since last year", filename="borehole_number_y.png")
+    plot_borehole_number(all_keys, q_diffs, title="Borehole counts since last quarter", filename="borehole_number_q.png")
+
+    # Tabulate yearly and quarterly comparisons for counts by state
+    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of boreholes by state since last quarter")
+    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of boreholes by state since last year")
+
+    # Plot yearly and quarterly comparisons for metres by state
+    nmetres_dict = dict(zip(all_states, nmetres_totals))
+    q_diffs = calc_metric_diffs(all_keys, nmetres_dict, q_metres)
+    y_diffs = calc_metric_diffs(all_keys, nmetres_dict, y_metres)
+    plot_borehole_metres(all_keys, y_diffs, title="Borehole metres since last year", filename="borehole_metres_y.png")
+    plot_borehole_metres(all_keys, q_diffs, title="Borehole metres since last quarter", filename="borehole_metres_q.png")
+
+    # Tabulate yearly and quarterly comparisons for metres by state
+    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of borehole metres by state since last quarter")
+    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole metres by state since last year")
+
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
 
     # Get algorithms from any available service
-    algoid2ver = get_algorithms()
+    algoid2ver = get_algorithms(PROV_LIST['NSW'][1])
     if algoid2ver is None: 
         for provider in PROV_LIST.values():
             print(f"Getting algorithms failed, trying {provider[1]}")
@@ -745,27 +791,84 @@ def plot_results(pickle_dir):
         print("Network problem: cannot find algorithms from *ANY* service")
         sys.exit(1)
 
-    # Plot algorithms
-    plot_algorithms(algoid2ver)
+    if not brief:
 
-    # Plot uTSAS graphs
-    plot_spectrum_group(algoid2ver, pickle_dir)
+        # Plot algorithms
+        plot_algorithms(algoid2ver)
 
-    '''
-    pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
-    [min_algos, min_counts] = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.startswith('Min')]['algorithm'], return_counts=True)
-    pd.DataFrame({'algo':min_algos, 'counts':min_counts}).plot.bar(x='algo',y='counts', rot=20)
-    index = [x.replace('Grp','') for x in grp_algos]
-    df = pd.DataFrame({'Grp': grp_counts, 'Min': min_counts}, index=index).plot.bar(rot=20)
-    '''
-    # Plot element graphs
-    plot_elements(dfs_log2_all)
+        # Plot uTSAS graphs
+        plot_spectrum_group(algoid2ver, pickle_dir)
 
-    # Plot geophysics
-    plot_geophysics(dfs_log2_all)
+        '''
+        pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
+        [min_algos, min_counts] = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.startswith('Min')]['algorithm'], return_counts=True)
+        pd.DataFrame({'algo':min_algos, 'counts':min_counts}).plot.bar(x='algo',y='counts', rot=20)
+        index = [x.replace('Grp','') for x in grp_algos]
+        df = pd.DataFrame({'Grp': grp_counts, 'Min': min_counts}, index=index).plot.bar(rot=20)
+        '''
+        # Plot element graphs
+        plot_elements(dfs_log2_all)
+
+        # Plot geophysics
+        plot_geophysics(dfs_log2_all)
 
     # Finally write out pdf report
-    write_report("report.pdf", PLOT_DIR, table_data, title_list)
+    if brief:
+        write_report("report-brief.pdf", PLOT_DIR, table_data, title_list, brief)
+    else:
+        write_report("report.pdf", PLOT_DIR, table_data, title_list, brief)
+
+
+def calc_metric_diffs(all_keys, larger, smaller):
+    '''
+    Calculate numerical difference between dicts of metrics, key is state name
+    NB: if value is missing zero is returned
+
+    :param all_keys: list of all possible dict keys (state names)
+    :param larger: dict of metric values keys are state names
+    :param smaller: dict of metric values keys are state names
+    :returns: array of differences, one for each value in 'all_keys'
+    '''
+    result = []
+    for key in all_keys:
+        if key in larger:
+            if key in smaller:
+                result.append(larger[key] - smaller[key])
+            else:
+                result.append(0)
+        else:
+            result.append(0)
+    return result    
+
+
+def calc_metric_by_state(metric, all_states):
+    """ Calculate a metric by state
+
+    :param all_states: list of states
+    """
+    all_stats = g_dfs['stats_all']
+    totals = []
+    for state in list(all_states):
+        index_list = all_stats.index.to_flat_index().tolist()
+        if any([state == idx[0] for idx in index_list]):
+            totals.append(all_stats.loc[state, :, metric].sum().sum())
+        else:
+            totals.append(0)
+    return totals
+
+
+def make_table(table_data, title_list, table_header, table_datarows, title):
+    """ Makes a table data structure for passing to report building routines
+
+    :param table_data: list passed to report building routines
+    :param title_list: list of table titles
+    :param table_header: list of table header strings
+    :param table_datarow: list of data rows to be inserted into table, each row same length as headers string list
+    """
+    table_rows = [table_header]
+    table_rows.append(table_datarows)
+    table_data.append(table_rows)
+    title_list.append(title)
 
 
 def dfcol_algoid2ver(df, algoid2ver):
@@ -806,31 +909,70 @@ def load_stats():
     for df, ofile in OFILES_STATS.items():
         g_dfs[df] = import_pkl(os.path.join(pickle_dir, ofile), pd.DataFrame())
 
+def make_extract(pickle_dir):
+    df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
+    all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
+    nmetres = calc_metric_by_state('nmetres', all_states)
+    nbores = calc_metric_by_state('nbores', all_states)
+    print(all_states, all_counts)
+    print(nmetres, nbores)
+    outfile = os.path.join(pickle_dir, EXTRACT_FILE)
+    print(f"Writing: {outfile}")
+    with open(outfile, 'wb') as fd:
+        pickle.dump((dict(zip(all_states, nbores)), dict(zip(all_states, nmetres))), fd)
+    
+
+def load_and_check_config():
+    try:
+        with open(CONFIG_FILE, "r") as fd:
+            config = yaml.safe_load(fd)
+    except OSError as oe:
+        print(f"Cannot load config file {CONFIG_FILE}: {oe}")
+        sys.exit(1)
+    # Check keys
+    for key in ('yearly_pkl_dir', 'quarterly_pkl_dir', 'weekly_pkl_dir', 'plot_dir'):
+        if key not in config:
+            print(f"config file {CONFIG_FILE} is missing a value for '{key}'")
+            sys.exit(1)
+        if not os.path.exists(config[key]):
+            try:
+                os.mkdir(config[key])
+            except OSError as oe:
+                print(f"Cannot load create directory {config[key]}: {oe}")
+                sys.exit(1)
+    return config
 
 if __name__ == "__main__":
+    # Load configuration
+    config = load_and_check_config()
+    PLOT_DIR = config['plot_dir']
+
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL report data creator")
     parser.add_argument('-r', '--read', action='store_true', help="read data from NVCL services")
     parser.add_argument('-s', '--stats', action='store_true', help="calculate statistics")
-    parser.add_argument('-p', '--plot', action='store_true', help="create plots")
+    parser.add_argument('-p', '--plot', action='store_true', help="create plots & report")
+    parser.add_argument('-b', '--brief_plot', action='store_true', help="create brief plots & report")
     parser.add_argument('-l', '--load', action='store_true', help="load data from pickle files")
+    parser.add_argument('-e', '--extract', action='store_true', help="create an extract pickle")
     parser.add_argument('-d', '--dbdir', action='store', help="database directory")
 
     # Parse command line arguments
     args = parser.parse_args()
 
     # Complain & exit if nothing selected
-    if not (args.read or args.stats or args.plot or args.load):
+    if not (args.read or args.stats or args.plot or args.brief_plot or args.load or args.extract):
         print("No options were selected. Please select an option")
         parser.print_usage()
 
     data_loaded = False
     stats_loaded = False
 
+    # Assign pickle dir, defaults to weekly pickle dir
     if args.dbdir is not None:
         pickle_dir = args.dbdir
     else:
-        pickle_dir = PICKLE_DIR
+        pickle_dir = config['weekly_pkl_dir']
 
     # Create pickle dir if doesn't exist
     pkl_path = Path(pickle_dir)
@@ -857,7 +999,7 @@ if __name__ == "__main__":
         data_loaded = True
 
     # Plot results
-    if args.plot:
+    if args.plot or args.brief_plot:
         # Create plot dir if doesn't exist
         plot_path = Path(PLOT_DIR)
         if not plot_path.exists():
@@ -867,4 +1009,13 @@ if __name__ == "__main__":
             load_data()
         if not stats_loaded:
             load_stats()
-        plot_results(pickle_dir)
+        plot_results(pickle_dir, args.brief_plot, config)
+
+    # Create an extract pickle file 
+    if args.extract:
+        # Load data & stats
+        if not data_loaded:
+            load_data()
+        if not stats_loaded:
+            load_stats()
+        make_extract(pickle_dir) 
