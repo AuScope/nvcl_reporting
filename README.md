@@ -27,4 +27,14 @@ vi .email_addr
 
 # Send off weekly email report
 ./run_reports.sh W
+
+# Create yearly extracts
+./run_NVCL.py -e -d pkl-yearly/
+
+# Create quarterly extracts
+./run_NVCL.py -e -d pkl-quarterly/
+
+# Create brief report
+./run_NVCL.py -b
 ```
+
