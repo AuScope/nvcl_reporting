@@ -900,12 +900,12 @@ def sort_cols(df, pickle_dir, prefix='version', split_tok='_'):
             anums.append(c.split(split_tok)[1])
     return [prefix + split_tok + str(x) for x in sorted([int(x) for x in anums])]
 
-def load_data():
+def load_data(pickle_dir):
     for df, ofile in OFILES_DATA.items():
         g_dfs[df] = import_pkl(os.path.join(pickle_dir, ofile))
 
 
-def load_stats():
+def load_stats(pickle_dir):
     for df, ofile in OFILES_STATS.items():
         g_dfs[df] = import_pkl(os.path.join(pickle_dir, ofile), pd.DataFrame())
 
@@ -987,15 +987,15 @@ if __name__ == "__main__":
     # Update/calculate statistics
     if args.stats:
         if not data_loaded:
-            load_data()
+            load_data(pickle_dir)
             data_loaded = True
-        load_stats()
+        load_stats(pickle_dir)
         stats_loaded = True
         calc_stats(PROV_LIST, pickle_dir)
 
     # Load pickle files
     elif not data_loaded and args.load:
-        load_data()
+        load_data(pickle_dir)
         data_loaded = True
 
     # Plot results
@@ -1006,16 +1006,16 @@ if __name__ == "__main__":
             os.mkdir(PLOT_DIR)
         # Load data & stats
         if not data_loaded:
-            load_data()
+            load_data(pickle_dir)
         if not stats_loaded:
-            load_stats()
+            load_stats(pickle_dir)
         plot_results(pickle_dir, args.brief_plot, config)
 
     # Create an extract pickle file 
     if args.extract:
         # Load data & stats
         if not data_loaded:
-            load_data()
+            load_data(pickle_dir)
         if not stats_loaded:
-            load_stats()
+            load_stats(pickle_dir)
         make_extract(pickle_dir) 
