@@ -30,7 +30,7 @@ from types import SimpleNamespace
 from make_pdf import write_report
 
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
-PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, False, "1.1.0"),
+PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, True, "2.0.0"),
              'NT':  ("http://geology.data.nt.gov.au:80/geoserver/ows", "http://geology.data.nt.gov.au:80/NVCLDataServices", None, True, "2.0.0"),
              'TAS': ("http://www.mrt.tas.gov.au:80/web-services/ows", "http://www.mrt.tas.gov.au/NVCLDataServices/", None, False, "1.1.0"),
              'VIC': ("http://geology.data.vic.gov.au/nvcl/ows", "http://geology.data.vic.gov.au/NVCLDataServices", None, False, "1.1.0"),
@@ -42,7 +42,7 @@ PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://
 CONFIG_FILE = "config.yaml"
 
 # Test run
-TEST_RUN = True
+TEST_RUN = False
 
 # Abort information file - contains the NVCL log id at which run was aborted
 ABORT_FILE = Path('./run_NVCL_abort.txt')
