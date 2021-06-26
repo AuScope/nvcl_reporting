@@ -10,6 +10,7 @@ import re
 import pandas as pd
 pd.options.mode.chained_assignment = None
 import yaml
+import datetime
 
 import numpy as np
 from itertools import zip_longest
@@ -721,12 +722,6 @@ def plot_results(pickle_dir, brief, config):
     # Plot number of boreholes by state
     tl = plot_borehole_number(all_states, all_counts)
     
-    if not brief:
-        # FIXME: Not working
-        table_rows = [list(all_states)] # was tl
-        table_data.append(table_rows)
-        title_list.append("Number of boreholes by geology for each state")
-
     # Table of number of boreholes by state
     make_table(table_data, title_list, list(all_states), list(all_counts), "Number of boreholes by state")
 
@@ -812,11 +807,16 @@ def plot_results(pickle_dir, brief, config):
         # Plot geophysics
         plot_geophysics(dfs_log2_all)
 
+    now= datetime.datetime.now()
+    metadata = { "Authors": "Vincent Fazio & Shane Mule",
+                 "Sources": "State surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
+                 "Report Date": now.strftime("%A %b %d %Y") }
+
     # Finally write out pdf report
     if brief:
-        write_report("report-brief.pdf", PLOT_DIR, table_data, title_list, brief)
+        write_report("report-brief.pdf", PLOT_DIR, table_data, title_list, metadata, brief)
     else:
-        write_report("report.pdf", PLOT_DIR, table_data, title_list, brief)
+        write_report("report.pdf", PLOT_DIR, table_data, title_list, metadata, brief)
 
 
 def calc_metric_diffs(all_keys, larger, smaller):

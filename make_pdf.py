@@ -59,7 +59,7 @@ def write_table(pdf, title, data, new_page):
         pdf.ln(2*text_height)
 
 
-def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], title_list=[], brief=True):
+def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], title_list=[], metadata={}, brief=True):
 
     #
     # Main part starts here
@@ -79,13 +79,21 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
     # Create an A4 portrait PDF file
     pdf = PDF(orientation="P", unit="mm", format="A4")
     pdf.add_page()
-    pdf.set_font('Times', '', 12)
+    pdf.set_font('Times', 'B', 14)
 
+    pdf.cell(0, 10, "Contents", 0, 1)
+    pdf.set_font('Times', '', 12)
     link_list = []
     for section_header in report_sections:
         link_id = pdf.add_link()
         link_list.append(link_id)
-        pdf.cell(0, 10, section_header, 0, 1, link=link_id)
+        pdf.cell(0, 12, section_header, 0, 1, link=link_id)
+
+    pdf.set_font('Times', 'B', 14)
+    pdf.cell(0, 14, "Information", 0, 1)
+    pdf.set_font('Times', '', 12)
+    for key, val in metadata.items():
+        pdf.cell(w=0, h=12, txt=f"{key}: {val}", ln=1)
     
     pdf.add_page()
 
