@@ -436,15 +436,15 @@ def plot_borehole_number(all_states, all_counts, title="Number of boreholes by s
         df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack()
         return df.to_numpy().tolist()
 
-def plot_borehole_metres(all_states, all_counts, title="Number of boreholes metres by state", filename="borehole_metres.png"):
-    # Plot number of borehole metres by state
+def plot_borehole_kilometres(all_states, all_counts, title="Number of boreholes kilometres by state", filename="borehole_kilometres.png"):
+    # Plot number of borehole kilometres by state
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
     ax1 = ax.bar(all_states, all_counts)
     for r1 in ax1:
         h1 = r1.get_height()
         plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
-    plt.ylabel("Number of borehole metres")
+    plt.ylabel("Number of borehole kilometres")
     plt.title(title)
     plt.savefig(os.path.join(PLOT_DIR, filename))
 
@@ -730,23 +730,24 @@ def plot_results(pickle_dir, brief, config):
     # Table of number of boreholes by state
     make_table(table_data, title_list, list(all_states), list(all_counts), "Number of boreholes by state")
 
-    # Calculate number of metres by state
+    # Calculate number of kilometres by state
     nmetres_totals = calc_metric_by_state('nmetres', all_states)
+    nkilometres_totals = [m / 1000.0 for m in nmetres_totals]
 
-    # Make number of metres by state table
-    make_table(table_data, title_list, list(all_states), nmetres_totals, "Number of metres by state")
+    # Make number of kilometres by state table
+    make_table(table_data, title_list, list(all_states), nkilometres_totals, "Number of borehole kilometres by state")
     
-    # Plot borehole metres by state
-    plot_borehole_metres(all_states, nmetres_totals)
+    # Plot borehole kilometres by state
+    plot_borehole_kilometres(all_states, nkilometres_totals)
 
     # Load quarterly and yearly extract data
     try:
         q_file = os.path.join(config['quarterly_pkl_dir'], EXTRACT_FILE)
         with open(q_file, 'rb') as fp:
-            q_cnts, q_metres = pickle.load(fp)
+            q_cnts, q_kilometres = pickle.load(fp)
         y_file = os.path.join(config['yearly_pkl_dir'], EXTRACT_FILE)
         with open(y_file, 'rb') as fp:
-            y_cnts, y_metres = pickle.load(fp)
+            y_cnts, y_kilometres = pickle.load(fp)
     except OSError as oe:
         print(f"Cannot open pickle extract file {q_file} or {y_file}: {oe}")
         sys.exit(1)
@@ -764,17 +765,16 @@ def plot_results(pickle_dir, brief, config):
     make_table(table_data, title_list, list(all_keys), q_diffs, "Number of boreholes by state since last quarter")
     make_table(table_data, title_list, list(all_keys), y_diffs, "Number of boreholes by state since last year")
 
-    # Plot yearly and quarterly comparisons for metres by state
-    nmetres_dict = dict(zip(all_states, nmetres_totals))
-    q_diffs = calc_metric_diffs(all_keys, nmetres_dict, q_metres)
-    y_diffs = calc_metric_diffs(all_keys, nmetres_dict, y_metres)
-    plot_borehole_metres(all_keys, y_diffs, title="Borehole metres since last year", filename="borehole_metres_y.png")
-    plot_borehole_metres(all_keys, q_diffs, title="Borehole metres since last quarter", filename="borehole_metres_q.png")
+    # Plot yearly and quarterly comparisons for kilometres by state
+    nkilometres_dict = dict(zip(all_states, nkilometres_totals))
+    q_diffs = calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
+    y_diffs = calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
+    plot_borehole_kilometres(all_keys, y_diffs, title="Borehole kilometres since last year", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_keys, q_diffs, title="Borehole kilometres since last quarter", filename="borehole_kilometres_q.png")
 
-    # Tabulate yearly and quarterly comparisons for metres by state
-    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of borehole metres by state since last quarter")
-    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole metres by state since last year")
-
+    # Tabulate yearly and quarterly comparisons for kilometres by state
+    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of borehole kilometres by state since last quarter")
+    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole kilometres by state since last year")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -844,6 +844,7 @@ def calc_metric_diffs(all_keys, larger, smaller):
 def calc_metric_by_state(metric, all_states):
     """ Calculate a metric by state
 
+    :param metric: name of metric, string
     :param all_states: list of states
     """
     all_stats = g_dfs['stats_all']
@@ -913,13 +914,14 @@ def make_extract(pickle_dir):
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     nmetres = calc_metric_by_state('nmetres', all_states)
+    nlikometres = [m/1000.0 for m in nmetres]
     nbores = calc_metric_by_state('nbores', all_states)
     print(all_states, all_counts)
-    print(nmetres, nbores)
+    print(nkilometres, nbores)
     outfile = os.path.join(pickle_dir, EXTRACT_FILE)
-    print(f"Writing: {outfile}")
+    print(f"Writing extract: {outfile}")
     with open(outfile, 'wb') as fd:
-        pickle.dump((dict(zip(all_states, nbores)), dict(zip(all_states, nmetres))), fd)
+        pickle.dump((dict(zip(all_states, nbores)), dict(zip(all_states, nkilometres))), fd)
     
 
 def load_and_check_config():
