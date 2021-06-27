@@ -60,7 +60,7 @@ def write_table(pdf, title, data, new_page):
         if col_width is None:
             col_width = page_width/len(row)
         for datum in row:
-            if type(datum) == float:
+            if isinstance(datum, float):
                 pdf.cell(col_width, 2*text_height, f"{datum:.1f}", border=1)
             else:
                 pdf.cell(col_width, 2*text_height, str(datum), border=1)

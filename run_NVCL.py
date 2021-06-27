@@ -197,8 +197,8 @@ def read_data(prov_dict, pickle_dir):
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 50
-        prov_dict = {'WA': prov_dict['WA']}
+        #MAX_BOREHOLES = 10
+        prov_dict = {'VIC': prov_dict['VIC'] }
 
     SW_ignore_importedIDs = False
 
@@ -444,7 +444,10 @@ def plot_borehole_kilometres(all_states, all_counts, title="Number of boreholes 
     ax1 = ax.bar(all_states, all_counts)
     for r1 in ax1:
         h1 = r1.get_height()
-        plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
+        if isinstance(h1, float):
+            plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1:.1f}", ha='center', va='bottom', fontweight='bold')
+        else:
+            plt.text(r1.get_x() + r1.get_width() / 2., h1, f"{h1}", ha='center', va='bottom', fontweight='bold')
     plt.ylabel("Number of borehole kilometres")
     plt.title(title)
     plt.savefig(os.path.join(PLOT_DIR, filename))
@@ -588,62 +591,66 @@ def plot_spectrum_group(algoid2ver, pickle_dir):
 
 def plot_algorithms(algoid2ver):
     algos = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.contains('^Min|Grp')]['algorithm'])
-    suffixes = np.unique([x.split()[1] for x in algos])
-    g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver[row['algorithmID']], axis=1)
+    try:
+        suffixes = np.unique([x.split()[1] for x in algos])
+        g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver[row['algorithmID']], axis=1)
 
-    df_algo_stats = pd.DataFrame()
-    df_algoID_stats = pd.DataFrame()
-    for suffix in suffixes:
-        states, count = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(suffix)].drop_duplicates('nvcl_id')['state'], return_counts=True)
-        df_algo_stats = pd.concat([df_algo_stats, pd.DataFrame({suffix: count}, index=states)], axis=1, sort=False)
-        IDs, count = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(suffix)]['versions'], return_counts=True)
-        # IDs = ['algorithm_'+x for x in IDs]
-        vers = ['version_' + x for x in IDs]
-        df_algoID_stats = pd.concat([df_algoID_stats, pd.DataFrame([np.array(count)], columns=vers, index=[suffix])], sort=False)
+        df_algo_stats = pd.DataFrame()
+        df_algoID_stats = pd.DataFrame()
+        for suffix in suffixes:
+            states, count = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(suffix)].drop_duplicates('nvcl_id')['state'], return_counts=True)
+            df_algo_stats = pd.concat([df_algo_stats, pd.DataFrame({suffix: count}, index=states)], axis=1, sort=False)
+            IDs, count = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(suffix)]['versions'], return_counts=True)
+            # IDs = ['algorithm_'+x for x in IDs]
+            vers = ['version_' + x for x in IDs]
+            df_algoID_stats = pd.concat([df_algoID_stats, pd.DataFrame([np.array(count)], columns=vers, index=[suffix])], sort=False)
 
-    # Plot number of boreholes for non-standard algorithms by state
-    dfs_log1_nonstd = g_dfs['log1'][~(g_dfs['log1']['algorithm'].str.contains(('^(Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
-    if not dfs_log1_nonstd.empty:
-        dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
-        ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['state', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by state")
-        ax.set(xlabel='State', ylabel="Number of boreholes")
+        # Plot number of boreholes for non-standard algorithms by state
+        dfs_log1_nonstd = g_dfs['log1'][~(g_dfs['log1']['algorithm'].str.contains(('^(Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
+        if not dfs_log1_nonstd.empty:
+            dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
+            ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['state', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by state")
+            ax.set(xlabel='State', ylabel="Number of boreholes")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, "log1_nonstdalgos.png"))
+
+        # Plot number of boreholes by algorithm and state
+        ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and state")
+        ax.set(ylabel="Number of boreholes")
+        # for p in ax.patches:
+        #    ax.annotate(str(int(p.get_height())), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', va='center', xytext=(0, 10), textcoords="offset points", size=4, fontweight='bold')
         plt.tight_layout()
-        plt.savefig(os.path.join(PLOT_DIR, "log1_nonstdalgos.png"))
+        plt.savefig(os.path.join(PLOT_DIR, "log1_algos.png"))
 
-    # Plot number of boreholes by algorithm and state
-    ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and state")
-    ax.set(ylabel="Number of boreholes")
-    # for p in ax.patches:
-    #    ax.annotate(str(int(p.get_height())), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', va='center', xytext=(0, 10), textcoords="offset points", size=4, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, "log1_algos.png"))
-
-    # Plot number of data records of standard algorithms by version
-    ax = df_algoID_stats[sort_cols(df_algoID_stats, pickle_dir)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
-    ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-    # ax.grid(True, which='major', linestyle='-')
-    # ax.grid(True, which='minor', linestyle='--')
-    ax.set(ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs.png"))
-
-    # Plot number of data records of standard algorithms by version and state
-    ax = g_dfs['log1'].groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and state")
-    ax.legend(loc='center left', bbox_to_anchor=BBX2A)
-    ax.set(xlabel='State', ylabel="Number of data records")
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs_state.png"))
-    plt.close('all')
-
-    # Plot number of data records of algorithmXXX by version and state
-    for alg in df_algo_stats.columns:
-        cAlg = g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(alg)]
-        ax = cAlg.drop_duplicates('nvcl_id').groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and state")
+        # Plot number of data records of standard algorithms by version
+        ax = df_algoID_stats[sort_cols(df_algoID_stats, pickle_dir)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
         ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-        ax.set(xlabel='State', ylabel="Number of boreholes")
+        # ax.grid(True, which='major', linestyle='-')
+        # ax.grid(True, which='minor', linestyle='--')
+        ax.set(ylabel="Number of data records")
         plt.tight_layout()
-        plt.savefig(os.path.join(PLOT_DIR, f"log1_{alg}-IDs_state.png"))
-    plt.close('all')
+        plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs.png"))
+
+        # Plot number of data records of standard algorithms by version and state
+        ax = g_dfs['log1'].groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and state")
+        ax.legend(loc='center left', bbox_to_anchor=BBX2A)
+        ax.set(xlabel='State', ylabel="Number of data records")
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOT_DIR, "log1_algoIDs_state.png"))
+        plt.close('all')
+
+        # Plot number of data records of algorithmXXX by version and state
+        for alg in df_algo_stats.columns:
+            cAlg = g_dfs['log1'][g_dfs['log1'].algorithm.str.endswith(alg)]
+            ax = cAlg.drop_duplicates('nvcl_id').groupby(['state', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and state")
+            ax.legend(loc="center left", bbox_to_anchor=BBX2A)
+            ax.set(xlabel='State', ylabel="Number of boreholes")
+            plt.tight_layout()
+            plt.savefig(os.path.join(PLOT_DIR, f"log1_{alg}-IDs_state.png"))
+        plt.close('all')
+
+    except IndexError:
+        pass
 
 
 def fill_in(src_labels, dest, dest_labels):
@@ -914,15 +921,14 @@ def make_extract(pickle_dir):
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     nmetres = calc_metric_by_state('nmetres', all_states)
-    nlikometres = [m/1000.0 for m in nmetres]
+    nkilometres = [m/1000.0 for m in nmetres]
     nbores = calc_metric_by_state('nbores', all_states)
-    print(all_states, all_counts)
-    print(nkilometres, nbores)
     outfile = os.path.join(pickle_dir, EXTRACT_FILE)
     print(f"Writing extract: {outfile}")
     with open(outfile, 'wb') as fd:
-        pickle.dump((dict(zip(all_states, nbores)), dict(zip(all_states, nkilometres))), fd)
-    
+        bh_dict = dict(zip(all_states, all_counts))
+        kms_dict= dict(zip(all_states, nkilometres))
+        pickle.dump((bh_dict, kms_dict), fd)
 
 def load_and_check_config():
     try:
@@ -1021,3 +1027,4 @@ if __name__ == "__main__":
         if not stats_loaded:
             load_stats(pickle_dir)
         make_extract(pickle_dir) 
+    print("Done.")
