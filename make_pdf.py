@@ -8,6 +8,11 @@ FONT = 'helvetica'
 
 # PDF class used to customize page layout
 class PDF(FPDF):
+
+    def __init__(self, orientation="portrait", unit="mm", format="A4", font_cache_dir=True, header_title="NVCL Report"):
+        super().__init__(orientation, unit, format, font_cache_dir)
+        self.header_title = header_title
+
     # Page header
     def header(self):
         # Insert AuScope logo
@@ -17,7 +22,7 @@ class PDF(FPDF):
         # Move to the right
         self.cell(80)
         # Make title
-        self.cell(30, 10, 'NVCL Report', 'B', 0, 'C')
+        self.cell(30, 10, self.header_title, 'B', 0, 'C')
         # Insert line break
         self.ln(20)
 
@@ -55,7 +60,10 @@ def write_table(pdf, title, data, new_page):
         if col_width is None:
             col_width = page_width/len(row)
         for datum in row:
-            pdf.cell(col_width, 2*text_height, str(datum), border=1)
+            if type(datum) == float:
+                pdf.cell(col_width, 2*text_height, f"{datum:.1f}", border=1)
+            else:
+                pdf.cell(col_width, 2*text_height, str(datum), border=1)
         pdf.ln(2*text_height)
 
 
@@ -77,7 +85,11 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
         }
 
     # Create an A4 portrait PDF file
-    pdf = PDF(orientation="P", unit="mm", format="A4")
+    if brief:
+        header_title="Brief NVCL Report"
+    else:
+        header_title="NVCL Report"
+    pdf = PDF(orientation="P", unit="mm", format="A4", header_title=header_title)
     pdf.add_page()
     pdf.set_font('Times', 'B', 14)
 
@@ -124,7 +136,7 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
 
     # Write tables, four to a page
     for idx, title in enumerate(title_list):
-        write_table(pdf, title, table_data[idx], idx%4==0)
+        write_table(pdf, title, table_data[idx], (idx + 1) % 4 == 0)
 
     # Create report file
     if os.path.exists(report_file):
