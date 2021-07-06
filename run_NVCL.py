@@ -430,7 +430,7 @@ def plot_borehole_number(all_states, all_counts, title="Number of boreholes by s
     # Plot number of boreholes for geology by state
     dfs_log1_geology = g_dfs['log1'][g_dfs['log1']['algorithm'].str.contains(('^(Strat|Form|Lith)'), case=False)]
     if not dfs_log1_geology.empty:
-        ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for geology by state")
+        ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(30, 15), title="Number of boreholes for geology by state")
         ax.set(xlabel='State', ylabel="Number of boreholes")
         plt.tight_layout()
         plt.savefig(os.path.join(PLOT_DIR, "log1_geology.png"))
@@ -512,39 +512,41 @@ def plot_elements(dfs_log2_all):
         ax.set(xlabel='state', ylabel="Number of boreholes")
         plt.tight_layout()
         plt.savefig(os.path.join(PLOT_DIR, "elems_state.png"))
+        plt.close()
         ax = df_log2_el['element'].value_counts()
         if not ax.empty:
-            p = ax.plot(kind='bar', figsize=(20, 10), title='Elements')
+            p = ax.plot(kind='bar', figsize=(40, 20), title='Elements')
             p.set(xlabel='Element', ylabel="Number of data records")
             plt.tight_layout()
             plt.savefig(os.path.join(PLOT_DIR, "elems_count.png"))
+            plt.close()
 
         # Plot element suffixes sorted by element
         ax = df_log2_el.groupby(['element', 'suffix']).size().unstack()
         if not ax.empty:
-            p = ax.plot(kind='bar', stacked=False, figsize=(30, 10), title="Element suffixes sorted by element")
-            p.legend(loc="center left", bbox_to_anchor=BBX2A)
+            p = ax.plot(kind='barh', stacked=False, figsize=(30, 50), title="Element suffixes sorted by element")
             p.set(xlabel='Element', ylabel="Number of data records")
             plt.tight_layout()
             plt.savefig(os.path.join(PLOT_DIR, "elems_suffix.png"))
+            plt.close()
 
         # Plot element suffixes for Sulfur
         ax = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
         if not ax.empty:
-            p = ax.plot(kind='bar', stacked=False, rot=0, figsize=(10, 10), title="Element suffixes for Sulfur")
+            p = ax.plot(kind='bar', stacked=False, rot=0, figsize=(35, 15), title="Element suffixes for Sulfur")
             p.set(xlabel='Element', ylabel="Number of data records")
             plt.tight_layout()
             plt.savefig(os.path.join(PLOT_DIR, "elem_S.png"))
-            plt.close('all')
+            plt.close()
 
         # Plot element suffixes
         ax = df_log2_el['suffix'].value_counts()
         if not ax.empty:
-            p = ax.plot(kind='barh', figsize=(20, 10), title="Element suffixes")
+            p = ax.plot(kind='barh', figsize=(30, 50), title="Element suffixes")
             p.set(ylabel="Element suffix", xlabel="Number of data records")
             plt.tight_layout()
             plt.savefig(os.path.join(PLOT_DIR, "elem_suffix_stats.png"))
-            plt.close('all')
+            plt.close()
 
 def plot_spectrum_group(algoid2ver, pickle_dir):
     # Grp=uTSAS[uTSAS.algorithm.str.startswith('Grp')]
