@@ -17,39 +17,50 @@ pip3 install -r requirements.txt
 # Second line is the "From:" address
 vi .email_addr
 
-# Make directories for extracts
+# Make directories for extracts and pickle files
 mkdir pkl-weekly
 mkdir pkl-yearly
 mkdir pkl-quarterly
 ```
 
-### Email PDF reports
-```
-# Send off annual email report
-./run_reports.sh A
-
-# Send off quarterly email report
-./run_reports.sh Q
-
-# Send off weekly email report
-./run_reports.sh W
-```
-
-### Create extracts
-```
-# Create yearly extracts
-./run_NVCL.py -e -d pkl-yearly/
-
-# Create quarterly extracts
-./run_NVCL.py -e -d pkl-quarterly/
-```
-
-### Create PDF reports
+### Create PDF reports (without connecting to NVCL services or altering pickle files & extracts)
 ```
 # Create yearly report
 ./run_NVCL.py -p -d pkl-yearly
 
 # Create brief weekly report
-./run_NVCL.py -pb -d pkl-weekly
+./run_NVCL.py -b -d pkl-weekly
 ```
+
+### Email PDF reports
+```
+# Send off annual email report (run this once a year)
+./run_reports.sh A
+
+# Send off quarterly email report (run this once a quarter)
+./run_reports.sh Q
+
+# Send off weekly email report (run this once a week)
+./run_reports.sh W
+```
+
+### Connect to NVCL services, update pickle files, then create PDF reports 
+```
+# Yearly report (run this once a year)
+./run_NVCL.py -rsp -d pkl-yearly
+
+# Weekly report (run this once a week)
+./run_NVCL.py -rsb -d pkl-weekly
+```
+
+### Create extracts (used for comparing with previous points in time)
+```
+# Create yearly extracts (run this once a year)
+./run_NVCL.py -e -d pkl-yearly/
+
+# Create quarterly extracts (run this once a quarter)
+./run_NVCL.py -e -d pkl-quarterly/
+```
+
+
 
