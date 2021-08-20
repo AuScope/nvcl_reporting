@@ -2,7 +2,7 @@
 
 Some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
-
+### Setup
 ```
 git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
 cd nvcl_reporting
@@ -16,7 +16,10 @@ pip3 install -r requirements.txt
 # First line is the "To:" address
 # Second line is the "From:" address
 vi .email_addr
+```
 
+### Email PDF reports
+```
 # Send off annual email report
 ./run_reports.sh A
 
@@ -25,14 +28,23 @@ vi .email_addr
 
 # Send off weekly email report
 ./run_reports.sh W
+```
 
+### Create extracts
+```
 # Create yearly extracts
 ./run_NVCL.py -e -d pkl-yearly/
 
 # Create quarterly extracts
 ./run_NVCL.py -e -d pkl-quarterly/
+```
 
-# Create brief report
-./run_NVCL.py -b
+### Create PDF reports
+```
+# Create yearly report
+./run_NVCL.py -p -d pkl-yearly
+
+# Create brief weekly report
+./run_NVCL.py -pb -d pkl-weekly
 ```
 
