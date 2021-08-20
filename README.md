@@ -1,12 +1,10 @@
 # NVCL Reporting
 
-Shane Mule has written some Python scripts to report status of NVCL datasets and services
-
-I will modify them and augment them over time.
+Some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
 
 ```
-git clone https://github.com/vjf/nvcl_reporting.git
+git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
 cd nvcl_reporting
 mkdir venv
 python3 -m venv ./venv
