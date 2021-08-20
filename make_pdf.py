@@ -35,12 +35,9 @@ class PDF(FPDF):
         # Write page number
         self.cell(0, 10, f"Page {self.page_no()}", 0, 0, 'C')
 
-def write_table(pdf, title, data, new_page):
+def write_table(pdf, title, data):
     # Table column width
     col_width = None
-    # Add new page
-    if new_page:
-        pdf.add_page()
     # Page width
     page_width = pdf.w - 2*pdf.l_margin
     # Text height
@@ -73,7 +70,7 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
     # Main part starts here
     #
     if brief:
-        report_sections = { 'Boreholes Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png', 
+        report_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
                              'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
         }
     else:
@@ -81,7 +78,7 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
                                             'elem_suffix_stats.png', 'elem_S.png',
                                             'elems_suffix.png'],
            'Geophysics Graphs': [ 'geophys_count.png', 'geophys_state.png' ],
-           'Boreholes Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
+           'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
         }
 
     # Create an A4 portrait PDF file
@@ -105,7 +102,7 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
     pdf.cell(0, 14, "Information", 0, 1)
     pdf.set_font('Times', '', 12)
     for key, val in metadata.items():
-        pdf.cell(w=0, h=12, txt=f"{key}: {val}", ln=1)
+        pdf.multi_cell(w=0, h=12, txt=f"{key}: {val}", ln=1)
     
     pdf.add_page()
 
@@ -136,7 +133,9 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
 
     # Write tables, four to a page
     for idx, title in enumerate(title_list):
-        write_table(pdf, title, table_data[idx], (idx + 1) % 4 == 0)
+        if idx % 4 == 0 and idx > 0:
+            pdf.add_page()
+        write_table(pdf, title, table_data[idx])
 
     # Create report file
     if os.path.exists(report_file):

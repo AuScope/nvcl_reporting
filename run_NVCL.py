@@ -437,7 +437,7 @@ def plot_borehole_number(all_states, all_counts, title="Number of boreholes by s
         df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['state', 'algorithm']).size().unstack()
         return df.to_numpy().tolist()
 
-def plot_borehole_kilometres(all_states, all_counts, title="Number of boreholes kilometres by state", filename="borehole_kilometres.png"):
+def plot_borehole_kilometres(all_states, all_counts, title="Number of borehole kilometres by state", filename="borehole_kilometres.png"):
     # Plot number of borehole kilometres by state
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
@@ -762,23 +762,23 @@ def plot_results(pickle_dir, brief, config):
     all_cnts_dict = dict(zip(all_states, all_counts))
     q_diffs = calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
     y_diffs = calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
-    plot_borehole_number(all_keys, y_diffs, title="Borehole counts since last year", filename="borehole_number_y.png")
+    plot_borehole_number(all_keys, y_diffs, title="Borehole counts since end of last financial year", filename="borehole_number_y.png")
     plot_borehole_number(all_keys, q_diffs, title="Borehole counts since last quarter", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by state
     make_table(table_data, title_list, list(all_keys), q_diffs, "Number of boreholes by state since last quarter")
-    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of boreholes by state since last year")
+    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of boreholes by state since end of last financial year")
 
     # Plot yearly and quarterly comparisons for kilometres by state
     nkilometres_dict = dict(zip(all_states, nkilometres_totals))
     q_diffs = calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
     y_diffs = calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
-    plot_borehole_kilometres(all_keys, y_diffs, title="Borehole kilometres since last year", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_keys, y_diffs, title="Borehole kilometres since end of last financial year", filename="borehole_kilometres_y.png")
     plot_borehole_kilometres(all_keys, q_diffs, title="Borehole kilometres since last quarter", filename="borehole_kilometres_q.png")
 
     # Tabulate yearly and quarterly comparisons for kilometres by state
     make_table(table_data, title_list, list(all_keys), q_diffs, "Number of borehole kilometres by state since last quarter")
-    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole kilometres by state since last year")
+    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole kilometres by state since end of last financial year")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -818,7 +818,7 @@ def plot_results(pickle_dir, brief, config):
 
     now= datetime.datetime.now()
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
-                 "Sources": "State surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
+                 "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the state geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
                  "Report Date": now.strftime("%A %b %d %Y") }
 
     # Finally write out pdf report
