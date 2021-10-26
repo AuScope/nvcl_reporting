@@ -974,6 +974,10 @@ if __name__ == "__main__":
     if not (args.read or args.stats or args.plot or args.brief_plot or args.load or args.extract):
         print("No options were selected. Please select an option")
         parser.print_usage()
+        sys.exit(1)
+
+    now = datetime.datetime.now()
+    print("Running on ", now.strftime("%A %w %B %Y %H:%M:%S"))
 
     data_loaded = False
     stats_loaded = False
@@ -1017,8 +1021,10 @@ if __name__ == "__main__":
         # Load data & stats
         if not data_loaded:
             load_data(pickle_dir)
+            data_loaded = True
         if not stats_loaded:
             load_stats(pickle_dir)
+            stats_loaded = True
         plot_results(pickle_dir, args.brief_plot, config)
 
     # Create an extract pickle file 
