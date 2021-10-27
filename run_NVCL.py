@@ -11,6 +11,7 @@ import pandas as pd
 pd.options.mode.chained_assignment = None
 import yaml
 import datetime
+import time
 
 import numpy as np
 from itertools import zip_longest
@@ -749,9 +750,18 @@ def plot_results(pickle_dir, brief, config):
         q_file = os.path.join(config['quarterly_pkl_dir'], EXTRACT_FILE)
         with open(q_file, 'rb') as fp:
             q_cnts, q_kilometres = pickle.load(fp)
+        q_secs = os.path.getmtime(q_file)
+        q_strtime = time.gmtime(q_secs)
+        q_date = time.strftime('(%d/%m/%Y)', q_strtime)
+        q_date_pretty = time.strftime("%A %b %d %Y", q_strtime)
+
         y_file = os.path.join(config['yearly_pkl_dir'], EXTRACT_FILE)
         with open(y_file, 'rb') as fp:
             y_cnts, y_kilometres = pickle.load(fp)
+        y_secs = os.path.getmtime(y_file)
+        y_strtime = time.gmtime(y_secs)
+        y_date = time.strftime('(%d/%m/%Y)', y_strtime)
+        y_date_pretty = time.strftime("%A %b %d %Y", y_strtime)
     except OSError as oe:
         print(f"Cannot open pickle extract file {q_file} or {y_file}: {oe}")
         sys.exit(1)
@@ -762,23 +772,23 @@ def plot_results(pickle_dir, brief, config):
     all_cnts_dict = dict(zip(all_states, all_counts))
     q_diffs = calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
     y_diffs = calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
-    plot_borehole_number(all_keys, y_diffs, title="Borehole counts since end of last financial year", filename="borehole_number_y.png")
-    plot_borehole_number(all_keys, q_diffs, title="Borehole counts since last quarter", filename="borehole_number_q.png")
+    plot_borehole_number(all_keys, y_diffs, title=f"Borehole counts since end of last financial year {y_date}", filename="borehole_number_y.png")
+    plot_borehole_number(all_keys, q_diffs, title=f"Borehole counts since last quarter {q_date}", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by state
-    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of boreholes by state since last quarter")
-    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of boreholes by state since end of last financial year")
+    make_table(table_data, title_list, list(all_keys), q_diffs, f"Number of boreholes by state since last quarter {q_date}")
+    make_table(table_data, title_list, list(all_keys), y_diffs, f"Number of boreholes by state since end of last financial year {y_date}")
 
     # Plot yearly and quarterly comparisons for kilometres by state
     nkilometres_dict = dict(zip(all_states, nkilometres_totals))
     q_diffs = calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
     y_diffs = calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
-    plot_borehole_kilometres(all_keys, y_diffs, title="Borehole kilometres since end of last financial year", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_keys, q_diffs, title="Borehole kilometres since last quarter", filename="borehole_kilometres_q.png")
-
+    plot_borehole_kilometres(all_keys, y_diffs, title=f"Borehole kilometres since end of last financial year {y_date}", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_keys, q_diffs, title=f"Borehole kilometres since last quarter {q_date}", filename="borehole_kilometres_q.png")
+ 
     # Tabulate yearly and quarterly comparisons for kilometres by state
-    make_table(table_data, title_list, list(all_keys), q_diffs, "Number of borehole kilometres by state since last quarter")
-    make_table(table_data, title_list, list(all_keys), y_diffs, "Number of borehole kilometres by state since end of last financial year")
+    make_table(table_data, title_list, list(all_keys), q_diffs, f"Number of borehole kilometres by state since last quarter {q_date}")
+    make_table(table_data, title_list, list(all_keys), y_diffs, f"Number of borehole kilometres by state since end of last financial year {y_date}")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -816,10 +826,12 @@ def plot_results(pickle_dir, brief, config):
         # Plot geophysics
         plot_geophysics(dfs_log2_all)
 
-    now= datetime.datetime.now()
+    now = datetime.datetime.now()
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
                  "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the state geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
-                 "Report Date": now.strftime("%A %b %d %Y") }
+                 "Report Date": now.strftime("%A %b %d %Y"),
+                 "Using quarterly data from": q_date_pretty,
+                 "Using EOFY data from": y_date_pretty }
 
     # Finally write out pdf report
     if brief:
