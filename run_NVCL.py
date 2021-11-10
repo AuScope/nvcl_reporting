@@ -853,7 +853,7 @@ def calc_metric_diffs(all_keys, larger, smaller):
     result = []
     for key in all_keys:
         if key in larger:
-            if key in smaller:
+            if key in smaller and larger[key] > smaller[key]:
                 result.append(larger[key] - smaller[key])
             else:
                 result.append(0)
