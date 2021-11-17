@@ -13,8 +13,9 @@ pip3 install --upgrade pip
 pip3 install -r requirements.txt
 
 # Add two email addresses to a text file
-# First line is the "To:" address
+# First line are the "To:" addresses
 # Second line is the "From:" address
+# Use a comma with no spaces to separate multiple email addresses
 vi .email_addr
 
 # Make directories for extracts and data files
