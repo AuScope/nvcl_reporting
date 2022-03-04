@@ -257,8 +257,7 @@ def read_data(prov_dict, pickle_dir):
                 print(f"ERROR! {wfs} {nvcl}")
 
             nvcl_id_list = reader.get_nvcl_id_list()
-            print("len=", len(nvcl_id_list))
-            continue
+            print(f"{len(nvcl_id_list)} NVCL boreholes found for {state}")
 
             # Check for no NVCL ids & skip to next service
             if not nvcl_id_list:
@@ -404,7 +403,8 @@ def calc_stats(prov_dict, pickle_dir):
             df_allstats = df_allstats.append(df_cstats, ignore_index=True, sort=False)
 
     # Calculate algorithm statistics
-    df_allstats = df_allstats.set_index(['state', 'algorithm', 'stat'])
+    if all(stat_type in df_allstats for stat_type in ['state', 'algorithm', 'stat']):
+        df_allstats = df_allstats.set_index(['state', 'algorithm', 'stat'])
     export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
 
     algorithm_stats_all = {}
@@ -1027,7 +1027,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     now = datetime.datetime.now()
-    print("Running on ", now.strftime("%A %w %B %Y %H:%M:%S"))
+    print("Running on ", now.strftime("%A %d %B %Y %H:%M:%S"))
 
     data_loaded = False
     stats_loaded = False
