@@ -26,15 +26,16 @@ sns.set_context("talk")
 import matplotlib.pyplot as plt
 
 from nvcl_kit.reader import NVCLReader
+from nvcl_kit.param_builder import param_builder
 from types import SimpleNamespace
 
 from make_pdf import write_report
 
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
-PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, True, "2.0.0"),
-             'NT':  ("http://geology.data.nt.gov.au:80/geoserver/ows", "http://geology.data.nt.gov.au:80/NVCLDataServices", None, True, "2.0.0"),
-             'TAS': ("http://www.mrt.tas.gov.au:80/web-services/ows", "http://www.mrt.tas.gov.au/NVCLDataServices/", None, False, "1.1.0"),
-             'VIC': ("http://geology.data.vic.gov.au/nvcl/ows", "http://geology.data.vic.gov.au/NVCLDataServices", None, False, "1.1.0"),
+PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, False, "2.0.0"),
+             'NT':  ("https://geology.data.nt.gov.au/geoserver/ows", "https://geology.data.nt.gov.au/NVCLDataServices", None, False, "2.0.0"),
+             'TAS': ("https://www.mrt.tas.gov.au/web-services/ows", "https://www.mrt.tas.gov.au/NVCLDataServices/", None, False, "1.1.0"),
+             'VIC': ("https://geology.data.vic.gov.au/nvcl/ows", "https://geology.data.vic.gov.au/NVCLDataServices", None, False, "1.1.0"),
              'QLD': ("https://geology.information.qld.gov.au/geoserver/ows", "https://geology.information.qld.gov.au/NVCLDataServices", None, False, "1.1.0"),
              'SA':  ("https://sarigdata.pir.sa.gov.au/geoserver/ows", "https://sarigdata.pir.sa.gov.au/nvcl/NVCLDataServices", None, False, "1.1.0"),
              'WA':  ("http://geossdi.dmp.wa.gov.au/services/ows",  "http://geossdi.dmp.wa.gov.au/NVCLDataServices", None, False, "2.0.0")}
@@ -197,8 +198,8 @@ def read_data(prov_dict, pickle_dir):
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 9999
-        new_prov_dict = {'QLD': prov_dict['QLD'], 'VIC': prov_dict['VIC'] }
+        MAX_BOREHOLES =10 
+        new_prov_dict = { 'TAS': prov_dict['TAS'], 'NT': prov_dict['NT']}
         prov_dict = new_prov_dict
 
     SW_ignore_importedIDs = False
@@ -231,23 +232,10 @@ def read_data(prov_dict, pickle_dir):
         for state in prov_dict:
             print('\n'+'>'*15+f"    {state}    "+'<'*15)
             param = SimpleNamespace()
-            wfs, nvcl, bbox, local_filt, version = prov_dict[state]
-
-            # URL of the GeoSciML v4.1 BoreHoleView Web Feature Service
-            param.WFS_URL = wfs
-
-            # URL of NVCL service
-            param.NVCL_URL = nvcl
-
-            # NB: If you set this to true then WFS_VERSION must be 2.0.0
-            param.USE_LOCAL_FILTERING = local_filt
-            param.WFS_VERSION = version
-
-            # Additional options
-            if bbox:
-                param.BBOX = bbox
-            if 'MAX_BOREHOLES' in locals():
-                param.MAX_BOREHOLES = MAX_BOREHOLES
+            param = param_builder(state, max_boreholes=9999)
+            if not param:
+                print(f"Cannot build parameters: {param}")
+                continue
 
             # Instantiate class and search for boreholes
             print("param=", param)
@@ -255,6 +243,7 @@ def read_data(prov_dict, pickle_dir):
 
             if not reader.wfs:
                 print(f"ERROR! {wfs} {nvcl}")
+                continue
 
             nvcl_id_list = reader.get_nvcl_id_list()
             print(f"{len(nvcl_id_list)} NVCL boreholes found for {state}")
