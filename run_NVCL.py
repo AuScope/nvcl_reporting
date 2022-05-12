@@ -238,7 +238,7 @@ def read_data(prov_dict, pickle_dir):
                 continue
 
             # Instantiate class and search for boreholes
-            print("param=", param)
+            print(f"param={param}")
             reader = NVCLReader(param)
 
             if not reader.wfs:
@@ -334,12 +334,13 @@ def calc_bh_kms(prov):
     return bh_kms
 
 
-def calc_stats(prov_dict, pickle_dir):
+def calc_stats(prov_dict, pickle_dir, export):
     """
     Calculates statistics based on input dataset dictionary
 
         :param prov_dict: dictionary of NVCL service providers, key is state name in capitals
         :param pickle_dir: directory where pickle files are written to
+        :param export_flag: if true will export to pickle file
     """
     df_allstats = pd.DataFrame()
     # Munge data
@@ -394,7 +395,8 @@ def calc_stats(prov_dict, pickle_dir):
     # Calculate algorithm statistics
     if all(stat_type in df_allstats for stat_type in ['state', 'algorithm', 'stat']):
         df_allstats = df_allstats.set_index(['state', 'algorithm', 'stat'])
-    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
+    if export:
+        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
 
     algorithm_stats_all = {}
     algorithms = np.unique(g_dfs['log1']['algorithm'])
@@ -403,7 +405,8 @@ def calc_stats(prov_dict, pickle_dir):
         cdf = df_allstats.xs(algorithm, level='algorithm').dropna(axis=1, how='all').droplevel(0)
         algorithm_stats_all[algorithm] = create_stats(cdf)
 
-    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
+    if export:
+        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
 
     # Calculate algorithm by state statistics
     algorithm_stats_bystate = {}
@@ -416,7 +419,8 @@ def calc_stats(prov_dict, pickle_dir):
             cdf = sdf.xs(state, level='state').dropna(axis=1, how='all')
             algorithm_stats_bystate[algorithm][state] = create_stats(cdf)
 
-    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_bystate']): algorithm_stats_bystate})
+    if export:
+        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_bystate']): algorithm_stats_bystate})
 
     # Delete the abort file
     if ABORT_FILE.is_file():
@@ -1017,6 +1021,7 @@ if __name__ == "__main__":
 
     now = datetime.datetime.now()
     print("Running on ", now.strftime("%A %d %B %Y %H:%M:%S"))
+    sys.stdout.flush()
 
     data_loaded = False
     stats_loaded = False
@@ -1044,7 +1049,8 @@ if __name__ == "__main__":
             data_loaded = True
         load_stats(pickle_dir)
         stats_loaded = True
-        calc_stats(PROV_LIST, pickle_dir)
+        # Calculate stats, but only update pickle files if 'args.read'
+        calc_stats(PROV_LIST, pickle_dir, args.read)
 
     # Load pickle files from designated pickle dir
     elif not data_loaded and args.load:
