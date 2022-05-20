@@ -324,13 +324,21 @@ def calc_bh_kms(prov):
     bh_kms = {}
     nvcl_ids = np.unique(df['nvcl_id'])
     for nvcl_id in nvcl_ids:
+        depth_set = set()
         # Filter by NVCL id
         nvclid_df = df[df.nvcl_id == nvcl_id]
-        # Each element of the 'data' column is a list of dictionaries whose key is depth
-        data_list = nvclid_df['data'].tolist()
-        depths = [depth for d_dict in data_list for depth in d_dict.keys()]
+        for idx, row in nvclid_df.iterrows():
+            depths = [depth for depth in row['data']]
+            # Skip "Tray" algorithms 
+            if row['algorithm'] != 'Tray':
+                # Each element of the 'data' column is a dictionary whose key is depth
+                # Create a set of depth range tuples
+                depth_set.update(set(depths))
+
         # Divide by 1000 to convert from metres to kilometres
-        bh_kms[nvcl_id] = (max(depths) - min(depths)) / 1000.0
+        depth_list = list(depth_set)
+        if len(depth_list) > 0:
+            bh_kms[nvcl_id] = (max(depth_list) - min(depth_list)) / 1000.0
     return bh_kms
 
 
@@ -813,6 +821,9 @@ def plot_results(pickle_dir, brief, config):
 
     # Plot yearly and quarterly comparisons for kilometres by state
     nkilometres_dict = dict(zip(all_states, nkilometres_totals))
+    # print("nkilometres_dict = ", nkilometres_dict)
+    # print("q_kilometres = ", q_kilometres)
+    # print("y_kilometres = ", y_kilometres)
     q_diffs = calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
     y_diffs = calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
     plot_borehole_kilometres(all_keys, y_diffs, title=f"Borehole kilometres since end of last financial year {y_date}", filename="borehole_kilometres_y.png")
@@ -938,15 +949,27 @@ def sort_cols(df, pickle_dir, prefix='version', split_tok='_'):
     return [prefix + split_tok + str(x) for x in sorted([int(x) for x in anums])]
 
 def load_data(pickle_dir):
+    """ Load NVCL data from pickle file
+
+    :param pickle_dir: directory path from which to load pickle file
+    """
     for df_name, ofile in OFILES_DATA.items():
         g_dfs[df_name] = import_pkl(os.path.join(pickle_dir, ofile))
 
 
 def load_stats(pickle_dir):
+    """ Load borehole stats from pickle file
+
+    :param pickle_dir: directory path from which to load pickle file
+    """
     for df_name, ofile in OFILES_STATS.items():
         g_dfs[df_name] = import_pkl(os.path.join(pickle_dir, ofile), pd.DataFrame())
 
 def make_extract(pickle_dir):
+    """ Make an extract file, a time snapshot of borehole data and save it
+
+    :param pickle_dir: directory path in which to save pickle file
+    """
     df_all = pd.concat([g_dfs['log1'], g_dfs['log2'], g_dfs['empty'], g_dfs['nodata']])
     all_states, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['state'], return_counts=True)
     nkilometres = [ sum(calc_bh_kms(state).values()) for state in all_states ]
@@ -954,7 +977,9 @@ def make_extract(pickle_dir):
     print(f"Writing extract: {outfile}")
     with open(outfile, 'wb') as fd:
         bh_dict = dict(zip(all_states, all_counts))
+        print(f"Saving bh_dict={bh_dict}")
         kms_dict= dict(zip(all_states, nkilometres))
+        print(f"Saving kms_dict={kms_dict}")
         pickle.dump((bh_dict, kms_dict), fd)
 
 def load_and_check_config():
