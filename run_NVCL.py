@@ -32,13 +32,7 @@ from types import SimpleNamespace
 from make_pdf import write_report
 
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
-PROV_LIST = {'NSW': ("https://gs.geoscience.nsw.gov.au/geoserver/ows", "https://nvcl.geoscience.nsw.gov.au/NVCLDataServices", None, False, "2.0.0"),
-             'NT':  ("https://geology.data.nt.gov.au/geoserver/ows", "https://geology.data.nt.gov.au/NVCLDataServices", None, False, "2.0.0"),
-             'TAS': ("https://www.mrt.tas.gov.au/web-services/ows", "https://www.mrt.tas.gov.au/NVCLDataServices/", None, False, "1.1.0"),
-             'VIC': ("https://geology.data.vic.gov.au/nvcl/ows", "https://geology.data.vic.gov.au/NVCLDataServices", None, False, "1.1.0"),
-             'QLD': ("https://geology.information.qld.gov.au/geoserver/ows", "https://geology.information.qld.gov.au/NVCLDataServices", None, False, "1.1.0"),
-             'SA':  ("https://sarigdata.pir.sa.gov.au/geoserver/ows", "https://sarigdata.pir.sa.gov.au/nvcl/NVCLDataServices", None, False, "1.1.0"),
-             'WA':  ("http://geossdi.dmp.wa.gov.au/services/ows",  "http://geossdi.dmp.wa.gov.au/NVCLDataServices", None, False, "2.0.0")}
+PROV_LIST = ['NSW', 'NT', 'TAS', 'VIC', 'QLD', 'SA', 'WA']
 
 # Configuration file
 CONFIG_FILE = "config.yaml"
@@ -71,41 +65,6 @@ EXTRACT_FILE = 'extract.pkl'
 '''
 Internal functions
 '''
-
-
-def get_algorithms(url=None):
-    """
-    Fetches a dict of algorithms from CSIRO NVCL service
-    NB: Exits upon exception
-
-    :param url: optional URL of service to contact (without trailing slash)
-    :returns: dictionary, {algorithm id: algorithm version, ...} or None if cannot contact service
-    """
-    if url is None:
-        algo2ver_url = 'https://nvclwebservices.csiro.au/NVCLDataServices/getAlgorithms.html'
-    else:
-        algo2ver_url = url + '/getAlgorithms.html'
-    try:
-        r = requests.get(algo2ver_url)
-    except requests.RequestException as exc:
-        print(f"Cannot connect to {algo2ver_url}: {exc}")
-        return None
-    algo2ver_xml = xmltodict.parse(r.content)
-    # algoid2ver_byname = {}
-    algoid2ver = {}
-    for i in algo2ver_xml['Algorithms']['algorithms']:
-        for j in i['outputs']:
-            ver_dict = {}
-            if isinstance(j['versions'], list):
-                for v in j['versions']:
-                    ver_dict.update({v['algorithmoutputID']: v['version']})
-            else:
-                ver_dict.update({j['versions']['algorithmoutputID']: j['versions']['version']})
-            # algoid2ver_byname.update({name: ver_dict})
-            algoid2ver.update(ver_dict)
-    algoid2ver['0'] = '0'
-    return algoid2ver
-
 
 def create_stats(cdf):
     """
@@ -188,19 +147,19 @@ def import_pkl(infile, empty={}):
 Primary functions
 '''
 
-def read_data(prov_dict, pickle_dir):
+def read_data(prov_list, pickle_dir):
     """ Read pickle files for any past data and poll NVCL services to see if there is any new data
         Save updates to pickle files
         Upon keyboard interrupt save updates to pickle files and exit
 
-        :param prov_dict: dictionary of NVCL service providers, key is state name in capitals
+        :param prov_list: list of NVCL service providers
         :param pickle_dir: directory where pickle files are written to
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES =10 
-        new_prov_dict = { 'TAS': prov_dict['TAS'], 'NT': prov_dict['NT']}
-        prov_dict = new_prov_dict
+        new_prov_list = ['TAS', 'NT']
+        prov_list = new_prov_list
 
     SW_ignore_importedIDs = False
 
@@ -229,12 +188,11 @@ def read_data(prov_dict, pickle_dir):
     # Read data from NVCL services
     current_id = ''
     try:
-        for state in prov_dict:
+        for state in prov_list:
             print('\n'+'>'*15+f"    {state}    "+'<'*15)
-            param = SimpleNamespace()
             param = param_builder(state, max_boreholes=9999)
             if not param:
-                print(f"Cannot build parameters: {param}")
+                print(f"Cannot build parameters for {state}: {param}")
                 continue
 
             # Instantiate class and search for boreholes
@@ -242,7 +200,7 @@ def read_data(prov_dict, pickle_dir):
             reader = NVCLReader(param)
 
             if not reader.wfs:
-                print(f"ERROR! {wfs} {nvcl}")
+                print(f"ERROR! Cannot connect to {state}")
                 continue
 
             nvcl_id_list = reader.get_nvcl_id_list()
@@ -339,14 +297,15 @@ def calc_bh_kms(prov):
         depth_list = list(depth_set)
         if len(depth_list) > 0:
             bh_kms[nvcl_id] = (max(depth_list) - min(depth_list)) / 1000.0
+            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]} kms")
     return bh_kms
 
 
-def calc_stats(prov_dict, pickle_dir, export):
+def calc_stats(prov_list, pickle_dir, export):
     """
     Calculates statistics based on input dataset dictionary
 
-        :param prov_dict: dictionary of NVCL service providers, key is state name in capitals
+        :param prov_list: list of NVCL service providers
         :param pickle_dir: directory where pickle files are written to
         :param export_flag: if true will export to pickle file
     """
@@ -354,7 +313,7 @@ def calc_stats(prov_dict, pickle_dir, export):
     # Munge data
     print(f"Calculating initial statistics ...{g_dfs}")
     # Loop around for each provider
-    for state in prov_dict:
+    for state in prov_list:
         cdf = g_dfs['log1'][g_dfs['log1']['state'] == state]
         if cdf.empty:
             continue
@@ -635,7 +594,7 @@ def plot_algorithms(algoid2ver):
     algos = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.contains('^Min|Grp')]['algorithm'])
     try:
         suffixes = np.unique([x.split()[1] for x in algos])
-        g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver[row['algorithmID']], axis=1)
+        g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithmID'], '0'), axis=1)
 
         df_algo_stats = pd.DataFrame()
         df_algoID_stats = pd.DataFrame()
@@ -836,25 +795,32 @@ def plot_results(pickle_dir, brief, config):
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
 
-    # Get algorithms from any available service
-    algoid2ver = get_algorithms(PROV_LIST['NSW'][1])
-    if algoid2ver is None: 
-        for provider in PROV_LIST.values():
-            print(f"Getting algorithms failed, trying {provider[1]}")
-            algoid2ver = get_algorithms(provider[1])
-            if algoid2ver is not None:
-                break
-    if algoid2ver is None:
-        print("Network problem: cannot find algorithms from *ANY* service")
-        sys.exit(1)
-
     if not brief:
 
+        # Get algorithms from any available service
+        algo2 = {}
+        for state in PROV_LIST:
+            param = param_builder(state, max_boreholes=9999)
+            if not param:
+                print(f"Cannot build parameters for {state}: {param}")
+                continue
+
+            print(f"param={param}")
+            reader = NVCLReader(param)
+            if not reader.wfs:
+                print(f"ERROR! Cannot connect to {state}")
+                continue
+            algo2 = reader.get_algorithms()
+            if len(algo2.keys()) > 0:
+                break
+
+        algo2['0'] = '0'
+
         # Plot algorithms
-        plot_algorithms(algoid2ver)
+        plot_algorithms(algo2)
 
         # Plot uTSAS graphs
-        plot_spectrum_group(algoid2ver, pickle_dir)
+        plot_spectrum_group(algo2, pickle_dir)
 
         '''
         pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
@@ -926,7 +892,7 @@ def dfcol_algoid2ver(df, algoid2ver):
     :param algoid2ver: dictionary of algorithm id -> version id
     :returns: transformed dataframe
     """
-    df = df.rename({y: re.sub(r'algorithm_(\d+)', lambda x: f"version_{algoid2ver[x.group(1)]}", y) for y in df.columns}, axis='columns')
+    df = df.rename({y: re.sub(r'algorithm_(\d+)', lambda x: f"version_{algoid2ver.get(x.group(1), '0')}", y) for y in df.columns}, axis='columns')
     df = df.fillna(0).groupby(level=0).sum()
     return df
 
