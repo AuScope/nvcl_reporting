@@ -157,32 +157,32 @@ def read_data(prov_list, pickle_dir):
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES =10 
+        MAX_BOREHOLES = 10 
         new_prov_list = ['TAS', 'NT']
         prov_list = new_prov_list
 
     SW_ignore_importedIDs = False
 
     # List of columns in a new DataFrame
-    columns = ['state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
+    columns = ['state', 'nvcl_id', 'datetime_added', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
 
     # Compile a list of known NVCL ids from pickled data
-    ids = []
+    known_ids = []
     for df_name, ofile in OFILES_DATA.items():
         p = Path(pickle_dir, ofile)
         if p.is_file():
             # Import data frame from pickle file
             g_dfs[df_name] = import_pkl(str(p))
-            ids = np.append(ids, g_dfs[df_name].nvcl_id.values)
+            known_ids = np.append(known_ids, g_dfs[df_name].nvcl_id.values)
         else:
             # Doesn't exist? Create a new data frame
             g_dfs[df_name] = pd.DataFrame(columns=columns)
 
-    # Remove all the NVCL ids that are listed in the abort file
+    # Remove all the NVCL ids in the abort file from known_ids list
     if ABORT_FILE.is_file():
         with open(ABORT_FILE, 'r') as f:
             remove = f.readlines()
-            ids = np.delete(ids, np.argwhere(ids == remove))
+            known_ids = np.delete(known_ids, np.argwhere(known_ids == remove))
 
     print("Reading NVCL data services ...")
     # Read data from NVCL services
@@ -208,7 +208,7 @@ def read_data(prov_list, pickle_dir):
 
             # Check for no NVCL ids & skip to next service
             if not nvcl_id_list:
-                print(f"!!!! No NVCL ids for {nvcl}")
+                print(f"!!!! Could not download NVCL ids for {state}")
                 continue
 
             for iID, nvcl_id in enumerate(nvcl_id_list):
@@ -217,33 +217,32 @@ def read_data(prov_list, pickle_dir):
                 print('-'*10)
                 current_id = nvcl_id
                 # Is this a known NVCL id? Then ignore
-                if (SW_ignore_importedIDs and nvcl_id in ids):
-                    print("Already imported, next...")
+                if (SW_ignore_importedIDs and nvcl_id in known_ids):
+                    print(f"{nvcl_id} is already imported, next...")
                     continue
 
                 # Download previously unknown NVCL id dataset from service
                 imagelog_data_list = reader.get_imagelog_data(nvcl_id)
                 if not imagelog_data_list:
-                    print("No NVCL data!")
-                    data = [state, nvcl_id, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+                    print(f"No NVCL data for {nvcl_id}!") 
+                    data = [state, nvcl_id, datetime.datetime.now(), np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                     g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
                 for ild in imagelog_data_list:
                     print(ild.log_name)
                     if ((ild.log_id in g_dfs['log1'].log_id.values) or (ild.log_id in g_dfs['empty'].log_id.values)):
-                        print("Already imported, next...")
+                        print(f"Log id {ild.log_id} already imported, next...")
                         continue
                     HEIGHT_RESOLUTION = 1.0
                     ANALYSIS_CLASS = ''
-                    # ANALYSIS_CLASS = 'Min1 uTSAS'
-                    # if ild.log_type == LOG_TYPE and ild.algorithm == ANALYSIS_CLASS:
                     minerals = []
+                    # TODO: Use 'modified_date' field if available 
                     if ild.log_type == '1':
                         bh_data = reader.get_borehole_data(ild.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                        data = [state, nvcl_id, ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, minerals, mincnts, bh_data]
+                        data = [state, nvcl_id, datetime.datetime.now(), ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, minerals, mincnts, bh_data]
                     else:
-                        data = [state, nvcl_id, ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, np.nan, np.nan, np.nan]
+                        data = [state, nvcl_id, datetime.datetime.now(), ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
                         key = f"log{ild.log_type}"
@@ -251,7 +250,7 @@ def read_data(prov_list, pickle_dir):
                     else:
                         g_dfs['empty'] = g_dfs['empty'].append(pd.Series(data, index=g_dfs['empty'].columns), ignore_index=True)
                 # Append new NVCL id to list of known NVCL ids
-                np.append(ids, nvcl_id)
+                np.append(known_ids, nvcl_id)
 
     # If user presses Ctrl-C then save out data to pickle file & exit
     except KeyboardInterrupt:
