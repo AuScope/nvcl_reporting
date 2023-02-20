@@ -222,30 +222,30 @@ def read_data(prov_list, pickle_dir):
                     continue
 
                 # Download previously unknown NVCL id dataset from service
-                imagelog_data_list = reader.get_imagelog_data(nvcl_id)
-                if not imagelog_data_list:
+                logs_data_list = reader.get_logs_data(nvcl_id)
+                if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     data = [state, nvcl_id, datetime.datetime.now(), np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                     g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
-                for ild in imagelog_data_list:
-                    print(ild.log_name)
-                    if ((ild.log_id in g_dfs['log1'].log_id.values) or (ild.log_id in g_dfs['empty'].log_id.values)):
-                        print(f"Log id {ild.log_id} already imported, next...")
+                for ld in logs_data_list:
+                    print(ld.log_name)
+                    if ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
+                        print(f"Log id {ld.log_id} already imported, next...")
                         continue
                     HEIGHT_RESOLUTION = 1.0
                     ANALYSIS_CLASS = ''
                     minerals = []
                     # TODO: Use 'modified_date' field if available 
-                    if ild.log_type == '1':
-                        bh_data = reader.get_borehole_data(ild.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
+                    if ld.log_type == '1':
+                        bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                        data = [state, nvcl_id, datetime.datetime.now(), ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, minerals, mincnts, bh_data]
+                        data = [state, nvcl_id, datetime.datetime.now(), ld.log_id, ld.log_name, ld.log_type, ld.algorithmout_id, minerals, mincnts, bh_data]
                     else:
-                        data = [state, nvcl_id, datetime.datetime.now(), ild.log_id, ild.log_name, ild.log_type, ild.algorithmout_id, np.nan, np.nan, np.nan]
+                        data = [state, nvcl_id, datetime.datetime.now(), ld.log_id, ld.log_name, ld.log_type, ld.algorithmout_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
-                        key = f"log{ild.log_type}"
+                        key = f"log{ld.log_type}"
                         g_dfs[key] = g_dfs[key].append(pd.Series(data, index=g_dfs[key].columns), ignore_index=True)
                     else:
                         g_dfs['empty'] = g_dfs['empty'].append(pd.Series(data, index=g_dfs['empty'].columns), ignore_index=True)
