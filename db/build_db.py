@@ -11,12 +11,14 @@ import time
 import pickle
 import sqlite3
 import contextlib
+from collections.abc import Iterable
 
 from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
 from datetime import date
 
-
-db = SqliteDatabase('nvcl2.db')
+DB_NAME = 'nvcl2.db'
+os.unlink(DB_NAME)
+db = SqliteDatabase(DB_NAME)
 
 class Meas(Model):
     # ['state', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
@@ -105,30 +107,36 @@ def load_data(pickle_dir, subdir):
         except Exception:
             print(f"Could not find date for {pickle_file}")
         else:
-            print(f"{create_dt}")
+            print(f"Create date for pickle file is {create_dt}")
         # Look over the rows in the pandas DataFrame
         for idx, row in df.iterrows():
-            print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
+            #print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
             try:
                 # NB: mincnts is 'metres' in these old pkl files
-                Meas.create(report_category=report_category, state=repr(row['state']), nvcl_id=repr(row['nvcl_id']),
-                      create_datetime=repr(create_dt), log_id=repr(row['log_id']), algorithm=repr(row['algorithm']),
-                      log_type=repr(row['log_type']), algorithmID=repr(row['algorithmID']),
-                      minerals=repr(row['minerals']), mincnts=repr(list(row['metres'])), data=repr(row['data']))
+                # Sometimes 'metres' is not a numppy array
+                if isinstance(row['metres'], Iterable):
+                    mincnts = repr(list(row['metres']))
+                else:
+                    mincnts = repr([row['metres']])
+                Meas.create(report_category=repr(report_category), state=repr(row['state']),
+                      nvcl_id=repr(row['nvcl_id']), create_datetime=repr(create_dt), log_id=repr(row['log_id']),
+                      algorithm=repr(row['algorithm']), log_type=repr(row['log_type']),
+                      algorithmID=repr(row['algorithmID']), minerals=repr(row['minerals']),
+                      mincnts=mincnts, data=repr(row['data']))
             except IntegrityError:
                 # This is a duplicate, modify create date if earlier than the stored one
-                rec = Meas.get(report_category=report_category, state=repr(row['state']), nvcl_id=repr(row['nvcl_id']),
-                       log_id=repr(row['log_id']), algorithm=repr(row['algorithm']), log_type=repr(row['log_type']),
-                       algorithmID=repr(row['algorithmID']))
-                print("DUPLICATE: ", rec, )
+                rec = Meas.get(report_category=repr(report_category), state=repr(row['state']),
+                       nvcl_id=repr(row['nvcl_id']), log_id=repr(row['log_id']), algorithm=repr(row['algorithm']),
+                       log_type=repr(row['log_type']), algorithmID=repr(row['algorithmID']))
+                #print("DUPLICATE: ", rec, )
                 rec_create_dt = eval(rec.create_datetime)
-                print("Rec create dt:", rec_create_dt)
+                #print("Rec create dt:", rec_create_dt)
                 # Alter create date if earlier
                 if create_dt < rec_create_dt:
                     rec.create_datetime = repr(create_dt)
-                    print("Saved", create_dt)
+                    #print("Saved", create_dt)
                     rec.save()
-
+        print("Finished inserting")
 
 if __name__ == "__main__":
 
@@ -143,7 +151,8 @@ if __name__ == "__main__":
     db.create_tables([Meas])
 
     # Open up NVCL data pickle files, extract create dates and create a new sqlite db
-    for subdir in ['data','other','empty','nodata']:
+    for subdir in ['data','other','emptyrecs','nodata']:
         pkl_subdir = Path(pickle_dir) / Path(subdir)
+        print("Loading", pkl_subdir)
         load_data(pkl_subdir, subdir)
     print("Done.")
