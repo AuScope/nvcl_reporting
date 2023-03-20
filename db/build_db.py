@@ -17,7 +17,8 @@ from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, In
 from datetime import date
 
 DB_NAME = 'nvcl2.db'
-os.unlink(DB_NAME)
+if os.path.exists(DB_NAME):
+    os.unlink(DB_NAME)
 db = SqliteDatabase(DB_NAME)
 
 class Meas(Model):
@@ -35,7 +36,7 @@ class Meas(Model):
     data = TextField()     # Raw data as a dict
 
     class Meta:
-        primary_key = CompositeKey('state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID')
+        primary_key = CompositeKey('report_category', 'state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID')
         database = db
 
 
@@ -113,21 +114,21 @@ def load_data(pickle_dir, subdir):
             #print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
             try:
                 # NB: mincnts is 'metres' in these old pkl files
-                # Sometimes 'metres' is not a numppy array
+                # Sometimes 'metres' is not a numpy array
                 if isinstance(row['metres'], Iterable):
                     mincnts = repr(list(row['metres']))
                 else:
                     mincnts = repr([row['metres']])
-                Meas.create(report_category=repr(report_category), state=repr(row['state']),
-                      nvcl_id=repr(row['nvcl_id']), create_datetime=repr(create_dt), log_id=repr(row['log_id']),
-                      algorithm=repr(row['algorithm']), log_type=repr(row['log_type']),
-                      algorithmID=repr(row['algorithmID']), minerals=repr(row['minerals']),
+                Meas.create(report_category=report_category, state=row['state'],
+                      nvcl_id=row['nvcl_id'], create_datetime=repr(create_dt), log_id=row['log_id'],
+                      algorithm=row['algorithm'], log_type=row['log_type'],
+                      algorithmID=row['algorithmID'], minerals=repr(row['minerals']),
                       mincnts=mincnts, data=repr(row['data']))
             except IntegrityError:
                 # This is a duplicate, modify create date if earlier than the stored one
-                rec = Meas.get(report_category=repr(report_category), state=repr(row['state']),
-                       nvcl_id=repr(row['nvcl_id']), log_id=repr(row['log_id']), algorithm=repr(row['algorithm']),
-                       log_type=repr(row['log_type']), algorithmID=repr(row['algorithmID']))
+                rec = Meas.get(report_category=report_category, state=row['state'],
+                       nvcl_id=row['nvcl_id'], log_id=row['log_id'], algorithm=row['algorithm'],
+                       log_type=row['log_type'], algorithmID=row['algorithmID'])
                 #print("DUPLICATE: ", rec, )
                 rec_create_dt = eval(rec.create_datetime)
                 #print("Rec create dt:", rec_create_dt)
