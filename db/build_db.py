@@ -12,10 +12,15 @@ import pickle
 import sqlite3
 import contextlib
 from collections.abc import Iterable
+from collections import OrderedDict
+import json
+from types import SimpleNamespace
+import math
 
 from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
 from datetime import date
 
+DATE_FMT = '%Y/%m/%d'
 DB_NAME = 'nvcl2.db'
 if os.path.exists(DB_NAME):
     os.unlink(DB_NAME)
@@ -66,6 +71,45 @@ def import_pkl(infile, empty={}):
         sys.exit(1)
     return data
 
+def convert2json(create_dt, minerals, mincnts, data):
+
+    create_dt_out = create_dt.strftime(DATE_FMT)
+    # Sometimes 'minerals' is not an iterable numpy array
+    if isinstance(minerals, Iterable):
+        minerals_out = json.dumps(list(minerals))
+    elif isinstance(minerals, float) and math.isnan(minerals):
+        minerals_out = []
+    else:
+        minerals_out = json.dumps([minerals])
+    # Sometimes 'mincnts' is not an iterable numpy array
+    if isinstance(mincnts, Iterable):
+        # convert numpy int64 -> int
+        mincnts_out = json.dumps([int(cnt) for cnt in mincnts])
+    elif isinstance(mincnts, float) and math.isnan(mincnts):
+        mincnts_out = []
+    else:
+        mincnts_out = json.dumps([mincnts])
+    # Convert 'data' i.e. ((depth, {key: val ...}, ...) ... ) or NaN
+    data_list = [] 
+    if isinstance(data, OrderedDict):
+        for depth, obj in data.items():
+            # vars() converts Namespace -> dict
+            if isinstance(obj, SimpleNamespace):
+                data_list.append([depth, vars(obj)])
+            elif isinstance(obj, list) and len(obj) == 0:
+                continue
+            else:
+                print(repr(obj), type(obj))
+                print("ERROR unknown obj type in 'data' var")
+                sys.exit(1)
+    elif data != {} and data != [] and not (isinstance(data, float) and math.isnan(data)):
+        print(repr(data), type(data))
+        print("ERROR unknown type in 'data' var")
+        sys.exit(1)
+
+    data_out = json.dumps(data_list)
+
+    return create_dt_out, minerals_out, mincnts_out, data_out
 
 def load_data(pickle_dir, subdir):
     """ Load NVCL data from pickle file
@@ -109,33 +153,27 @@ def load_data(pickle_dir, subdir):
             print(f"Could not find date for {pickle_file}")
         else:
             print(f"Create date for pickle file is {create_dt}")
-        # Look over the rows in the pandas DataFrame
+        # Loop over the rows in the pandas DataFrame, converting fields to strings or JSON
         for idx, row in df.iterrows():
+            # NB: 'metres' is better labelled as 'mincnts'
+            create_datetime, minerals, mincnts, data = convert2json(create_dt, row['minerals'],
+                                                                    row['metres'], row['data'])
             #print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
             try:
-                # NB: mincnts is 'metres' in these old pkl files
-                # Sometimes 'metres' is not a numpy array
-                if isinstance(row['metres'], Iterable):
-                    mincnts = repr(list(row['metres']))
-                else:
-                    mincnts = repr([row['metres']])
                 Meas.create(report_category=report_category, state=row['state'],
-                      nvcl_id=row['nvcl_id'], create_datetime=repr(create_dt), log_id=row['log_id'],
+                      nvcl_id=row['nvcl_id'], create_datetime=create_datetime, log_id=row['log_id'],
                       algorithm=row['algorithm'], log_type=row['log_type'],
-                      algorithmID=row['algorithmID'], minerals=repr(row['minerals']),
-                      mincnts=mincnts, data=repr(row['data']))
+                      algorithmID=row['algorithmID'], minerals=minerals,
+                      mincnts=mincnts, data=data)
             except IntegrityError:
-                # This is a duplicate, modify create date if earlier than the stored one
+                # This is a duplicate, so modify create date if earlier than the stored one
                 rec = Meas.get(report_category=report_category, state=row['state'],
                        nvcl_id=row['nvcl_id'], log_id=row['log_id'], algorithm=row['algorithm'],
                        log_type=row['log_type'], algorithmID=row['algorithmID'])
-                #print("DUPLICATE: ", rec, )
-                rec_create_dt = eval(rec.create_datetime)
-                #print("Rec create dt:", rec_create_dt)
+                rec_create_dt = create_dt.strptime(rec.create_datetime, DATE_FMT)
                 # Alter create date if earlier
                 if create_dt < rec_create_dt:
-                    rec.create_datetime = repr(create_dt)
-                    #print("Saved", create_dt)
+                    rec.create_datetime = create_dt.strftime(DATE_FMT)
                     rec.save()
         print("Finished inserting")
 
