@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
 import pandas as pd
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
@@ -20,13 +21,15 @@ def conv_dt(dt_str):
 def conv_json(json_str):
     return json.loads(json_str) 
 
-if __name__ == "__main__":
-
-    con = sqlite3.connect("nvcl2.db")
-    df = pd.read_sql("SELECT * from MEAS", con) 
+def import_db(db_file, report_datacat):
+    if not os.path.exists(db_file):
+        print(f"{db_file} does not exist")
+        sys.exit(1)
+    con = sqlite3.connect(db_file)
+    df = pd.read_sql(f"select provider, nvcl_id, create_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data from meas where report_category = '{report_datacat}'", con) 
     new_df = pd.DataFrame()
     for col in df.columns:
-        print(f"converting {col}")
+        #print(f"converting {col}")
         if col == 'create_datetime':
             new_df[col] = df[col].apply(conv_dt)
         elif col in ['minerals', 'mincnts', 'data']:
@@ -34,5 +37,9 @@ if __name__ == "__main__":
         else:
             new_df[col] = df[col]
 
-    #['report_category', 'state', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts']:
-    print(new_df)
+    return new_df
+
+
+if __name__ == "__main__":
+    print(import_db("nvcl-test.db", "log2"))
+

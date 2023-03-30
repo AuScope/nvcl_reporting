@@ -1,2 +1,2 @@
-pkl_dir: pkl-complete
 plot_dir: plots
+db: db/nvcl-test.db

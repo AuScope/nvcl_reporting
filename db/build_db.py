@@ -21,15 +21,16 @@ from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, In
 from datetime import date
 
 DATE_FMT = '%Y/%m/%d'
-DB_NAME = 'nvcl2.db'
+DB_NAME = 'nvcl-test.db'
 if os.path.exists(DB_NAME):
     os.unlink(DB_NAME)
 db = SqliteDatabase(DB_NAME)
+TEST_RUN = True
 
 class Meas(Model):
-    # ['state', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
+    # ['report_category', 'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
     report_category = TextField() # Can be any one of 'log1', 'log2', 'empty' and 'nodata'
-    state = TextField()
+    provider = TextField()
     nvcl_id = TextField()
     create_datetime = DateField()
     log_id = TextField()
@@ -41,7 +42,7 @@ class Meas(Model):
     data = TextField()     # Raw data as a dict
 
     class Meta:
-        primary_key = CompositeKey('report_category', 'state', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID')
+        primary_key = CompositeKey('report_category', 'provider', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID')
         database = db
 
 
@@ -118,7 +119,7 @@ def load_data(pickle_dir, subdir):
     :param subdir: source subdirectory
 
     report_category = TextField()
-    state = TextField()
+    provider = TextField()
     nvcl_id = TextField()
     create_datetime = DateField()
     log_id = TextField()
@@ -160,14 +161,14 @@ def load_data(pickle_dir, subdir):
                                                                     row['metres'], row['data'])
             #print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
             try:
-                Meas.create(report_category=report_category, state=row['state'],
+                Meas.create(report_category=report_category, provider=row['state'],
                       nvcl_id=row['nvcl_id'], create_datetime=create_datetime, log_id=row['log_id'],
                       algorithm=row['algorithm'], log_type=row['log_type'],
                       algorithmID=row['algorithmID'], minerals=minerals,
                       mincnts=mincnts, data=data)
             except IntegrityError:
                 # This is a duplicate, so modify create date if earlier than the stored one
-                rec = Meas.get(report_category=report_category, state=row['state'],
+                rec = Meas.get(report_category=report_category, provider=row['state'],
                        nvcl_id=row['nvcl_id'], log_id=row['log_id'], algorithm=row['algorithm'],
                        log_type=row['log_type'], algorithmID=row['algorithmID'])
                 rec_create_dt = create_dt.strptime(rec.create_datetime, DATE_FMT)
@@ -175,6 +176,8 @@ def load_data(pickle_dir, subdir):
                 if create_dt < rec_create_dt:
                     rec.create_datetime = create_dt.strftime(DATE_FMT)
                     rec.save()
+            if TEST_RUN and idx > 100:
+                break
         print("Finished inserting")
 
 if __name__ == "__main__":
