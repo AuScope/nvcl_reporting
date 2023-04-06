@@ -63,5 +63,21 @@ mkdir pkl-quarterly
 ./run_NVCL.py -e -d pkl-quarterly/
 ```
 
+### DB Format
+
+There is only one table, it has the following fields:
+
+1.	Report Category  e.g. "log1", "log2" 
+2.	Provider e.g. "tas" "nsw" etc.
+3.	Nvcl_ID "10026"
+4.	Create_datetime (approximation)
+5.	Log_id  "41679f23-ca82-45a2-bbaf-81fb175c808"
+6.	Algorithm "Grp1 uTSAS", "Grp1 sjCLST" etc.
+7.	Log_type "1"
+8.	AlgorithmID "109"
+9.	Minerals e.g. ["KAOLIN", "WHITE-MICA"]
+10.	Mineral total counts e.g.  [1, 279]
+11.	Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
+
 
 
