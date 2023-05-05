@@ -41,6 +41,7 @@ CONFIG_FILE = "config.yaml"
 # Test run
 TEST_RUN = True
 
+# Maximum number of boreholes to retrieve from each provider
 MAX_BOREHOLES = 999999
 
 # Abort information file - contains the NVCL log id at which run was aborted
@@ -48,6 +49,14 @@ ABORT_FILE = Path('./run_NVCL_abort.txt')
 
 # Report data categories
 DATA_CATS = ['log1', 'log2', 'empty', 'nodata']
+
+# List of columns in a new DataFrame
+COLUMNS = ['provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data']
+
+# Borehole parameters
+HEIGHT_RESOLUTION = 1.0
+ANALYSIS_CLASS = ''
+
 
 # Pickled output stats files
 #OFILES_STATS = {'stats_all': "NVCL_allstats.pkl",
@@ -97,7 +106,7 @@ def create_stats(cdf):
 Primary functions
 '''
 
-def read_data(prov_list, db_file):
+def update_data(prov_list, db_file):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
@@ -113,8 +122,6 @@ def read_data(prov_list, db_file):
 
     SW_ignore_importedIDs = False
 
-    # List of columns in a new DataFrame
-    columns = ['provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data']
     #report_category = TextField() # Can be any one of 'log1', 'log2', 'empty' and 'nodata'
     #provider = TextField()
     #nvcl_id = TextField()
@@ -129,6 +136,7 @@ def read_data(prov_list, db_file):
 
     # Compile a list of known NVCL ids from pickled data
     known_ids = []
+    # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database file
         print(f"Importing db {db_file}, {data_cat}")
@@ -136,14 +144,14 @@ def read_data(prov_list, db_file):
         print(f"g_dfs[{data_cat}] = {g_dfs[data_cat]}")
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
-        s2 = set(columns)
+        s2 = set(COLUMNS)
         if s1 != s2:
             print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_ids = np.append(known_ids, g_dfs[data_cat].nvcl_id.values)
     else:
         # Doesn't exist? Create a new data frame
-        g_dfs[data_cat] = pd.DataFrame(columns=columns)
+        g_dfs[data_cat] = pd.DataFrame(columns=COLUMNS)
 
     # Remove all the NVCL ids in the abort file from known_ids list
     if ABORT_FILE.is_file():
@@ -190,6 +198,11 @@ def read_data(prov_list, db_file):
 
                 # Download previously unknown NVCL id dataset from service
                 logs_data_list = reader.get_logs_data(nvcl_id)
+                # NB: Once we can upgrade to newer Python & nvcl_kit versions this won't be necessary
+                ds_list = reader.get_dataset_list(nvcl_id)
+                modified_date = datetime.datetime.now() 
+                if len(ds_list) > 0:
+                    modified_date = getattr(ds_list[0], 'modified_date', datetime.datetime.now())
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
@@ -199,19 +212,18 @@ def read_data(prov_list, db_file):
                     if ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
                         print(f"Log id {ld.log_id} already imported, next...")
                         continue
-                    HEIGHT_RESOLUTION = 1.0
-                    ANALYSIS_CLASS = ''
                     minerals = []
+                    print(f"LD={ld}")
                     # TODO: Use 'modified_date' field if available 
                     if ld.log_type == '1':
                         bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
                         #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, datetime.datetime.now(), ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
+                        data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
                     else:
                         #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, datetime.datetime.now(), ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
+                        data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
                         key = f"log{ld.log_type}"
@@ -886,6 +898,7 @@ def load_data(db_file):
 
     :param db_file: directory path of database file
     """
+    print(f"Loading database {db_file}")
     for data_cat in DATA_CATS:
         g_dfs[data_cat] = import_db(db_file, data_cat)
 
@@ -931,7 +944,7 @@ if __name__ == "__main__":
 
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL report data creator")
-    parser.add_argument('-r', '--read', action='store_true', help="read data from NVCL services")
+    parser.add_argument('-u', '--update', action='store_true', help="update database from NVCL services")
     parser.add_argument('-s', '--stats', action='store_true', help="calculate statistics")
     parser.add_argument('-p', '--plot', action='store_true', help="create plots & report")
     parser.add_argument('-b', '--brief_plot', action='store_true', help="create brief plots & report")
@@ -943,19 +956,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Complain & exit if nothing selected
-    if not (args.read or args.stats or args.plot or args.brief_plot or args.load):
-        print("No instructional options were selected. What should I do? Please select an option")
+    if not (args.update or args.stats or args.plot or args.brief_plot or args.load):
+        print("No instructional options were selected. What should I do? Please select an option.")
         parser.print_usage()
         sys.exit(1)
 
     now = datetime.datetime.now()
-    print("Running on ", now.strftime("%A %d %B %Y %H:%M:%S"))
+    print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
 
     data_loaded = False
     stats_loaded = False
 
-    # Assign pickle dir, defaults to weekly pickle dir
+    # Assigns a database, defaults to database defined in config
     if args.db is not None:
         db = args.db
     elif 'db' in config:
@@ -963,23 +976,27 @@ if __name__ == "__main__":
     else:
         print("Database not defined in config file, nor on command line")
         sys.exit(1)
+    if not os.path.exists(db):
+        print(f"{db} does not exist")
+        sys.exit(1)
 
-    # Open up pickle files, talk to services, update pickle files
-    if args.read:
-        read_data(PROV_LIST, db)
+    # Open database, talk to services, update database
+    if args.update:
+        update_data(PROV_LIST, db)
         data_loaded = True
 
     # Update/calculate statistics
     if args.stats:
+        # If data not loaded from db then load it
         if not data_loaded:
             load_data(pickle_dir)
             data_loaded = True
         load_stats(db)
         stats_loaded = True
-        # Calculate stats, but only update pickle files if 'args.read'
-        calc_stats(PROV_LIST, db, args.read)
+        # Calculate stats, but only update database if 'args.update'
+        calc_stats(PROV_LIST, db, args.update)
 
-    # Load pickle files from designated pickle dir
+    # Load database from designated database
     elif not data_loaded and args.load:
         load_data(db)
         data_loaded = True

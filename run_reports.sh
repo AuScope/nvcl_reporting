@@ -7,7 +7,7 @@
 # * Weekly run: ./run_reports.sh W
 #
 # Go to reporting directory
-cd ~/gitlab/nvcl_reporting
+cd ~/gitlab2/nvcl_reporting
 
 # Check email
 if [ ! -e .email_addr ]; then
