@@ -30,7 +30,7 @@ from nvcl_kit.param_builder import param_builder
 from types import SimpleNamespace
 
 from make_pdf import write_report
-from db.read_db import import_db
+from db.read_db import import_db, export_db
 
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
 PROV_LIST = ['NSW', 'NT', 'TAS', 'VIC', 'QLD', 'SA', 'WA']
@@ -51,7 +51,7 @@ ABORT_FILE = Path('./run_NVCL_abort.txt')
 DATA_CATS = ['log1', 'log2', 'empty', 'nodata']
 
 # List of columns in a new DataFrame
-COLUMNS = ['provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data']
+COLUMNS = ['provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data']
 
 # Borehole parameters
 HEIGHT_RESOLUTION = 1.0
@@ -116,8 +116,8 @@ def update_data(prov_list, db_file):
     """
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 10 
-        new_prov_list = ['TAS', 'NT']
+        MAX_BOREHOLES = 2 
+        new_prov_list = ['TAS']
         prov_list = new_prov_list
 
     SW_ignore_importedIDs = False
@@ -125,7 +125,7 @@ def update_data(prov_list, db_file):
     #report_category = TextField() # Can be any one of 'log1', 'log2', 'empty' and 'nodata'
     #provider = TextField()
     #nvcl_id = TextField()
-    #create_datetime = DateField()
+    #modified_datetime = DateField()
     #log_id = TextField()
     #algorithm = TextField()
     #log_type = TextField()
@@ -205,24 +205,22 @@ def update_data(prov_list, db_file):
                     modified_date = getattr(ds_list[0], 'modified_date', datetime.datetime.now())
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
-                    #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                    data = [prov, nvcl_id, datetime.datetime.now(), np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+                    #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                    data = [prov, nvcl_id, modified_date, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                     g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
                 for ld in logs_data_list:
                     if ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
                         print(f"Log id {ld.log_id} already imported, next...")
                         continue
                     minerals = []
-                    print(f"LD={ld}")
-                    # TODO: Use 'modified_date' field if available 
                     if ld.log_type == '1':
                         bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                        #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
                         data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
                     else:
-                        #'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
                         data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
@@ -242,8 +240,10 @@ def update_data(prov_list, db_file):
         # Save out all pickle files & exit
         #for df_name, ofile in OFILES_DATA.items():
         #    export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df_name]})
-        sys.exit()
+        sys.exit(3)
 
+    for data_cat in DATA_CATS:
+        export_db(db_file, g_dfs[data_cat])
     # Once finished, save out data to pickle file
     #for df_name, ofile in OFILES_DATA.items():
     #    export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df_name]})

@@ -1,2 +1,2 @@
 plot_dir: plots
-db: db/nvcl-test.db
+db: db/nvcl-empty.db

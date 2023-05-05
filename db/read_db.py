@@ -24,12 +24,12 @@ def conv_json(json_str):
     Converts from JSON string to Python object
 
     :param json_str: JSON string
-    :returns: object or {} upon error
+    :returns: object or [] upon error
     '''
     try:
         return json.loads(json_str) 
     except json.decoder.JSONDecodeError:
-        return {}
+        return []
 
 def import_db(db_file, report_datacat):
     ''' 
@@ -41,14 +41,14 @@ def import_db(db_file, report_datacat):
     '''
     con = sqlite3.connect(db_file)
     try:
-        df = pd.read_sql(f"select provider, nvcl_id, create_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data from meas where report_category = '{report_datacat}'", con) 
+        df = pd.read_sql(f"select provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data from meas where report_category = '{report_datacat}'", con) 
     except pandas.io.sql.DatabaseError as de:
         print(f"Cannot find data category in database {db_file}: {de}")
         exit(1)
     new_df = pd.DataFrame()
     for col in df.columns:
         #print(f"converting {col}")
-        if col == 'create_datetime':
+        if col == 'modified_datetime':
             new_df[col] = df[col].apply(conv_dt)
         elif col in ['minerals', 'mincnts', 'data']:
             new_df[col] = df[col].apply(conv_json)
@@ -56,6 +56,22 @@ def import_db(db_file, report_datacat):
             new_df[col] = df[col]
 
     return new_df
+
+
+def export_db(db_file, df):
+    '''
+    Writes a dataframe to SQLITE database
+
+    :param db_file: SQLITE database file name
+    :param df: dataframe
+    '''
+    con = sqlite3.connect(db_file)
+    try:
+        num_rows = df.to_sql('meas', con, if_exists='append', index=False)
+    except ValueError as ve:
+        print(f"Cannot insert values into database {db_file}: {ve}")
+        sys.exit(1)
+    assert(num_rows == len(df.index))
 
 
 if __name__ == "__main__":
