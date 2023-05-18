@@ -17,20 +17,6 @@ pip3 install -r requirements.txt
 # Second line is the "From:" address
 # Use a comma with no spaces to separate multiple email addresses
 vi .email_addr
-
-# Make directories for extracts and data files
-mkdir pkl-weekly
-mkdir pkl-yearly
-mkdir pkl-quarterly
-```
-
-### Create PDF reports (without connecting to NVCL services or altering data & extract files)
-```
-# Create yearly report
-./run_NVCL.py -p -d pkl-yearly
-
-# Create brief weekly report
-./run_NVCL.py -b -d pkl-weekly
 ```
 
 ### Email PDF reports (will update data & extract files)
@@ -48,36 +34,25 @@ mkdir pkl-quarterly
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
 # Yearly report (run this once a year)
-./run_NVCL.py -rsp -d pkl-yearly
+./make_reports.py -usp
 
-# Weekly report (run this once a week)
-./run_NVCL.py -rsb -d pkl-weekly
-```
-
-### Create extracts (used for comparing with previous points in time)
-```
-# Create yearly extracts (run this once a year)
-./run_NVCL.py -e -d pkl-yearly/
-
-# Create quarterly extracts (run this once a quarter)
-./run_NVCL.py -e -d pkl-quarterly/
+# Brief weekly report (run this once a week)
+./make_reports.py -usb
 ```
 
 ### DB Format
 
-There is only one table, it has the following fields:
+There is only one table "meas", it has the following fields:
 
-1.	Report Category  e.g. "log1", "log2" 
-2.	Provider e.g. "tas" "nsw" etc.
-3.	Nvcl_ID "10026"
-4.	Create_datetime (approximation)
-5.	Log_id  "41679f23-ca82-45a2-bbaf-81fb175c808"
-6.	Algorithm "Grp1 uTSAS", "Grp1 sjCLST" etc.
-7.	Log_type "1"
-8.	AlgorithmID "109"
-9.	Minerals e.g. ["KAOLIN", "WHITE-MICA"]
-10.	Mineral total counts e.g.  [1, 279]
-11.	Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
-
-
+1.	*report_category*  Report Category e.g. "log1", "log2" 
+2.	*provider* State or Territory e.g. "tas" "nsw" etc.
+3.	*nvcl_id* "10026"
+4.	*modified_datetime* (approximation) e.g. '2023/10/30'
+5.	*log_id* e.g. "41679f23-ca82-45a2-bbaf-81fb175c808"
+6.	*algorithm* e.g. "Grp1 uTSAS", "Grp1 sjCLST" etc.
+7.	*log_type* e.g. "1"
+8.	*algorithm_id* e.g. "109"
+9.	*minerals* e.g. ["KAOLIN", "WHITE-MICA"]
+10.	*mincnts* Mineral total counts e.g. [1, 279]
+11.	*data* Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
 
