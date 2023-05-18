@@ -7,7 +7,7 @@
 # * Weekly run: ./run_reports.sh W
 #
 # Go to reporting directory
-cd ~/gitlab/nvcl_reporting
+cd ~/gitlab2/nvcl_reporting
 
 # Check email
 if [ ! -e .email_addr ]; then
@@ -22,23 +22,19 @@ fi
 if [ "$1" = "A" ]; then
 # Takes a while, only run once a year (midnight June 30)
 echo "Annual run"
-# TODO: Backup last year
-./run_NVCL.py -rsp -d pkl-yearly
-./run_NVCL.py -e -d pkl-yearly
+./make_reports.py -usp
 REPORT_NAME=report.pdf
 
 elif [ "$1" = "Q" ]; then
 # Takes a while, only run at end of quarter (Mar 31 etc.)
 echo "Quarterly run"
-# TODO: Backup last quarter
-./run_NVCL.py -rsp -d pkl-quarterly
-./run_NVCL.py -e -d pkl-quarterly
+./make_reports.py -usp
 REPORT_NAME=report.pdf
 
 elif [ "$1" = "W" ]; then
 # Run every week, accumulates boreholes created in the past week
 echo "Weekly run"
-./run_NVCL.py -rsb -d pkl-weekly
+./make_reports.py -usb
 REPORT_NAME=report-brief.pdf
 
 else
