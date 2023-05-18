@@ -30,7 +30,7 @@ from nvcl_kit.param_builder import param_builder
 from types import SimpleNamespace
 
 from make_pdf import write_report
-from db.read_db import import_db, export_db
+from db.readwrite_db import import_db, export_db, DF_COLUMNS
 
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
 PROV_LIST = ['NSW', 'NT', 'TAS', 'VIC', 'QLD', 'SA', 'WA']
@@ -50,8 +50,6 @@ ABORT_FILE = Path('./run_NVCL_abort.txt')
 # Report data categories
 DATA_CATS = ['log1', 'log2', 'empty', 'nodata']
 
-# List of columns in a new DataFrame
-COLUMNS = ['provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data']
 
 # Borehole parameters
 HEIGHT_RESOLUTION = 1.0
@@ -129,7 +127,7 @@ def update_data(prov_list, db_file):
     #log_id = TextField()
     #algorithm = TextField()
     #log_type = TextField()
-    #algorithmID = TextField()
+    #algorithm_id = TextField()
     #minerals = TextField() # Unique minerals
     #mincnts = TextField()  # Counts of unique minerals as an array
     #data = TextField()     # Raw data as a dict
@@ -144,14 +142,14 @@ def update_data(prov_list, db_file):
         print(f"g_dfs[{data_cat}] = {g_dfs[data_cat]}")
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
-        s2 = set(COLUMNS)
+        s2 = set(DF_COLUMNS)
         if s1 != s2:
             print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_ids = np.append(known_ids, g_dfs[data_cat].nvcl_id.values)
     else:
         # Doesn't exist? Create a new data frame
-        g_dfs[data_cat] = pd.DataFrame(columns=COLUMNS)
+        g_dfs[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
 
     # Remove all the NVCL ids in the abort file from known_ids list
     if ABORT_FILE.is_file():
@@ -205,7 +203,7 @@ def update_data(prov_list, db_file):
                     modified_datetime = getattr(ds_list[0], 'modified_datetime', datetime.datetime.now())
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
-                    #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                    #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
                     data = [prov, nvcl_id, modified_datetime, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                     g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
                 for ld in logs_data_list:
@@ -217,10 +215,10 @@ def update_data(prov_list, db_file):
                         bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
                         data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
                     else:
-                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
+                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
                         data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
@@ -238,15 +236,13 @@ def update_data(prov_list, db_file):
             with open(ABORT_FILE, 'w') as f:
                 f.write(current_id)
         # Save out all pickle files & exit
-        #for df_name, ofile in OFILES_DATA.items():
-        #    export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df_name]})
+        for data_cat in DATA_CATS:
+            export_db(db_file, g_dfs[data_cat], data_cat)
         sys.exit(3)
 
-    for data_cat in DATA_CATS:
-        export_db(db_file, g_dfs[data_cat])
     # Once finished, save out data to pickle file
-    #for df_name, ofile in OFILES_DATA.items():
-    #    export_pkl({os.path.join(pickle_dir, ofile): g_dfs[df_name]})
+    for data_cat in DATA_CATS:
+        export_db(db_file, g_dfs[data_cat], data_cat)
 
 
 def calc_bh_kms(prov):
@@ -308,17 +304,17 @@ def calc_stats(prov_list, pickle_dir, export):
             # NB: This nmetres cannot be used for provider by provider totals
             df_nmetres = pd.DataFrame.from_records(zip_longest(*alg_cdf.metres.values))
 
-            df_algorithmID = alg_cdf.algorithmID
+            df_algorithm_id = alg_cdf.algorithm_id
             df_temp = df_nbores.apply(pd.Series.value_counts)
             df_nborescount = df_temp.sum(axis=1)
 
             df_cstats = pd.DataFrame(columns=['nbores', 'nmetres'])
             df_cstats['nbores'] = df_nborescount
 
-            if len(df_algorithmID) == 1:
-                IDs = df_algorithmID.to_list()*len(df_cstats)
+            if len(df_algorithm_id) == 1:
+                IDs = df_algorithm_id.to_list()*len(df_cstats)
             else:
-                IDs = df_algorithmID.to_list()
+                IDs = df_algorithm_id.to_list()
             algos = []
             for iC, col in df_nbores.iteritems():
                 # print(IDs[iC])
@@ -574,7 +570,7 @@ def plot_algorithms(algoid2ver):
     algos = np.unique(g_dfs['log1'][g_dfs['log1'].algorithm.str.contains('^Min|Grp')]['algorithm'])
     try:
         suffixes = np.unique([x.split()[1] for x in algos])
-        g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithmID'], '0'), axis=1)
+        g_dfs['log1']['versions'] = g_dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithm_id'], '0'), axis=1)
 
         df_algo_stats = pd.DataFrame()
         df_algoID_stats = pd.DataFrame()
@@ -944,11 +940,11 @@ if __name__ == "__main__":
 
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL report data creator")
-    parser.add_argument('-u', '--update', action='store_true', help="update database from NVCL services")
-    parser.add_argument('-s', '--stats', action='store_true', help="calculate statistics")
-    parser.add_argument('-p', '--plot', action='store_true', help="create plots & report")
-    parser.add_argument('-b', '--brief_plot', action='store_true', help="create brief plots & report")
-    parser.add_argument('-l', '--load', action='store_true', help="load data from database")
+    parser.add_argument('-u', '--update', action='store_true', help="Update database from NVCL services")
+    parser.add_argument('-s', '--stats', action='store_true', help="Calculate statistics")
+    parser.add_argument('-p', '--plot', action='store_true', help="Create plots & report")
+    parser.add_argument('-b', '--brief_plot', action='store_true', help="Create brief plots & report")
+    parser.add_argument('-l', '--load', action='store_true', help="Load data from database")
 
     parser.add_argument('-d', '--db', action='store', help="Database filename.")
 
