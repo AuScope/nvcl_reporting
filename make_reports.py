@@ -200,13 +200,13 @@ def update_data(prov_list, db_file):
                 logs_data_list = reader.get_logs_data(nvcl_id)
                 # NB: Once we can upgrade to newer Python & nvcl_kit versions this won't be necessary
                 ds_list = reader.get_dataset_list(nvcl_id)
-                modified_date = datetime.datetime.now() 
+                modified_datetime = datetime.datetime.now() 
                 if len(ds_list) > 0:
-                    modified_date = getattr(ds_list[0], 'modified_date', datetime.datetime.now())
+                    modified_datetime = getattr(ds_list[0], 'modified_datetime', datetime.datetime.now())
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                    data = [prov, nvcl_id, modified_date, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+                    data = [prov, nvcl_id, modified_datetime, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                     g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
                 for ld in logs_data_list:
                     if ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
@@ -218,10 +218,10 @@ def update_data(prov_list, db_file):
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
                         #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
+                        data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
                     else:
                         #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, modified_date, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
+                        data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
 
                     if len(minerals) > 0:
                         key = f"log{ld.log_type}"
