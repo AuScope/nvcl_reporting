@@ -48,7 +48,7 @@ MAX_BOREHOLES = 999999
 ABORT_FILE = Path('./run_NVCL_abort.txt')
 
 # Report data categories
-DATA_CATS = ['log1', 'log2', 'empty', 'nodata']
+DATA_CATS = ['log1', 'log2', 'log6', 'empty', 'nodata']
 
 
 # Borehole parameters
@@ -133,23 +133,26 @@ def update_data(prov_list, db_file):
     #data = TextField()     # Raw data as a dict
 
     # Compile a list of known NVCL ids from pickled data
-    known_ids = []
+    known_id_list = []
     # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database file
         print(f"Importing db {db_file}, {data_cat}")
         g_dfs[data_cat] = import_db(db_file, data_cat)
-        print(f"g_dfs[{data_cat}] = {g_dfs[data_cat]}")
+        #print(f"g_dfs[{data_cat}] = {g_dfs[data_cat]}")
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
         if s1 != s2:
             print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
             sys.exit(1)
-        known_ids = np.append(known_ids, g_dfs[data_cat].nvcl_id.values)
+        known_id_list = np.append(known_id_list, g_dfs[data_cat].nvcl_id.values)
     else:
         # Doesn't exist? Create a new data frame
         g_dfs[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
+
+    # Remove duplicates
+    known_ids = np.array(list(set(known_id_list)))
 
     # Remove all the NVCL ids in the abort file from known_ids list
     if ABORT_FILE.is_file():
@@ -201,31 +204,34 @@ def update_data(prov_list, db_file):
                 modified_datetime = datetime.datetime.now() 
                 if len(ds_list) > 0:
                     modified_datetime = getattr(ds_list[0], 'modified_datetime', datetime.datetime.now())
+
+                # No NVCL data, make a 'nodata' record
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
                     data = [prov, nvcl_id, modified_datetime, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
-                    g_dfs['nodata'] = g_dfs['nodata'].append(pd.Series(data, index=g_dfs['nodata'].columns), ignore_index=True)
+                    g_dfs['nodata'] = pd.concat([g_dfs['nodata'], pd.Series(data, index=g_dfs['nodata'].columns).to_frame().T], ignore_index=True)
+
+                # This log has NVCL data
                 for ld in logs_data_list:
                     if ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
                         print(f"Log id {ld.log_id} already imported, next...")
                         continue
                     minerals = []
+                    #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
+                    data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
                     if ld.log_type == '1':
                         bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
-                    else:
-                        #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
-                        data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
-
+                            #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
+                            data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
                     if len(minerals) > 0:
                         key = f"log{ld.log_type}"
-                        g_dfs[key] = g_dfs[key].append(pd.Series(data, index=g_dfs[key].columns), ignore_index=True)
+                        g_dfs[key] = pd.concat([g_dfs[key], pd.Series(data, index=g_dfs[key].columns).to_frame().T], ignore_index=True)
                     else:
-                        g_dfs['empty'] = g_dfs['empty'].append(pd.Series(data, index=g_dfs['empty'].columns), ignore_index=True)
+                        g_dfs['empty'] = pd.concat([g_dfs['empty'], pd.Series(data, index=g_dfs['empty'].columns).to_frame().T], ignore_index=True)
+
                 # Append new NVCL id to list of known NVCL ids
                 np.append(known_ids, nvcl_id)
 
@@ -237,12 +243,12 @@ def update_data(prov_list, db_file):
                 f.write(current_id)
         # Save out all pickle files & exit
         for data_cat in DATA_CATS:
-            export_db(db_file, g_dfs[data_cat], data_cat)
+            export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
         sys.exit(3)
 
     # Once finished, save out data to pickle file
     for data_cat in DATA_CATS:
-        export_db(db_file, g_dfs[data_cat], data_cat)
+        export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
 
 
 def calc_bh_kms(prov):
@@ -338,8 +344,8 @@ def calc_stats(prov_list, pickle_dir, export):
     # Calculate algorithm statistics
     if all(stat_type in df_allstats for stat_type in ['provider', 'algorithm', 'stat']):
         df_allstats = df_allstats.set_index(['provider', 'algorithm', 'stat'])
-    if export:
-        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
+    #if export:
+    #    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_all']): df_allstats})
 
     algorithm_stats_all = {}
     algorithms = np.unique(g_dfs['log1']['algorithm'])
@@ -348,8 +354,8 @@ def calc_stats(prov_list, pickle_dir, export):
         cdf = df_allstats.xs(algorithm, level='algorithm').dropna(axis=1, how='all').droplevel(0)
         algorithm_stats_all[algorithm] = create_stats(cdf)
 
-    if export:
-        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
+    #if export:
+    #    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byalgorithms']): algorithm_stats_all})
 
     # Calculate algorithm by provider statistics
     algorithm_stats_byprov = {}
@@ -362,8 +368,8 @@ def calc_stats(prov_list, pickle_dir, export):
             cdf = sdf.xs(p, level='provider').dropna(axis=1, how='all')
             algorithm_stats_byprov[algorithm][prov] = create_stats(cdf)
 
-    if export:
-        export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byprov']): algorithm_stats_byprov})
+    #if export:
+    #    export_pkl({os.path.join(pickle_dir, OFILES_STATS['stats_byprov']): algorithm_stats_byprov})
 
     # Delete the abort file
     if ABORT_FILE.is_file():
@@ -899,14 +905,6 @@ def load_data(db_file):
         g_dfs[data_cat] = import_db(db_file, data_cat)
 
 
-#def load_stats(pickle_dir):
-#    """ Load borehole stats from pickle file
-#
-#    :param pickle_dir: directory path from which to load pickle file
-#    """
-#    for df_name, ofile in OFILES_STATS.items():
-#        g_dfs[df_name] = import_pkl(os.path.join(pickle_dir, ofile), pd.DataFrame())
-
 
 def load_and_check_config():
     """ Loads config file
@@ -981,21 +979,16 @@ if __name__ == "__main__":
         update_data(PROV_LIST, db)
         data_loaded = True
 
+    # Load database from designated database
+    if not data_loaded:
+        load_data(db)
+
     # Update/calculate statistics
     if args.stats:
-        # If data not loaded from db then load it
-        if not data_loaded:
-            load_data(pickle_dir)
-            data_loaded = True
-        load_stats(db)
-        stats_loaded = True
         # Calculate stats, but only update database if 'args.update'
+        # NB: Not currently updating stats
         calc_stats(PROV_LIST, db, args.update)
-
-    # Load database from designated database
-    elif not data_loaded and args.load:
-        load_data(db)
-        data_loaded = True
+        stats_loaded = True
 
     # Plot results
     if args.plot or args.brief_plot:
@@ -1003,13 +996,8 @@ if __name__ == "__main__":
         plot_path = Path(PLOT_DIR)
         if not plot_path.exists():
             os.mkdir(PLOT_DIR)
-        # Load data & stats
-        if not data_loaded:
-            load_data(db)
-            data_loaded = True
         if not stats_loaded:
-            load_stats(db)
-            stats_loaded = True
+            calc_stats(PROV_LIST, db, False)
         plot_results(db, args.brief_plot, config)
 
     print("Done.")

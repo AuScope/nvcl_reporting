@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from types import SimpleNamespace
 from datetime import datetime
 import json
+import math
 import pandas
 import numpy as np
 
@@ -70,7 +71,7 @@ def conv_minerals(minerals) -> str:
     if isinstance(minerals, Iterable):
         minerals_out = json.dumps(list(minerals))
     elif isinstance(minerals, float) and math.isnan(minerals):
-        minerals_out = []
+        minerals_out = '[]'
     else:
         minerals_out = json.dumps([minerals])
     return minerals_out
@@ -88,7 +89,7 @@ def conv_mincnts(mincnts) -> str:
         # convert numpy int64 -> int
         mincnts_out = json.dumps([int(cnt) for cnt in mincnts])
     elif isinstance(mincnts, float) and math.isnan(mincnts):
-        mincnts_out = []
+        mincnts_out = '[]'
     else:
         mincnts_out = json.dumps([mincnts])
     return mincnts_out
@@ -102,7 +103,6 @@ def conv_data(data) -> str:
     :param data: mineral types at each depth
     :returns: JSON formatted string
     '''
-    #print(f"data={data}")
     data_list = []
     if isinstance(data, OrderedDict):
         for depth, obj in data.items():
@@ -115,7 +115,7 @@ def conv_data(data) -> str:
                 print(repr(obj), type(obj))
                 print("ERROR Unknown obj type in 'data' var")
                 sys.exit(1)
-    elif data != {} and data != [] and not (isinstance(data, float) and math.isnan(data)):
+    elif data != {} and data != [] and not isinstance(data, list) and not (isinstance(data, float) and math.isnan(data)):
         print(repr(data), type(data))
         print("ERROR Unknown type in 'data' var")
         sys.exit(1)
@@ -161,25 +161,27 @@ def import_db(db_file, report_datacat):
     return new_df
 
 
-def export_db(db_file, df, report_category):
+def export_db(db_file, df, report_category, known_ids):
     '''
     Writes a dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
     :param df: dataframe
     :param report_category: report category
+    :param list of NVCL ids that are already in the database
     '''
+    # report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data 
     con = sqlite3.connect(db_file)
     curs = con.cursor()
     for idx, row in df.iterrows():
         # print(f"idx, row.array={idx}, {row.array}")
-        # report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data 
+        row_dict = dict(zip(DF_COLUMNS, row))
+        if row_dict['nvcl_id'] in known_ids:
+            break
         qu_str = '?,' + ','.join([ '?' for i in DF_COLUMNS ])
         insert_str = f"INSERT INTO MEAS({db_col_str()}) VALUES({qu_str});"
-        row_dict = dict(zip(DF_COLUMNS, row))
         insert_tup = (report_category,)
         for key in DF_COLUMNS:
-            # print(key, type(row_dict[key]))
             # Timestamp
             if isinstance(row_dict[key], pd.Timestamp):
                 insert_tup += (to_date(row_dict[key]),)
@@ -196,9 +198,15 @@ def export_db(db_file, df, report_category):
             else:
                 insert_tup += (row_dict[key],)
 
-        curs.execute(insert_str, insert_tup)
+        try:
+            curs.execute(insert_str, insert_tup)
+        except sqlite3.IntegrityError as ie:
+            print("Duplicate row", ie)
+            print("Inserted", insert_str, insert_tup)
+        except sqlite3.InterfaceError as ie:
+            print("Bad param", ie)
+            print("Inserted", insert_str, insert_tup)
     con.commit()
-    #assert(num_rows == len(df.index))
 
 
 if __name__ == "__main__":
