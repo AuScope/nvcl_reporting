@@ -270,7 +270,7 @@ summary = "Makes working with XML feel like you are working with JSON"
 lock_version = "4.2"
 cross_platform = true
 groups = ["default"]
-content_hash = "sha256:6a8a7ed00f2bd8b556abae8b06b7da8113a7652e5a7f8170b3bc449c364a4529"
+content_hash = "sha256:f0a7c57c298d61791cc31c567841ebc04f26aa5c93b29b8459f7e4b5ce0ef9ff"
 
 [metadata.files]
 "certifi 2023.5.7" = [
