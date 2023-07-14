@@ -15,6 +15,8 @@ dependencies = [
     "fpdf2",
     "pillow",
     "cython",
+    "peewee>=3.16.2",
+    "fiscalyear>=0.4.0",
 ]
 requires-python = ">=3.10"
 

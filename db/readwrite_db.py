@@ -13,9 +13,15 @@ from types import SimpleNamespace
 from datetime import datetime
 import json
 import math
+
 import pandas
 import numpy as np
+import peewee
+from peewee import SqliteDatabase, Model
+from playhouse.reflection import generate_models
 
+
+from db.schema import Meas, DATE_FMT, OLD_DATE_FMT
 
 '''
 Various routines used for reading and writing to the SQLITE db
@@ -25,8 +31,6 @@ Various routines used for reading and writing to the SQLITE db
 # List of columns in a new DataFrame is as follows:
 DF_COLUMNS = ['provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data']
 
-# Dates are stored as strings in this format
-DATE_FORMAT = '%Y/%m/%d'
 
 
 def df_col_str() -> str:
@@ -35,106 +39,95 @@ def df_col_str() -> str:
     '''
     return ', '.join(DF_COLUMNS)
 
-def db_col_str() -> str:
-    '''
-    Makes a comma sep string of database column names
-    '''
-    return 'report_category, ' + ', '.join(DF_COLUMNS)
+#def db_col_str() -> str:
+#    '''
+#    Makes a comma sep string of database column names
+#    '''
+#    return 'report_category, ' + ', '.join(DF_COLUMNS)
+#
 
-def conv_dt(dt_str) -> datetime:
+def conv_dt(dt_str: str) -> datetime:
     '''
     Converts a date string in the YYYY/MM/DD format to a datetime.datetime object
     '''
-    return datetime.strptime(dt_str, DATE_FORMAT)
+    try:
+        dt = datetime.strptime(dt_str, DATE_FMT)
+    except ValueError:
+        dt = datetime.strptime(dt_str, OLD_DATE_FMT)
+    return dt
 
 def conv_json(json_str):
-    ''' 
+    '''
     Converts from JSON string to Python object
 
     :param json_str: JSON string
     :returns: object or [] upon error
     '''
-    try:
-        return json.loads(json_str) 
-    except json.decoder.JSONDecodeError:
+    if json_str == 'nan':
         return []
+    try:
+        return json.loads(json_str)
+    except json.decoder.JSONDecodeError as jde:
+        print(jde, "error decoding", repr(json_str))
+        sys.exit(9)
+    #    return []
 
 
-def conv_minerals(minerals) -> str:
+#def to_date(timestamp: pd.Timestamp) -> str:
+#    '''
+#    Converts Pandas Timestamp to string
+#
+#    :param timestamp: Timestamp 
+#    :return: string
+#    '''
+#    dt = timestamp.to_pydatetime()
+#    return dt.strftime(DATE_FMT)
+
+
+def update_datetime(meas: Model, df_row: dict):
     '''
-    Converts lists of minerals to JSON formatted string
+    This exists because the older versions of NVCL Services do not return a date stamp.
+    Gradually they will upgrade and the date stamps will be available.
+    We have been inserting the time when the dataset was retrieved.
+    Therefore this routine checks that the NVCL Services datetime is older and inserts it in the db
 
-    :param minerals: list of minerals
-    :returns: JSON formatted string
+    :param con: SQLITE connection to db
+    :param all_fields: tuple of all fields to be inserted into db
     '''
-    # Sometimes 'minerals' is not an iterable numpy array
-    if isinstance(minerals, Iterable):
-        minerals_out = json.dumps(list(minerals))
-    elif isinstance(minerals, float) and math.isnan(minerals):
-        minerals_out = '[]'
-    else:
-        minerals_out = json.dumps([minerals])
-    return minerals_out
+    #report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithm_id, minerals, mincnts, data  = all_fields
+    #query = "select modified_datetime from meas where report_category=? and provider=? and nvcl_id=? and log_id=? and algorithm=? and log_type=? and algorithm_id=?"
+    #cur = con.cursor()
+    #index_tup = (report_category, provider, nvcl_id, log_id, algorithm, log_type, algorithm_id)
+    #cur.execute(query, index_tup)
+    #rows = cur.fetchall()
+
+    # Get record from db
+    db_rec = meas.select(meas.modified_datetime).where(
+                       (meas.report_category == df_row['report_category']) &
+                       (meas.provider == df_row['provider']) &
+                       (meas.nvcl_id == df_row['nvcl_id']) &
+                       (meas.log_id == df_row['log_id']) &
+                       (meas.algorithm == df_row['algorithm']) &
+                       (meas.log_type ==df_row['log_type']) &
+                       (meas.algorithm_id == df_row['algorithm_id']))
+    assert len(db_rec) == 1
+    # If older than current value in db, then must be the more accurate NVCL Services, so update the row
+    df_modified_dt = df_row['modified_datetime'].to_pydatetime().date()
+
+    if datetime.strptime(db_rec[0].modified_datetime, DATE_FMT).date() > df_modified_dt:
+        print("df_row=", df_row)
+        print("db_rec=", repr(db_rec), db_rec, len(db_rec))
+        print("md=", db_rec[0].modified_datetime)
+        print(" !!! YES! ", repr(db_rec[0].modified_datetime), "should be replaced by", repr(df_modified_dt))
+        db_rec[0].modified_datetime = df_modified_dt
+        rec.save()
+        print("REPLACED!")
+        #cur.execute("update meas set modified_datetime = ? where report_category=? and provider=? and nvcl_id=? and log_id=? and algorithm=? and log_type=? and algorithm_id=?", (modified_datetime,) + index_tup)
+    #else:
+    #    print("NO! ", db_rec[0].modified_datetime, "not by replaced by", df_modified_dt)
 
 
-def conv_mincnts(mincnts) -> str:
-    '''
-    Converts lists of minerals counts to JSON formatted string
-
-    :param minerals: list of mineral counts
-    :returns: JSON formatted string
-    '''
-    # Sometimes 'mincnts' is not an iterable numpy array
-    if isinstance(mincnts, Iterable):
-        # convert numpy int64 -> int
-        mincnts_out = json.dumps([int(cnt) for cnt in mincnts])
-    elif isinstance(mincnts, float) and math.isnan(mincnts):
-        mincnts_out = '[]'
-    else:
-        mincnts_out = json.dumps([mincnts])
-    return mincnts_out
-
-
-def conv_data(data) -> str:
-    '''
-    Convert mineral types at each depth to JSON formatted string
-    i.e. ((depth, {key: val ...}, ...) ... ) or NaN
-
-    :param data: mineral types at each depth
-    :returns: JSON formatted string
-    '''
-    data_list = []
-    if isinstance(data, OrderedDict):
-        for depth, obj in data.items():
-            # vars() converts Namespace -> dict
-            if isinstance(obj, SimpleNamespace):
-                data_list.append([depth, vars(obj)])
-            elif isinstance(obj, list) and len(obj) == 0:
-                continue
-            else:
-                print(repr(obj), type(obj))
-                print("ERROR Unknown obj type in 'data' var")
-                sys.exit(1)
-    elif data != {} and data != [] and not isinstance(data, list) and not (isinstance(data, float) and math.isnan(data)):
-        print(repr(data), type(data))
-        print("ERROR Unknown type in 'data' var")
-        sys.exit(1)
-
-    return json.dumps(data_list)
-
-
-def to_date(timestamp: pd.Timestamp) -> str:
-    '''
-    Converts Pandas Timestamp to string
-
-    :param timestamp: Timestamp 
-    :return: string
-    '''
-    dt = timestamp.to_pydatetime()
-    return dt.strftime(DATE_FORMAT)
-
-
-def import_db(db_file, report_datacat):
+def import_db(db_file: str, report_datacat: str):
     ''' 
     Reads a report category from SQLITE database converts it into a dataframe 
     Assumes file exists
@@ -142,6 +135,7 @@ def import_db(db_file, report_datacat):
     :param db_file: SQLITE database file name
     :param report_datacat: report category
     '''
+    # Not using PeeWee, using Pandas to read db
     con = sqlite3.connect(db_file)
     try:
         df = pd.read_sql(f"select {df_col_str()} from meas where report_category = '{report_datacat}'", con) 
@@ -161,54 +155,48 @@ def import_db(db_file, report_datacat):
     return new_df
 
 
-def export_db(db_file, df, report_category, known_ids):
+def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: []):
     '''
     Writes a dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
     :param df: dataframe
     :param report_category: report category
-    :param list of NVCL ids that are already in the database
+    :param known_ids: list of NVCL ids that are already in the database
     '''
-    # report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithmID, minerals, mincnts, data 
-    con = sqlite3.connect(db_file)
-    curs = con.cursor()
-    for idx, row in df.iterrows():
-        # print(f"idx, row.array={idx}, {row.array}")
-        row_dict = dict(zip(DF_COLUMNS, row))
-        if row_dict['nvcl_id'] in known_ids:
+    # DB cols: report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithm_id, minerals, mincnts, data 
+    #
+    # Using peewee to write out rows
+    sdb = SqliteDatabase(db_file)
+    models = generate_models(sdb)
+    meas_mdl = models['meas']
+    # Loop over all rows in dataframe
+    for idx, row_arr in df.iterrows():
+        # print(f"idx, row_arr.array={idx}, {row_arr.array}")
+        row = dict(zip(DF_COLUMNS, row_arr))
+        row['report_category'] = report_category
+        if row['nvcl_id'] in known_ids:
             break
-        qu_str = '?,' + ','.join([ '?' for i in DF_COLUMNS ])
-        insert_str = f"INSERT INTO MEAS({db_col_str()}) VALUES({qu_str});"
-        insert_tup = (report_category,)
-        for key in DF_COLUMNS:
-            # Timestamp
-            if isinstance(row_dict[key], pd.Timestamp):
-                insert_tup += (to_date(row_dict[key]),)
-            # Data
-            elif key == 'data':
-                insert_tup += (conv_data(row_dict[key]),)
-            # Mincnts
-            elif key == 'mincnts':
-                insert_tup += (conv_mincnts(row_dict[key]),)
-            # Minerals
-            elif key == 'minerals':
-                insert_tup += (conv_minerals(row_dict[key]),)
-            # String
-            else:
-                insert_tup += (row_dict[key],)
-
         try:
-            curs.execute(insert_str, insert_tup)
-        except sqlite3.IntegrityError as ie:
-            print("Duplicate row", ie)
-            print("Inserted", insert_str, insert_tup)
-        except sqlite3.InterfaceError as ie:
-            print("Bad param", ie)
-            print("Inserted", insert_str, insert_tup)
-    con.commit()
-
+            # Create new row
+            print('row=', repr(row))
+            meas_mdl.create(**row)
+            #Meas.create(report_category=report_category, provider=row['provider'],
+            #          nvcl_id=row['nvcl_id'], modified_datetime=modified_datetime, log_id=row['log_id'],
+            #          algorithm=row['algorithm'], log_type=row['log_type'],
+            #          algorithmID=row['algorithm_id'], minerals=row['minerals'],
+            #          mincnts=row['mincnts'], data=row['data'])
+        except peewee.IntegrityError as pie:
+            print("Duplicate row", pie)
+            print("Tried to insert", row)
+            # Update 'modified_datetime' if required
+            update_datetime(meas_mdl, row)
+        except peewee.InterfaceError as sie:
+            print("Bad param", sie)
+            print("Tried to insert", row)
+            sys.exit(1)
 
 if __name__ == "__main__":
+    # Used for testing
     print(import_db("nvcl-test.db", "log2"))
 

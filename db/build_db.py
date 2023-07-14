@@ -4,9 +4,8 @@
 import sys
 import os
 from pathlib import Path
-import pandas as pd
-pd.options.mode.chained_assignment = None
 import datetime
+from datetime import date
 import time
 import pickle
 import sqlite3
@@ -17,36 +16,21 @@ import json
 from types import SimpleNamespace
 import math
 
-from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
-from datetime import date
+import pandas as pd
+pd.options.mode.chained_assignment = None
 
-DATE_FMT = '%Y/%m/%d'
+from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
+
+from db.schema import DATE_FMT
+
 DB_NAME = 'nvcl-test.db'
 if os.path.exists(DB_NAME):
     os.unlink(DB_NAME)
 db = SqliteDatabase(DB_NAME)
 TEST_RUN = True
 
-class Meas(Model):
-    # ['report_category', 'provider', 'nvcl_id', 'create_datetime', 'log_id', 'algorithm', 'log_type', 'algorithmID', 'minerals', 'metres', 'data']
-    report_category = TextField() # Can be any one of 'log1', 'log2', 'empty' and 'nodata'
-    provider = TextField()
-    nvcl_id = TextField()
-    create_datetime = DateField()
-    log_id = TextField()
-    algorithm = TextField()
-    log_type = TextField()
-    algorithmID = TextField()
-    minerals = TextField() # Unique minerals
-    mincnts = TextField()  # Counts of unique minerals as an array
-    data = TextField()     # Raw data as a dict
 
-    class Meta:
-        primary_key = CompositeKey('report_category', 'provider', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithmID')
-        database = db
-
-
-def import_pkl(infile, empty={}):
+def import_pkl(infile: str, empty={}) -> any:
     """ Reads pickle file and returns its data
     NB: exits upon exception
 
@@ -72,9 +56,17 @@ def import_pkl(infile, empty={}):
         sys.exit(1)
     return data
 
-def convert2json(create_dt, minerals, mincnts, data):
+def convert2json(modified_dt: datetime, minerals: [], mincnts: [], data: any) -> (str, str, str, str):
+    """ Converts fields to JSON strings in preparation for db insert
 
-    create_dt_out = create_dt.strftime(DATE_FMT)
+    :param modified_st: record's modified datetime
+    :param mineral: list of mineral names
+    :param mincnts: mineral counts
+    :param data: mineral class at depths data
+    :returns: a tuple of JSON strings
+    """
+
+    modified_dt_out = modified_dt.strftime(DATE_FMT)
     # Sometimes 'minerals' is not an iterable numpy array
     if isinstance(minerals, Iterable):
         minerals_out = json.dumps(list(minerals))
@@ -110,9 +102,10 @@ def convert2json(create_dt, minerals, mincnts, data):
 
     data_out = json.dumps(data_list)
 
-    return create_dt_out, minerals_out, mincnts_out, data_out
+    return modified_dt_out, minerals_out, mincnts_out, data_out
 
-def load_data(pickle_dir, subdir):
+
+def load_data(pickle_dir: str, subdir: str):
     """ Load NVCL data from pickle file
 
     :param pickle_dir: directory path from which to load pickle file
@@ -121,11 +114,11 @@ def load_data(pickle_dir, subdir):
     report_category = TextField()
     provider = TextField()
     nvcl_id = TextField()
-    create_datetime = DateField()
+    modified_datetime = DateField()
     log_id = TextField()
     algorithm = TextField()
     log_type = TextField()
-    algorithmID = TextField()
+    algorithm_id = TextField()
     minerals = TextField()
     mincnts = TextField()
     data = TextField()
@@ -145,40 +138,41 @@ def load_data(pickle_dir, subdir):
         print(f"{pickle_file}:")
         print(repr(df))
         print(df[['state', 'nvcl_id', 'log_id', 'algorithm']].head(10))
-        # Read file timestamp, to be used as create_date
-        # Create date is not stored in the pickle files, so have to use the oldest file timestamp
+        # Read file timestamp, to be used as modified_datetime
+        # Modified date is not stored in the pickle files, so have to use the oldest file timestamp
         # from all the pickle files as an approximation
         try:
-            create_dt = datetime.datetime.fromtimestamp(pickle_file.stat().st_mtime)
+            modified_dt = datetime.datetime.fromtimestamp(pickle_file.stat().st_mtime)
         except Exception:
             print(f"Could not find date for {pickle_file}")
         else:
-            print(f"Create date for pickle file is {create_dt}")
+            print(f"Modified date for pickle file is {modified_dt}")
         # Loop over the rows in the pandas DataFrame, converting fields to strings or JSON
         for idx, row in df.iterrows():
             # NB: 'metres' is better labelled as 'mincnts'
-            create_datetime, minerals, mincnts, data = convert2json(create_dt, row['minerals'],
+            modified_datetime, minerals, mincnts, data = convert2json(modified_dt, row['minerals'],
                                                                     row['metres'], row['data'])
             #print("Inserting", row['state'], row['nvcl_id'], row['log_id'], row['algorithm'])
             try:
                 Meas.create(report_category=report_category, provider=row['state'],
-                      nvcl_id=row['nvcl_id'], create_datetime=create_datetime, log_id=row['log_id'],
+                      nvcl_id=row['nvcl_id'], modified_datetime=modified_datetime, log_id=row['log_id'],
                       algorithm=row['algorithm'], log_type=row['log_type'],
-                      algorithmID=row['algorithmID'], minerals=minerals,
+                      algorithm_id=row['algorithm_id'], minerals=minerals,
                       mincnts=mincnts, data=data)
             except IntegrityError:
-                # This is a duplicate, so modify create date if earlier than the stored one
+                # This is a duplicate, so modify modification date if earlier than the stored one
                 rec = Meas.get(report_category=report_category, provider=row['state'],
                        nvcl_id=row['nvcl_id'], log_id=row['log_id'], algorithm=row['algorithm'],
-                       log_type=row['log_type'], algorithmID=row['algorithmID'])
-                rec_create_dt = create_dt.strptime(rec.create_datetime, DATE_FMT)
-                # Alter create date if earlier
-                if create_dt < rec_create_dt:
-                    rec.create_datetime = create_dt.strftime(DATE_FMT)
+                       log_type=row['log_type'], algorithm_id=row['algorithm_id'])
+                rec_modified_dt = modified_dt.strptime(rec.modified_datetime, DATE_FMT)
+                # Alter modified date if earlier
+                if modified_dt < rec_modified_dt:
+                    rec.modified_datetime = modified_dt.strftime(DATE_FMT)
                     rec.save()
             if TEST_RUN and idx > 100:
                 break
         print("Finished inserting")
+
 
 if __name__ == "__main__":
 
@@ -192,7 +186,7 @@ if __name__ == "__main__":
     db.connect()
     db.create_tables([Meas])
 
-    # Open up NVCL data pickle files, extract create dates and create a new sqlite db
+    # Open up NVCL data pickle files, extract modified dates and create a new sqlite db
     for subdir in ['data','other','emptyrecs','nodata']:
         pkl_subdir = Path(pickle_dir) / Path(subdir)
         print("Loading", pkl_subdir)
