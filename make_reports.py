@@ -7,16 +7,16 @@ import shutil
 from pathlib import Path
 import argparse
 import re
-import pandas as pd
-pd.options.mode.chained_assignment = None
 import yaml
 import datetime
 import time
 import signal
+from collections import OrderedDict
+from itertools import zip_longest
 
 import numpy as np
-from itertools import zip_longest
-import pickle
+import pandas as pd
+pd.options.mode.chained_assignment = None
 from wordcloud import WordCloud, STOPWORDS
 from periodictable import elements
 
@@ -75,6 +75,29 @@ BBX2A = (1.0, 0.5)
 Internal functions
 '''
 
+def conv_mindata(mindata: OrderedDict) -> list:
+    """ Convert mineral data to a list e.g.
+    from: OrderedDict([(0.5, namespace(className='', classCount=75, classText='Andesite lava breccia', colour=(0.21568627450980393, 1.0, 0.0, 1.0))), 
+    to: [[0.5, {'className': '', 'classText': 'Jarosite', 'colour': [0.40784313725490196, 0.3764705882352941, 0.10588235294117647, 1.0]}],
+    """
+    data_list = []
+    if isinstance(mindata, OrderedDict):
+        for depth, obj in mindata.items():
+            # vars() converts Namespace -> dict
+            if isinstance(obj, SimpleNamespace):
+                data_list.append([depth, vars(obj)])
+            elif isinstance(obj, list) and len(obj) == 0:
+                continue
+            else:
+                print(repr(obj), type(obj))
+                print("ERROR unknown obj type in 'data' var")
+                sys.exit(1)
+    else:
+        print(f"ERROR {mindata} is not an ordered list")
+        sys.exit(8)
+    return data_list
+
+
 def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:
     """
     Create statistics
@@ -118,7 +141,7 @@ def update_data(prov_list: [], db_file: str):
     MAX_BOREHOLES = 999999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 5000 
+        MAX_BOREHOLES = 3
         new_prov_list = ['TAS']
         prov_list = new_prov_list
 
@@ -204,12 +227,12 @@ def update_data(prov_list: [], db_file: str):
 
                 # Download previously unknown NVCL id dataset from service
                 logs_data_list = reader.get_logs_data(nvcl_id)
-
+                now_date = datetime.datetime.now().date()
                 # If no NVCL data, make a 'nodata' record
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
-                    data = [prov, nvcl_id, datetime.datetime.now(), np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+                    data = [prov, nvcl_id, now_date, '', '', '', '', [], [], []]
                     g_dfs['nodata'] = pd.concat([g_dfs['nodata'], pd.Series(data, index=g_dfs['nodata'].columns).to_frame().T], ignore_index=True)
 
                 # If this log has NVCL data
@@ -221,14 +244,19 @@ def update_data(prov_list: [], db_file: str):
                     minerals = []
                     #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
                     # If provider supports modified_date then use it
-                    modified_datetime = getattr(ld, 'modified_date', datetime.datetime.now())
-                    data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, np.nan, np.nan, np.nan]
+                    modified_datetime = getattr(ld, 'modified_date', now_date)
+                    # print(f"From NVCL {modified_datetime=}")
+                    data = [prov, nvcl_id, modified_datetime.date(), ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, [], [], []]
+                    # If type 1 then get the mineral class data
                     if ld.log_type == '1':
                         bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                         if bh_data:
                             minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
                             #'provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data'
-                            data = [prov, nvcl_id, modified_datetime, ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals, mincnts, bh_data]
+                            # Convert the 'minerals', 'mincnts' & 'data' fields to lists etc.
+                            data = [prov, nvcl_id, modified_datetime.date(), ld.log_id, ld.log_name, ld.log_type, ld.algorithm_id, minerals.tolist(), mincnts.tolist(), conv_mindata(bh_data)]
+
+                    # Add new data to the dataframe
                     if len(minerals) > 0:
                         key = f"log{ld.log_type}"
                         g_dfs[key] = pd.concat([g_dfs[key], pd.Series(data, index=g_dfs[key].columns).to_frame().T], ignore_index=True)
@@ -238,19 +266,19 @@ def update_data(prov_list: [], db_file: str):
                 # Append new NVCL id to list of known NVCL ids
                 np.append(known_ids, nvcl_id)
 
-    # If user presses Ctrl-C then save out data to pickle file & exit
+    # If user presses Ctrl-C then save out data to db & exit
     except KeyboardInterrupt:
         # Save current NVCL id to abort file, so we can exclude it later on
         if current_id != '':
             with open(ABORT_FILE, 'w') as f:
                 f.write(current_id)
-        # Save out all pickle files & exit
+        # Save out data & exit
         for data_cat in DATA_CATS:
             export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
 
-    # Once finished, save out data to pickle file
+    # Once finished, save out data to database
     for data_cat in DATA_CATS:
         export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
 
@@ -303,7 +331,7 @@ def calc_stats(prov_list: list, prefix: str):
     Calculates statistics based on input dataset dictionary
 
         :param prov_list: list of NVCL service providers
-        :param prefix: directory where pickle files are written to
+        :param prefix: sorting prefix for reports
     """
     df_allstats = pd.DataFrame()
     # Munge data
@@ -663,7 +691,7 @@ def load_data(db_file):
 
 def load_and_check_config():
     """ Loads config file
-    This file contains the directories where the weekly, quarterly and yearly pickle files are kept, 
+    This file contains the directories where the database file is kept, 
     and the directory where the plot files are kept.
     """
 

@@ -3,8 +3,8 @@ This is the schema for the database
 '''
 from peewee import Field, Model, TextField, DateField, CompositeKey
 
-DATE_FMT = '%Y/%m/%d'
-OLD_DATE_FMT = '%Y-%m-%d'
+#DATE_FMT = '%Y/%m/%d'
+DATE_FMT = '%Y-%m-%d'
 
 class ScalarsField(Field):
     field_type = 'Scalars'
