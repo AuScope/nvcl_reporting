@@ -1,16 +1,17 @@
 # NVCL Reporting
 
-Some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
+Creates a summary database of the NVCL core library from around Australia
+
+There are also some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
 ### Setup
+
+If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
+
 ```
 git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
 cd nvcl_reporting
-mkdir venv
-python3 -m venv ./venv
-. ./venv/bin/activate
-pip3 install --upgrade pip
-pip3 install -r requirements.txt
+pdm install
 
 # Add two email addresses to a text file
 # First line are the "To:" addresses
@@ -21,6 +22,8 @@ vi .email_addr
 
 ### Email PDF reports (will update data & extract files)
 ```
+eval $(pdm venv activate)
+
 # Send off annual email report (run this once a year)
 ./run_reports.sh A
 
@@ -33,6 +36,8 @@ vi .email_addr
 
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
+eval $(pdm venv activate)
+
 # Yearly report (run this once a year)
 ./make_reports.py -usp
 
