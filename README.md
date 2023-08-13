@@ -22,6 +22,8 @@ vi .email_addr
 
 ### Email PDF reports (will update data & extract files)
 ```
+eval $(pdm venv activate)
+
 # Send off annual email report (run this once a year)
 ./run_reports.sh A
 
@@ -34,6 +36,8 @@ vi .email_addr
 
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
+eval $(pdm venv activate)
+
 # Yearly report (run this once a year)
 ./make_reports.py -usp
 
