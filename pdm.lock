@@ -6,7 +6,7 @@ groups = ["default"]
 cross_platform = true
 static_urls = false
 lock_version = "4.3"
-content_hash = "sha256:36d72ded8961ca9d40023b0d9366b76551a5b06a3fb1fe04c90943e1740c7985"
+content_hash = "sha256:289229a0a632cd380c5f23aef03056c6b44209f39fd267b714035d55d2d9a637"
 
 [[package]]
 name = "certifi"
@@ -198,15 +198,6 @@ files = [
 ]
 
 [[package]]
-name = "geojson"
-version = "2.5.0"
-summary = "Python bindings and utilities for GeoJSON"
-files = [
-    {file = "geojson-2.5.0-py2.py3-none-any.whl", hash = "sha256:ccbd13368dd728f4e4f13ffe6aaf725b6e802c692ba0dde628be475040c534ba"},
-    {file = "geojson-2.5.0.tar.gz", hash = "sha256:6e4bb7ace4226a45d9c8c8b1348b3fc43540658359f93c3f7e03efa9f15f658a"},
-]
-
-[[package]]
 name = "idna"
 version = "3.4"
 requires_python = ">=3.5"
@@ -383,26 +374,24 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.1.2"
-requires_python = ">=3.7"
+version = "1.1.3"
+requires_python = ">=3.8"
 summary = "Downloads Australian NVCL datasets"
 dependencies = [
-    "geojson~=2.5",
-    "owslib==0.28.1",
-    "pyproj~=3.2",
-    "python-dateutil~=2.8",
-    "pyyaml~=6.0",
-    "requests~=2.28",
-    "shapely~=2.0",
+    "owslib>=0.29.2",
+    "pyproj>=3.5.0",
+    "pyyaml>=6.0.1",
+    "requests>=2.31.0",
+    "shapely>=2.0.1",
 ]
 files = [
-    {file = "nvcl-kit-1.1.2.tar.gz", hash = "sha256:9be7f41474f2479847f162089647696a866e1179354e73ef0a974e969a5f8361"},
-    {file = "nvcl_kit-1.1.2-py3-none-any.whl", hash = "sha256:11e55cb3777c4c8dae91399175134e0eea2bd2279128f39740753b138ca23088"},
+    {file = "nvcl-kit-1.1.3.tar.gz", hash = "sha256:97811a0415cc62aa21815472b690abd02de9edef1edb1b6964af1e83a0b852fd"},
+    {file = "nvcl_kit-1.1.3-py3-none-any.whl", hash = "sha256:56dd52f6e7530dff87e1f29a196a989cc968c2f804bb49696a85a5d3aec2c6fb"},
 ]
 
 [[package]]
 name = "owslib"
-version = "0.28.1"
+version = "0.29.2"
 requires_python = ">=3.6"
 summary = "OGC Web Service utility library"
 dependencies = [
@@ -413,8 +402,8 @@ dependencies = [
     "requests>=1.0",
 ]
 files = [
-    {file = "OWSLib-0.28.1-py2.py3-none-any.whl", hash = "sha256:5f16d35de5b91ae99989668bff66f123439d139c9202592ef2aba32227fff036"},
-    {file = "OWSLib-0.28.1.tar.gz", hash = "sha256:d482bca2070a0b744a479a66038c7206731af8e3873aa90ab25d1076c13f9368"},
+    {file = "OWSLib-0.29.2-py2.py3-none-any.whl", hash = "sha256:07a597f3d0029ee41eb159dcf784672ce6b3968b61bb39ad93ca9b29a4f4a2b7"},
+    {file = "OWSLib-0.29.2.tar.gz", hash = "sha256:6c03924747e802466c7b4f5873ed555f16aa51806c9be85dc84af95bbe75466c"},
 ]
 
 [[package]]
