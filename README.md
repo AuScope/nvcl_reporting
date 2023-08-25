@@ -1,3 +1,5 @@
+[![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
+
 # NVCL Reporting
 
 Creates a summary database of the NVCL core library from around Australia
