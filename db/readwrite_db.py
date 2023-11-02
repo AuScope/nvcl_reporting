@@ -21,7 +21,10 @@ from peewee import SqliteDatabase, Model
 from playhouse.reflection import generate_models
 
 
-from db.schema import Meas, DATE_FMT
+from db.schema import Meas, DATE_FMT, DF_COLUMNS
+
+# Database columns = 'report_category' + list of columns in a new DataFrame
+from db.schema import DF_COLUMNS
 
 '''
 Various routines used for reading and writing to the SQLITE db
@@ -30,12 +33,6 @@ Unfortunately there is no automatic conversion between pandas dataframes and dat
 more complex types
 i.e. pandas won't convert a column of arrays or json for your sqlite db even if you use sqlalchemy
 '''
-
-# Database columns = 'report_category' + list of columns in a new DataFrame
-# List of columns in a new DataFrame is as follows:
-DF_COLUMNS = ['provider', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data']
-
-
 
 def df_col_str() -> str:
     '''
@@ -109,6 +106,8 @@ def update_datetime(meas: Model, df_row: dict):
     assert len(db_rec) == 1
     df_modified_dt = df_row['modified_datetime']
     db_modified_dt = db_rec[0].modified_datetime
+    #print(f"{df_modified_dt=}")
+    #print(f"{db_modified_dt=}")
 
     # If older than current value in db, then must be the more accurate NVCL Services, so update the row
     if db_modified_dt > df_modified_dt:
@@ -131,15 +130,17 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
     try:
         df = pd.read_sql(f"select {df_col_str()} from meas where report_category = '{report_datacat}'", con) 
     except pandas.io.sql.DatabaseError as de:
-        print(f"Cannot find data category in database {db_file}: {de}")
-        exit(1)
+        # If does not exist, create a new one
+        print(f"Cannot find data in database {db_file}: {de}")
+        print("Creating a new database")
+        df = pd.DataFrame(columns=DF_COLUMNS)
 
     # Convert to usable datatypes
-    new_df = pd.DataFrame()
+    new_df = pd.DataFrame(columns=DF_COLUMNS)
     for col in df.columns:
         #print(f"converting {col}")
         # dates in db are converted to 'datetime.date' objects
-        if col == 'modified_datetime':
+        if col in ['modified_datetime','hl_scan_date']:
             new_df[col] = df[col].apply(conv_str2dt)
         # minerals, mineral counts and mineral data are converted to lists and dicts
         elif col in ['minerals', 'mincnts', 'data']:
@@ -156,7 +157,7 @@ def conv_obj2str(arr: []) -> str:
     try:
         return json.dumps(arr)
     except json.decoder.JSONDecodeError as jde:
-        print(jde, "error decoding", repr(json_str))
+        print(f"{jde}: error decoding {arr}")
         sys.exit(9)
 
 
@@ -174,9 +175,17 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
     # Using peewee to write out rows
     sdb = SqliteDatabase(db_file)
     models = generate_models(sdb)
+    # If new database, create new table
+    if 'meas' not in models:
+        Meas._meta.database = sdb
+        sdb.create_tables([Meas])
+        models = generate_models(sdb)
     meas_mdl = models['meas']
     # Loop over all rows in dataframe
     for idx, row_arr in df.iterrows():
+        #print(f"{DF_COLUMNS=}")
+        #print(f"{[cols for cols in df.columns]}")
+        #print(f"{df.head()=}")
         row = dict(zip(DF_COLUMNS, row_arr))
         row['report_category'] = report_category
         row['mincnts'] = conv_obj2str(row['mincnts'])
@@ -188,10 +197,12 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
         #    break
         try:
             # Create new row
-            meas_mdl.create(**row)
+            #print(f"{row=}")
+            tbl_handle = meas_mdl.create(**row)
+            tbl_handle.save()
         except peewee.IntegrityError as pie:
-            #print("Duplicate row", pie)
-            #print("Tried to insert", row)
+            print("Duplicate row", pie)
+            print("Tried to insert", row)
             # Update 'modified_datetime' if required
             update_datetime(meas_mdl, row)
         except peewee.InterfaceError as sie:

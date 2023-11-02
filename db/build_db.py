@@ -21,7 +21,7 @@ pd.options.mode.chained_assignment = None
 
 from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
 
-from db.schema import DATE_FMT
+from db.schema import DATE_FMT, Meas
 
 DB_NAME = 'nvcl-test.db'
 if os.path.exists(DB_NAME):
