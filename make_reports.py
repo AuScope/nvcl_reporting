@@ -172,7 +172,9 @@ def update_data(prov_list: [], db_file: str):
                 # Download previously unknown NVCL id dataset from service
                 logs_data_list = reader.get_logs_data(nvcl_id)
                 now_datetime = datetime.datetime.now()
+                ###
                 # If no NVCL data, make a 'nodata' record
+                ###
                 if not logs_data_list:
                     print(f"No NVCL data for {nvcl_id}!") 
                     new_row = DF_Row(provider=prov,
@@ -197,10 +199,12 @@ def update_data(prov_list: [], db_file: str):
                        minerals=[],
                        mincnts=[],
                        data=[])
-                    print("AS_LIST:", new_row.as_list())
+                    #print("AS_LIST:", new_row.as_list())
                     g_dfs['nodata'] = pd.concat([g_dfs['nodata'], pd.Series(new_row.as_list(), index=g_dfs['nodata'].columns).to_frame().T], ignore_index=True)
 
+                ###
                 # If this log has NVCL data
+                ###
                 for ld in logs_data_list:
                     if SW_ignore_importedIDs and \
                       ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
@@ -210,16 +214,22 @@ def update_data(prov_list: [], db_file: str):
                     # If provider supports modified_date then use it
                     modified_datetime = getattr(ld, 'modified_date', now_datetime)
                     print(f"From NVCL {modified_datetime=}")
+
+                    # Get Hylogger scan date from CSV file
                     if nvcl_id in tsg_meta.dt_lkup:
                         hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S')
                     else:
                         hl_scan_date = modified_datetime
-                    print(f"{hl_scan_date=}")
+                    print(f"HYLOGGER SCAN DATE {hl_scan_date=}")
 
+                    # When there is no modified datetime, but there is Hylogger scan date, use the scan date
+                    if modified_datetime == now_datetime and hl_scan_date < now_datetime:
+                        modified_datetime = hl_scan_date
+                        
                     new_row = DF_Row(provider=prov,
                        borehole_id=boreholes_list[idx]['nvcl_id'],
                        drill_hole_name=boreholes_list[idx]['name'],
-                       hl_scan_date=now_datetime,
+                       hl_scan_date=hl_scan_date,
                        easting=easting,
                        northing=northing,
                        crs="EPSG:7842",

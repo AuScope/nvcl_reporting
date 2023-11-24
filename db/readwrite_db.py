@@ -46,6 +46,8 @@ def conv_str2dt(dt_str: str) -> date:
     Converts a date string in the YYYY-MM-DD format to a datetime.date object
     '''
     #assert isinstance(dt_str, str) and dt_str[4] == '/' and dt_str[7] == '/' and dt_str[:3].isnumeric()
+    assert type(dt_str) is not pd.Timestamp
+
     try:
         return datetime.strptime(dt_str, DATE_FMT).date()
     except ValueError:
@@ -105,7 +107,10 @@ def update_datetime(meas: Model, df_row: dict):
                        (meas.algorithm_id == df_row['algorithm_id']))
     assert len(db_rec) == 1
     df_modified_dt = df_row['modified_datetime']
+    assert type(df_modified_dt) is not pd.Timestamp
+
     db_modified_dt = db_rec[0].modified_datetime
+    assert type(db_modified_dt) is not pd.Timestamp
     #print(f"{df_modified_dt=}")
     #print(f"{db_modified_dt=}")
 
@@ -134,6 +139,7 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
         print(f"Cannot find data in database {db_file}: {de}")
         print("Creating a new database")
         df = pd.DataFrame(columns=DF_COLUMNS)
+    assert type(df['modified_datetime']) is not pd.Timestamp
 
     # Convert to usable datatypes
     new_df = pd.DataFrame(columns=DF_COLUMNS)
@@ -149,6 +155,7 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
         else:
             new_df[col] = df[col]
 
+    assert type(new_df['modified_datetime']) is not pd.Timestamp
     return new_df
 
 
@@ -186,28 +193,33 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
         #print(f"{DF_COLUMNS=}")
         #print(f"{[cols for cols in df.columns]}")
         #print(f"{df.head()=}")
-        row = dict(zip(DF_COLUMNS, row_arr))
-        row['report_category'] = report_category
-        row['mincnts'] = conv_obj2str(row['mincnts'])
-        row['minerals'] = conv_obj2str(row['minerals'])
-        row['data'] = conv_obj2str(row['data'])
 
+        # Assemble a dict from dataframe row
+        row_df_dict = dict(zip(DF_COLUMNS, row_arr))
+        row_df_dict['report_category'] = report_category
+        row_df_dict['mincnts'] = conv_obj2str(row_df_dict['mincnts'])
+        row_df_dict['minerals'] = conv_obj2str(row_df_dict['minerals'])
+        row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
+
+        assert type(row_df_dict['modified_datetime']) is not pd.Timestamp
+
+        
         # !!! FIXME: Temporary
-        #if row['nvcl_id'] in known_ids:
+        #if row_df_dict['nvcl_id'] in known_ids:
         #    break
         try:
-            # Create new row
-            #print(f"{row=}")
-            tbl_handle = meas_mdl.create(**row)
+            # Create new row in db
+            #print(f"{row_df_dict=}")
+            tbl_handle = meas_mdl.create(**row_df_dict)
             tbl_handle.save()
         except peewee.IntegrityError as pie:
             print("Duplicate row", pie)
-            print("Tried to insert", row)
+            print("Tried to insert", row_df_dict)
             # Update 'modified_datetime' if required
-            update_datetime(meas_mdl, row)
+            update_datetime(meas_mdl, row_df_dict)
         except peewee.InterfaceError as sie:
             print("Bad param", sie)
-            print("Tried to insert", row)
+            print("Tried to insert", row_df_dict)
             sys.exit(1)
 
 if __name__ == "__main__":
