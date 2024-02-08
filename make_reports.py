@@ -70,6 +70,8 @@ def conv_mindata(mindata: OrderedDict) -> list:
 
 
 def to_metres(x: float, y: float) -> (float, float):
+    """ Convert from EPSG:4326 WGS84 (units: degrees) to EPSG:7842 GDA2020 (units: metres)
+    """
     transformer = Transformer.from_crs(4326, 7842)
     return transformer.transform(y, x)
 
@@ -307,7 +309,6 @@ def load_and_check_config():
     This file contains the directories where the database file is kept, 
     and the directory where the plot files are kept.
     """
-
     try:
         with open(CONFIG_FILE, "r") as fd:
             config = yaml.safe_load(fd)

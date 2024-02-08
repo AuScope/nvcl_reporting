@@ -58,10 +58,10 @@ def calc_metric_diffs(all_keys: list, larger: dict, smaller: dict):
     return result    
 
 
-def calc_bh_kms(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.date = None,
+def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.date = None,
                 end_date: datetime.date = None, return_cnts: bool = False) -> int:
     """
-    Assemble a dict of borehole depths
+    Assemble dicts of borehole depths (and optional counts) from start date to end date
 
     :param dfs: source dataframe dict
     :param prov: name of data provider, state or territory
@@ -71,7 +71,7 @@ def calc_bh_kms(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.dat
     :returns: (optional) borehole counts, sum of borehole depths (units: kilometres)
     """
     # Filter by data provider, optional date range
-    print(f"calc_bh_kms({prov})")
+    print(f"calc_bh_depths({prov})")
     if dfs['log1'].empty:
         if not return_cnts:
             return 0
@@ -244,7 +244,8 @@ def get_cnts(dfs: dict[str, pd.DataFrame], all_provs: list,
     cnts = {}
     kms = {}
     for prov in all_provs:
-        cnts[prov], kms[prov] = calc_bh_kms(dfs, prov, start_date, end_date, True)
+        # Borehole counts and depths from 'start_date' to 'end_date'
+        cnts[prov], kms[prov] = calc_bh_depths(dfs, prov, start_date, end_date, True)
     return cnts, kms
 
 
@@ -319,8 +320,8 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
     # Table of number of boreholes by provider
     make_table(table_data, title_list, list(all_provs), list(all_counts), "Number of boreholes by Provider")
 
-    # Calculate a list of number of kilometres, one value for each provider 
-    nkilometres_totals = [ calc_bh_kms(dfs, prov) for prov in all_provs ]
+    # Calculate a list of total depths in kms, one value for each provider 
+    nkilometres_totals = [ calc_bh_depths(dfs, prov) for prov in all_provs ]
 
     # Make number of kilometres by provider table
     make_table(table_data, title_list, list(all_provs), nkilometres_totals, "Number of borehole kilometres by Provider")
@@ -328,10 +329,16 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
     # Plot borehole kilometres by provider
     plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir)
 
-    # Calculate borehole counts and kilometres
+    # get start and end of previous financial year and quarter
+    now = datetime.datetime.now()
+    print(f"{now=}")
     y_start, y_end, q_start, q_end = get_fy_date_ranges()
-    y_cnts, y_kilometres = get_cnts(dfs, all_provs, y_start, y_end)
-    q_cnts, q_kilometres = get_cnts(dfs, all_provs, q_start, q_end)
+    print(f"{y_start=}, {y_end=}, {q_start=}, {q_end=}")
+    # Number of boreholes added and total amount of depths added from tne end of last FY to now
+    y_cnts, y_kms = get_cnts(dfs, all_provs, y_end, now.date())
+    # Number of boreholes added and total amount of depths added from the end of the quarter to now
+    q_cnts, q_kms = get_cnts(dfs, all_provs, q_end, now.date())
+    print(f"{y_cnts=}, {q_cnts=}")
 
     # Pretty printed date strings
     y_date = y_end.strftime('(%d/%m/%Y)')
@@ -344,30 +351,32 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
 
     # Plot yearly and quarterly comparisons for counts by provider
     all_cnts_dict = dict(zip(all_provs, all_counts))
-    q_diffs = calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
-    y_diffs = calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
-    plot_borehole_number(dfs, plot_dir, all_keys, y_diffs, title=f"Borehole counts since end of last financial year {y_date}", filename="borehole_number_y.png")
-    plot_borehole_number(dfs, plot_dir, all_keys, q_diffs, title=f"Borehole counts since last quarter {q_date}", filename="borehole_number_q.png")
+    print(f"{all_cnts_dict=}")
+    q_cnt_list = [q_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
+    y_cnt_list = [y_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
+    print(f"{q_cnt_list=} {y_cnt_list=}")
+    plot_borehole_number(dfs, plot_dir, all_keys, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date}", filename="borehole_number_y.png")
+    plot_borehole_number(dfs, plot_dir, all_keys, q_cnt_list, title=f"Borehole counts since last quarter {q_date}", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
-    make_table(table_data, title_list, list(all_keys), q_diffs, f"Number of boreholes by Provider since last quarter {q_date}")
-    make_table(table_data, title_list, list(all_keys), y_diffs, f"Number of boreholes by Provider since end of last financial year {y_date}")
+    make_table(table_data, title_list, list(all_keys), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date}")
+    make_table(table_data, title_list, list(all_keys), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date}")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
     nkilometres_dict = dict(zip(all_provs, nkilometres_totals))
     print("nkilometres_dict = ", nkilometres_dict)
-    print("q_kilometres = ", q_kilometres)
-    print("y_kilometres = ", y_kilometres)
-    q_diffs = calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
-    y_diffs = calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
+    print("q_kms = ", q_kms)
+    print("y_kms = ", y_kms)
+    q_kms_list = [q_kms[prov] for prov in all_keys] # calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
+    y_kms_list = [y_kms[prov] for prov in all_keys] # calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
     print(f"{all_keys=}")
     print(f"{nkilometres_dict=}")
-    plot_borehole_kilometres(all_keys, y_diffs, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date}", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_keys, q_diffs, plot_dir, title=f"Borehole kilometres since last quarter {q_date}", filename="borehole_kilometres_q.png")
+    plot_borehole_kilometres(all_keys, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date}", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_keys, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date}", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
-    make_table(table_data, title_list, list(all_keys), q_diffs, f"Number of borehole kilometres by Provider since last quarter {q_date}")
-    make_table(table_data, title_list, list(all_keys), y_diffs, f"Number of borehole kilometres by Provider since end of last financial year {y_date}")
+    make_table(table_data, title_list, list(all_keys), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date}")
+    make_table(table_data, title_list, list(all_keys), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date}")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -415,7 +424,6 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
         # Plot geophysics
         plot_geophysics(dfs_log2_all, plot_dir)
 
-    now = datetime.datetime.now()
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
                  "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the state geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
                  "Report Date": now.strftime("%A %b %d %Y"),
