@@ -173,7 +173,7 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
     Writes a dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
-    :param df: dataframe
+    :param df: dataframe whose rows are exported to db
     :param report_category: report category
     :param known_ids: list of NVCL ids that are already in the database
     '''
@@ -204,12 +204,13 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
         assert type(row_df_dict['modified_datetime']) is not pd.Timestamp
 
         
-        # !!! FIXME: Temporary
-        #if row_df_dict['nvcl_id'] in known_ids:
-        #    break
+        if row_df_dict['nvcl_id'] in known_ids:
+            #print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
+            #print(f"{known_ids=}")
+            continue
         try:
             # Create new row in db
-            #print(f"{row_df_dict=}")
+            #print(f"Inserting {row_df_dict=}")
             tbl_handle = meas_mdl.create(**row_df_dict)
             tbl_handle.save()
         except peewee.IntegrityError as pie:

@@ -178,7 +178,7 @@ def update_data(prov_list: [], db_file: str):
                 # If no NVCL data, make a 'nodata' record
                 ###
                 if not logs_data_list:
-                    print(f"No NVCL data for {nvcl_id}!") 
+                    print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
                     new_row = DF_Row(provider=prov,
                        borehole_id=nvcl_id,
                        drill_hole_name=boreholes_list[idx]['name'],
@@ -270,12 +270,11 @@ def update_data(prov_list: [], db_file: str):
                     # Add new data to the dataframe
                     if len(minerals) > 0:
                         key = f"log{ld.log_type}"
+                        # print(f"Adding row to dataframe at {key}")
                         g_dfs[key] = pd.concat([g_dfs[key], pd.Series(new_data, index=g_dfs[key].columns).to_frame().T], ignore_index=True)
                     else:
+                        # print("Adding row to dataframe at 'empty'")
                         g_dfs['empty'] = pd.concat([g_dfs['empty'], pd.Series(new_data, index=g_dfs['empty'].columns).to_frame().T], ignore_index=True)
-
-                # Append new NVCL id to list of known NVCL ids
-                np.append(known_ids, nvcl_id)
 
     # If user presses Ctrl-C then save out data to db & exit
     except KeyboardInterrupt:
@@ -291,6 +290,7 @@ def update_data(prov_list: [], db_file: str):
 
     # Once finished, save out data to database
     for data_cat in DATA_CATS:
+        # print(f"Saving '{data_cat}' to {db_file}")
         export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
 
 
