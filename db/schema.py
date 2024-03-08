@@ -102,7 +102,7 @@ class Meas(Model):
     provider = TextField()
     borehole_id = TextField()
     drill_hole_name = TextField()
-    hl_scan_date = DateField(formats=[DATE_FMT]) # TODO: Have to get this from TSG files
+    hl_scan_date = DateField(formats=[DATE_FMT]) # from TSG files
     easting = DoubleField()
     northing = DoubleField()
     crs = TextField() # EPSG:7842

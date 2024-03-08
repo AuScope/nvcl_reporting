@@ -30,6 +30,7 @@ from nvcl_kit.reader import NVCLReader
 from nvcl_kit.param_builder import param_builder
 from nvcl_kit.constants import has_VNIR, has_SWIR, has_TIR
 from types import SimpleNamespace
+from multiprocessing import Pool
 
 # Local imports
 from db.readwrite_db import import_db, export_db, DF_COLUMNS
@@ -37,9 +38,13 @@ from db.schema import DF_Row
 from db.tsg_metadata import TSGMeta
 from reports import calc_stats, plot_results
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, ABORT_FILE, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
+from constants import MAX_BOREHOLES
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
+
+# If true, then will ignore previous downloads
+SW_ignore_importedIDs = True
 
 
 '''
@@ -90,18 +95,15 @@ def update_data(prov_list: [], db_file: str):
     """
     tsg_meta = TSGMeta(os.path.join("db","metadata.csv"))
 
-    MAX_BOREHOLES = 999999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 10
-        new_prov_list = ['WA']
+        MAX_BOREHOLES = 2
+        new_prov_list = ['TAS', 'WA','NSW','QLD','VIC', 'NT']
         prov_list = new_prov_list
 
-    # If true, then will ignore previous downloads
-    SW_ignore_importedIDs = False
 
-    # Compile a list of known NVCL ids from database
-    known_id_list = []
+    # Compile a dataframe of known NVCL ids & providers to avoid duplicates
+    known_id_df = pd.DataFrame()
     # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database file
@@ -114,184 +116,209 @@ def update_data(prov_list: [], db_file: str):
         if s1 != s2:
             print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
             sys.exit(1)
-        known_id_list = np.append(known_id_list, g_dfs[data_cat].nvcl_id.values)
+        known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
     else:
         # Doesn't exist? Create a new data frame
         g_dfs[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
 
-    # Remove duplicates
-    known_ids = np.array(list(set(known_id_list)))
-
-    # Remove all the NVCL ids in the abort file from known_ids list
-    if ABORT_FILE.is_file():
-        with open(ABORT_FILE, 'r') as f:
-            remove = f.readlines()
-            known_ids = np.delete(known_ids, np.argwhere(known_ids == remove))
-        # Delete the abort file
-        ABORT_FILE.unlink()
+    # TODO: Reinstate later
+    #if ABORT_FILE.is_file():
+    #    with open(ABORT_FILE, 'r') as f:
+    #        remove = f.readlines()
+    #        known_ids = np.delete(known_ids, np.argwhere(known_ids == remove))
+    #    # Delete the abort file
+    #    ABORT_FILE.unlink()
 
     print("Reading NVCL data services ...")
     # Read data from NVCL services
-    current_id = ''
     try:
-        # Loop over the providers
-        for prov in prov_list:
-            print('\n'+'>'*15+f"    {prov}    "+'<'*15)
-            param = param_builder(prov, max_boreholes=MAX_BOREHOLES)
-            if not param:
-                print(f"Cannot build parameters for {prov}: {param}")
-                continue
+        # Run each provider in parallel
+        with Pool(processes=4) as pool:
+            param_list = [(prov, known_id_df, tsg_meta) for prov in prov_list]
+            prov_df_list = pool.starmap(do_prov, param_list)
+            # Append new results from a provider to the global dataframe
+            for prov_df in prov_df_list:
+                for data_cat in DATA_CATS:
+                    g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_df[data_cat]], ignore_index=True)
 
-            # Instantiate class and search for boreholes
-            print(f"param={param}")
-            reader = NVCLReader(param)
-
-            if not reader.wfs:
-                print(f"ERROR! Cannot connect to {prov}")
-                continue
-
-            boreholes_list = reader.get_boreholes_list()
-            nvcl_id_list = [ bh['nvcl_id'] for bh in boreholes_list ]
-            print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
-
-            # Check for no NVCL ids & skip to next service
-            if not nvcl_id_list:
-                print(f"!!!! Could not download NVCL ids for {prov}")
-                continue
-
-            for idx, nvcl_id in enumerate(nvcl_id_list):
-                print('-'*50)
-                print(f"{nvcl_id} - {prov} ({idx+1} of {len(nvcl_id_list)})")
-                print('-'*10)
-                current_id = nvcl_id
-                # Is this a known NVCL id? Then ignore
-                if (SW_ignore_importedIDs and nvcl_id in known_ids):
-                    print(f"{nvcl_id} is already imported, next...")
-                    continue
-
-                easting, northing = to_metres(boreholes_list[idx]['x'], boreholes_list[idx]['y'])
-
-                # Download previously unknown NVCL id dataset from service
-                logs_data_list = reader.get_logs_data(nvcl_id)
-                now_datetime = datetime.datetime.now()
-                ###
-                # If no NVCL data, make a 'nodata' record
-                ###
-                if not logs_data_list:
-                    print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
-                    new_row = DF_Row(provider=prov,
-                       borehole_id=nvcl_id,
-                       drill_hole_name=boreholes_list[idx]['name'],
-                       hl_scan_date=now_datetime,
-                       easting=easting,
-                       northing=northing,
-                       crs="EPSG:7842",
-                       start_depth=0,
-                       end_depth=boreholes_list[idx]['boreholeLength_m'],
-                       has_vnir=False,
-                       has_swir=False,
-                       has_tir=False,
-                       has_mir=False,
-                       nvcl_id=nvcl_id,
-                       modified_datetime=now_datetime.now(),
-                       log_id='',
-                       algorithm='',
-                       log_type='',
-                       algorithm_id='',
-                       minerals=[],
-                       mincnts=[],
-                       data=[])
-                    #print("AS_LIST:", new_row.as_list())
-                    g_dfs['nodata'] = pd.concat([g_dfs['nodata'], pd.Series(new_row.as_list(), index=g_dfs['nodata'].columns).to_frame().T], ignore_index=True)
-
-                ###
-                # If this log has NVCL data
-                ###
-                for ld in logs_data_list:
-                    if SW_ignore_importedIDs and \
-                      ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
-                        print(f"Log id {ld.log_id} already imported, next...")
-                        continue
-                    minerals = []
-                    # If provider supports modified_date then use it
-                    modified_datetime = getattr(ld, 'modified_date', now_datetime)
-                    print(f"From NVCL {modified_datetime=}")
-
-                    # Get Hylogger scan date from CSV file
-                    if nvcl_id in tsg_meta.dt_lkup:
-                        hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S')
-                    else:
-                        hl_scan_date = modified_datetime
-                    print(f"HYLOGGER SCAN DATE {hl_scan_date=}")
-
-                    # When there is no modified datetime, but there is Hylogger scan date, use the scan date
-                    if modified_datetime == now_datetime and hl_scan_date < now_datetime:
-                        modified_datetime = hl_scan_date
-                        
-                    new_row = DF_Row(provider=prov,
-                       borehole_id=boreholes_list[idx]['nvcl_id'],
-                       drill_hole_name=boreholes_list[idx]['name'],
-                       hl_scan_date=hl_scan_date,
-                       easting=easting,
-                       northing=northing,
-                       crs="EPSG:7842",
-                       start_depth=0,
-                       end_depth=boreholes_list[idx]['boreholeLength_m'],
-                       has_vnir=False,
-                       has_swir=False,
-                       has_tir=False,
-                       has_mir=False,
-                       nvcl_id=nvcl_id,
-                       modified_datetime=modified_datetime.date(),
-                       log_id='',
-                       algorithm='',
-                       log_type='',
-                       algorithm_id='',
-                       minerals=[],
-                       mincnts=[],
-                       data=[])
-                    # If type 1 then get the mineral class data
-                    if ld.log_type == '1':
-                        bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
-                        if bh_data:
-                            minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
-                            new_row.log_id = ld.log_id
-                            new_row.algorithm = ld.log_name # ???
-                            new_row.has_vnir = has_VNIR(new_row.algorithm)
-                            new_row.has_swir = has_SWIR(new_row.algorithm)
-                            new_row.has_tir = has_TIR(new_row.algorithm)
-                            new_row.log_type = ld.log_type
-                            new_row.algorithm_id = ld.algorithm_id
-                            new_row.minerals = minerals.tolist()
-                            new_row.mincnts = mincnts.tolist()
-                            new_row.data = conv_mindata(bh_data)
-                    new_data = new_row.as_list()
-
-                    # Add new data to the dataframe
-                    if len(minerals) > 0:
-                        key = f"log{ld.log_type}"
-                        # print(f"Adding row to dataframe at {key}")
-                        g_dfs[key] = pd.concat([g_dfs[key], pd.Series(new_data, index=g_dfs[key].columns).to_frame().T], ignore_index=True)
-                    else:
-                        # print("Adding row to dataframe at 'empty'")
-                        g_dfs['empty'] = pd.concat([g_dfs['empty'], pd.Series(new_data, index=g_dfs['empty'].columns).to_frame().T], ignore_index=True)
-
-    # If user presses Ctrl-C then save out data to db & exit
+    ## If user presses Ctrl-C then save out data to db & exit
     except KeyboardInterrupt:
-        # Save current NVCL id to abort file, so we can exclude it later on
-        if current_id != '':
-            with open(ABORT_FILE, 'w') as f:
-                f.write(current_id)
-        # Save out data & exit
-        for data_cat in DATA_CATS:
-            export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
+        # TODO: Reinstate later
+        ## Save current NVCL id to abort file, so we can exclude it later on
+        #if current_id != '':
+        #    with open(ABORT_FILE, 'w') as f:
+        #        f.write(current_id)
+        ## Save out data & exit
+        #for data_cat in DATA_CATS:
+        #    export_db(db_file, g_dfs[data_cat], data_cat, known_id_df)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
 
     # Once finished, save out data to database
     for data_cat in DATA_CATS:
-        # print(f"Saving '{data_cat}' to {db_file}")
-        export_db(db_file, g_dfs[data_cat], data_cat, known_ids)
+        print(f"\nSaving '{data_cat}' to {db_file}")
+        export_db(db_file, g_dfs[data_cat], data_cat, known_id_df)
+
+
+def do_prov(prov, known_id_df, tsg_meta):
+    """ Ask a provider for NVCL data, runs in its own process
+
+    :param prov: name of provider, e.g. 'NSW'
+    :returns: pandas DataFrame with columns defined by DF_COLUMNS
+    """
+    print('\n'+'>'*15+f"    {prov}    "+'<'*15)
+
+    # Create results - a dict of empty dataframes
+    results = {}
+    for data_cat in DATA_CATS:
+        results[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
+
+    # Create parameters for NVCL services
+    param = param_builder(prov, max_boreholes=2)
+    if not param:
+        print(f"Cannot build parameters for {prov}: {param}")
+        return results
+
+    # Instantiate class and search for boreholes
+    #print(f"param={param}")
+    reader = NVCLReader(param)
+    if not reader.wfs:
+        print(f"ERROR! Cannot connect to {prov}")
+        return results
+
+    # Search for NVCL boreholes
+    boreholes_list = reader.get_boreholes_list()
+    nvcl_id_list = [ bh['nvcl_id'] for bh in boreholes_list ]
+    print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
+
+    # Check for no NVCL ids & skip to next service
+    if not nvcl_id_list:
+        print(f"!!!! Could not download NVCL ids for {prov}")
+        return results
+
+    for idx, nvcl_id in enumerate(nvcl_id_list):
+        print('-'*50)
+        print(f"{nvcl_id} - {prov} ({idx+1} of {len(nvcl_id_list)})")
+        print('-'*10)
+        # Is this a known NVCL id? Then ignore
+        if (SW_ignore_importedIDs and len(known_id_df.query(f"nvcl_id == '{nvcl_id}' and provider == '{prov}'")) > 0):
+            print(f"{nvcl_id} in {prov} is already imported, next...")
+            continue
+
+        easting, northing = to_metres(boreholes_list[idx]['x'], boreholes_list[idx]['y'])
+
+        # Download previously unknown NVCL id dataset from service
+        logs_data_list = reader.get_logs_data(nvcl_id)
+        now_datetime = datetime.datetime.now()
+        ###
+        # If no NVCL data in this borehole, make a 'nodata' record
+        ###
+        if not logs_data_list:
+            print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
+            new_row = DF_Row(provider=prov,
+               borehole_id=nvcl_id,
+               drill_hole_name=boreholes_list[idx]['name'],
+               hl_scan_date=now_datetime.date(),
+               easting=easting,
+               northing=northing,
+               crs="EPSG:7842",
+               start_depth=0,
+               end_depth=boreholes_list[idx]['boreholeLength_m'],
+               has_vnir=False,
+               has_swir=False,
+               has_tir=False,
+               has_mir=False,
+               nvcl_id=nvcl_id,
+               modified_datetime=now_datetime.date(),
+               log_id='',
+               algorithm='',
+               log_type='',
+               algorithm_id='',
+               minerals=[],
+               mincnts=[],
+               data=[])
+            #print("AS_LIST:", new_row.as_list())
+            results['nodata'] = pd.concat([results['nodata'], pd.Series(new_row.as_list(), index=results['nodata'].columns).to_frame().T], ignore_index=True)
+            continue
+
+        ###
+        # If this borehole has NVCL data
+        ###
+        for ld in logs_data_list:
+            if SW_ignore_importedIDs and \
+              ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
+                print(f"Log id {ld.log_id} already imported, next...")
+                continue
+            minerals = []
+            # If provider supports modified_date then use it
+            modified_datetime = getattr(ld, 'modified_date', None)
+            if isinstance(modified_datetime, datetime.datetime):
+                modified_date = modified_datetime.date()
+            else:
+                modified_date = now_datetime.date()
+
+            # print(f"From NVCL {modified_date=}")
+
+            # Get Hylogger scan date from CSV file
+            if nvcl_id in tsg_meta.dt_lkup:
+                hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S').date()
+            else:
+                hl_scan_date = modified_date
+            # print(f"HYLOGGER SCAN DATE {hl_scan_date=}")
+            assert isinstance(hl_scan_date, datetime.date)
+
+            # When there is no modified datetime, but there is Hylogger scan date, use the scan date
+            if modified_date == now_datetime.date() and hl_scan_date < now_datetime.date():
+                modified_date = hl_scan_date
+
+            new_row = DF_Row(provider=prov,
+               borehole_id=boreholes_list[idx]['nvcl_id'],
+               drill_hole_name=boreholes_list[idx]['name'],
+               hl_scan_date=hl_scan_date,
+               easting=easting,
+               northing=northing,
+               crs="EPSG:7842",
+               start_depth=0,
+               end_depth=boreholes_list[idx]['boreholeLength_m'],
+               has_vnir=False,
+               has_swir=False,
+               has_tir=False,
+               has_mir=False,
+               nvcl_id=nvcl_id,
+               modified_datetime=modified_date,
+               log_id='',
+               algorithm='',
+               log_type='',
+               algorithm_id='',
+               minerals=[],
+               mincnts=[],
+               data=[])
+            # If type 1 then get the mineral class data
+            if ld.log_type == '1':
+                bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
+                if bh_data:
+                    minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
+                    new_row.log_id = ld.log_id
+                    new_row.algorithm = ld.log_name # ???
+                    new_row.has_vnir = has_VNIR(new_row.algorithm)
+                    new_row.has_swir = has_SWIR(new_row.algorithm)
+                    new_row.has_tir = has_TIR(new_row.algorithm)
+                    new_row.log_type = ld.log_type
+                    new_row.algorithm_id = ld.algorithm_id
+                    new_row.minerals = minerals.tolist()
+                    new_row.mincnts = mincnts.tolist()
+                    new_row.data = conv_mindata(bh_data)
+            new_data = new_row.as_list()
+
+            # Add new data to the results dataframe
+            if len(minerals) > 0:
+                key = f"log{ld.log_type}"
+                # print(f"Adding row to dataframe at {key}")
+                results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
+            else:
+                # print("Adding row to dataframe at 'empty'")
+                results['empty'] = pd.concat([results['empty'], pd.Series(new_data, index=results['empty'].columns).to_frame().T], ignore_index=True)
+    return results
 
 
 def load_data(db_file):

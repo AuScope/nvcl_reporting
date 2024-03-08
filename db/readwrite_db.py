@@ -168,14 +168,14 @@ def conv_obj2str(arr: []) -> str:
         sys.exit(9)
 
 
-def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: []):
+def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df: pd.DataFrame):
     '''
     Writes a dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
     :param df: dataframe whose rows are exported to db
     :param report_category: report category
-    :param known_ids: list of NVCL ids that are already in the database
+    :param known_id_df: DataFrame of providers & NVCL ids that are already in the database
     '''
     # DB cols: report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithm_id, minerals, mincnts, data 
     #
@@ -201,12 +201,18 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
         row_df_dict['minerals'] = conv_obj2str(row_df_dict['minerals'])
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
 
-        assert type(row_df_dict['modified_datetime']) is not pd.Timestamp
-
+        ## Check data type
+        #if type(row_df_dict['modified_datetime']) is not pd.Timestamp:
+        #    print("NB:", repr(row_df_dict['modified_datetime']))
+        #    sys.exit(1)
+        #print("modified_datetime type is ", type(row_df_dict['modified_datetime']))
+        #print("hl_scan_date type is", type(row_df_dict['hl_scan_date']))
+        assert isinstance(row_df_dict['modified_datetime'], date) 
+        assert isinstance(row_df_dict['hl_scan_date'], date)
         
-        if row_df_dict['nvcl_id'] in known_ids:
-            #print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
-            #print(f"{known_ids=}")
+        if len(known_id_df.query("nvcl_id == '" + row_df_dict['nvcl_id'] +
+                                 "' and provider == '" + row_df_dict['provider'] + "'")) > 0:
+            print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
             continue
         try:
             # Create new row in db
@@ -214,6 +220,7 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_ids: [
             tbl_handle = meas_mdl.create(**row_df_dict)
             tbl_handle.save()
         except peewee.IntegrityError as pie:
+            # NB: Many rows with an 'empty' report_category will be duplicates
             print("Duplicate row", pie)
             print("Tried to insert", row_df_dict)
             # Update 'modified_datetime' if required

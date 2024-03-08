@@ -13,7 +13,7 @@ class TSGMeta:
                     first = False
                     continue
                 for col in row:
-                    # borehole name <==> scan date
+                    # Lookup table - associate borehole name <==> scan date
                     self.dt_lkup[row[8]] = row[2]
 
 if __name__ == "__main__":
