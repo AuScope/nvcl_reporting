@@ -38,7 +38,7 @@ from db.schema import DF_Row
 from db.tsg_metadata import TSGMeta
 from reports import calc_stats, plot_results
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, ABORT_FILE, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
-from constants import MAX_BOREHOLES
+from constants import MAX_BOREHOLES, REPORT_DATE
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -425,6 +425,6 @@ if __name__ == "__main__":
             calc_stats(g_dfs, PROV_LIST, db)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
-        plot_results(datetime.datetime(2020, 10, 17), g_dfs, plot_dir, prefix, args.brief_plot)
+        plot_results(REPORT_DATE, g_dfs, plot_dir, prefix, args.brief_plot)
 
     print("Done.")

@@ -1,4 +1,5 @@
 from pathlib import Path
+import datetime
 
 """
 Various shared constants
@@ -24,3 +25,6 @@ DATA_CATS = ['log1', 'log2', 'log6', 'empty', 'nodata']
 # Borehole parameters
 HEIGHT_RESOLUTION = 1.0
 ANALYSIS_CLASS = ''
+
+# Report time window is based on this date
+REPORT_DATE = datetime.datetime(2020, 10, 17)
