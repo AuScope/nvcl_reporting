@@ -120,10 +120,12 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
     print(f"Calculating initial statistics ...{dfs}")
     # Loop around for each provider
     for prov in prov_list:
+        # Get all rows for a provider
         cdf = dfs['log1'][dfs['log1']['provider'] == prov]
         if cdf.empty:
             continue
 
+        # Make a list of algorithms
         algorithms = np.unique(cdf['algorithm'])
 
         # Loop around for each algorithm e.g. 'Min1 uTSAS'
@@ -214,13 +216,14 @@ def fill_in(src_labels, dest, dest_labels):
             dest = np.insert(dest, idx, 0.0)
     return dest, dest_labels
 
-def get_fy_date_ranges() -> (datetime.date, datetime.date, datetime.date, datetime.date):
+def get_fy_date_ranges(report_date: datetime.datetime) -> (datetime.date, datetime.date, datetime.date, datetime.date):
     """
     Returns four datetime.date() objects for start & end of financial year and quarter
 
+    :param report_date: reference datetime for the date ranges
     :returns: y_start, y_end, q_start, q_end datetime.date() objects
     """
-    y = FiscalDate.today()
+    y = FiscalDate(report_date.year, report_date.month, report_date.day)
     py = y.prev_fiscal_year
     y_start = py.start.date()
     y_end = py.end.date()
@@ -249,10 +252,11 @@ def get_cnts(dfs: dict[str, pd.DataFrame], all_provs: list,
     return cnts, kms
 
 
-def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
+def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
     """
     Generates a set of plot files
 
+    :param report_date: datetime from which reporting occurs
     :param dfs: source dataframe dict
     :param prefix: sorting prefix
     :param plot_dir: where plots are stored
@@ -330,14 +334,13 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
     plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir)
 
     # get start and end of previous financial year and quarter
-    now = datetime.datetime.now()
-    print(f"{now=}")
-    y_start, y_end, q_start, q_end = get_fy_date_ranges()
+    print(f"{report_date=}")
+    y_start, y_end, q_start, q_end = get_fy_date_ranges(report_date)
     print(f"{y_start=}, {y_end=}, {q_start=}, {q_end=}")
     # Number of boreholes added and total amount of depths added from tne end of last FY to now
-    y_cnts, y_kms = get_cnts(dfs, all_provs, y_end, now.date())
+    y_cnts, y_kms = get_cnts(dfs, all_provs, y_end, report_date.date())
     # Number of boreholes added and total amount of depths added from the end of the quarter to now
-    q_cnts, q_kms = get_cnts(dfs, all_provs, q_end, now.date())
+    q_cnts, q_kms = get_cnts(dfs, all_provs, q_end, report_date.date())
     print(f"{y_cnts=}, {q_cnts=}")
 
     # Pretty printed date strings
@@ -426,7 +429,7 @@ def plot_results(dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief:
 
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
                  "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the state geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
-                 "Report Date": now.strftime("%A %b %d %Y"),
+                 "Report Date": report_date.strftime("%A %b %d %Y"),
                  "Using quarterly data from": q_date_pretty,
                  "Using EOFY data from": y_date_pretty }
 

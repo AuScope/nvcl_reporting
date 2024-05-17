@@ -263,13 +263,14 @@ def do_prov(prov, known_id_df, tsg_meta):
             if nvcl_id in tsg_meta.dt_lkup:
                 hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S').date()
             else:
-                hl_scan_date = modified_date
+                created_datetime = getattr(ld, 'created_date', None)
+                if isinstance(created_datetime, datetime.datetime):
+                    hl_scan_date = created_datetime.date()
+                else:
+                    h1_scan_date = modified_date
+
             # print(f"HYLOGGER SCAN DATE {hl_scan_date=}")
             assert isinstance(hl_scan_date, datetime.date)
-
-            # When there is no modified datetime, but there is Hylogger scan date, use the scan date
-            if modified_date == now_datetime.date() and hl_scan_date < now_datetime.date():
-                modified_date = hl_scan_date
 
             new_row = DF_Row(provider=prov,
                borehole_id=boreholes_list[idx]['nvcl_id'],
@@ -327,8 +328,10 @@ def load_data(db_file):
     :param db_file: directory path of database file
     """
     print(f"Loading database {db_file}")
-    for data_cat in DATA_CATS:
+    for idx, data_cat in enumerate(DATA_CATS):
         g_dfs[data_cat] = import_db(db_file, data_cat)
+        print(f"{idx+1} of {len(DATA_CATS)}: {data_cat} done")
+    print("Loading database done.")
 
 
 def load_and_check_config():
@@ -422,6 +425,6 @@ if __name__ == "__main__":
             calc_stats(g_dfs, PROV_LIST, db)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
-        plot_results(g_dfs, plot_dir, prefix, args.brief_plot)
+        plot_results(datetime.datetime(2020, 10, 17), g_dfs, plot_dir, prefix, args.brief_plot)
 
     print("Done.")
