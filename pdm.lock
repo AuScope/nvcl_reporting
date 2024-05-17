@@ -4,8 +4,8 @@
 [metadata]
 groups = ["default"]
 strategy = ["cross_platform"]
-lock_version = "4.4"
-content_hash = "sha256:acb8c11318195e80cfa3b7ca8f97399d9e24b07b1e2649b6fae4a61d87752f73"
+lock_version = "4.4.1"
+content_hash = "sha256:a713bc3fe8068855100313f50ca9a64b5a5ed8b977af351738c510453d480fd5"
 
 [[package]]
 name = "certifi"
@@ -373,9 +373,9 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.1.5"
+version = "1.1.8"
 requires_python = ">=3.8"
-summary = "Downloads Australian NVCL datasets"
+summary = "Downloads Australian National Virtual Core Library (NVCL) datasets"
 dependencies = [
     "owslib>=0.29.2",
     "pyproj>=3.5.0",
@@ -384,8 +384,8 @@ dependencies = [
     "shapely>=2.0.1",
 ]
 files = [
-    {file = "nvcl-kit-1.1.5.tar.gz", hash = "sha256:da0ae19c0278220b7c4a365ce1b8adf4be40870d5309d294a1980eca85479fe2"},
-    {file = "nvcl_kit-1.1.5-py3-none-any.whl", hash = "sha256:f9102bf55024bea9602d2f0f3d70c840eb3d41898b5c167543660586ae68ee25"},
+    {file = "nvcl-kit-1.1.8.tar.gz", hash = "sha256:32b9c21d72557174602b6cf9adb90ecec41d27390413286bbe95ed44b2a5034b"},
+    {file = "nvcl_kit-1.1.8-py3-none-any.whl", hash = "sha256:a9177c2e89b2fffe72842d6fef10524ea60b7f6d40230179dea1844e16f6045e"},
 ]
 
 [[package]]
