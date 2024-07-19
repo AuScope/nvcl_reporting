@@ -53,13 +53,25 @@ There is only one table "meas", it has the following fields:
 
 1.	*report_category*  Report Category e.g. "log1", "log2" 
 2.	*provider* State or Territory e.g. "tas" "nsw" etc.
-3.	*nvcl_id* "10026"
-4.	*modified_datetime* (approximation) e.g. '2023/10/30'
-5.	*log_id* e.g. "41679f23-ca82-45a2-bbaf-81fb175c808"
-6.	*algorithm* e.g. "Grp1 uTSAS", "Grp1 sjCLST" etc.
-7.	*log_type* e.g. "1"
-8.	*algorithm_id* e.g. "109"
-9.	*minerals* e.g. ["KAOLIN", "WHITE-MICA"]
-10.	*mincnts* Mineral total counts e.g. [1, 279]
-11.	*data* Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
+3.	*borehole_id* "10026"
+4.  *drill_hole_name* Name of drill hole
+5.  *hl_scan_date* HyLogger scan date taken from TSG file
+6.  *easting* east coordinate in metres
+7.  *northing* north coordate in metres
+8.  *crs* coordinate reference system e.g. 'EPSG:7842'
+9.  *start_depth* borehole starts at this depth (metres)
+10. *end_depth* borehole stops at this depth (metres)
+11. *has_vnir* True iff borehole has VNIR (Visible and Near Infra Red) data
+12. *has_swir* True iff borehole has SWIR (Short Wave Infra Red) data
+13. *has_tir* True iff borehole has TIR (Thermal Infra Red) data
+14. *has_mir* True iff borehole has MIR (Mid Infra Red) data
+15. *nvcl_id* NVCL ID e.g. "10026"
+16.	*modified_datetime* (if provided) e.g. '2023/10/30'
+17.	*log_id* e.g. "41679f23-ca82-45a2-bbaf-81fb175c808"
+18.	*algorithm* e.g. "Grp1 uTSAS", "Grp1 sjCLST" etc.
+19.	*log_type* e.g. "1"
+20.	*algorithm_id* e.g. "109"
+21.	*minerals* e.g. ["KAOLIN", "WHITE-MICA"]
+22.	*mincnts* Mineral total counts e.g. [1, 279]
+23.	*data* Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
 
