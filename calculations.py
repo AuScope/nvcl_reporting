@@ -80,7 +80,7 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
     if start_date is None or end_date is None:
         df = dfs['log1'][dfs['log1']['provider'] == prov]
     else:
-        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['modified_datetime'] > start_date) & (dfs['log1']['modified_datetime'] < end_date)]
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] > start_date) & (dfs['log1']['hl_scan_date'] < end_date)]
     bh_kms = {}
     nvcl_ids = np.unique(df['nvcl_id'])
     cnts = len(nvcl_ids)
@@ -98,9 +98,10 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
 
         # Divide by 1000 to convert from metres to kilometres
         depth_list = list(depth_set)
+        #print(f"{depth_list=}")
         if len(depth_list) > 0:
-            bh_kms[nvcl_id] = (max(depth_list) - min(depth_list)) / 1000.0
-            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]} kms")
+            bh_kms[nvcl_id] = (1.0 + max(depth_list) - min(depth_list)) / 1000.0
+            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]:.4f} kms")
 
     if not return_cnts:
         return sum(bh_kms.values())

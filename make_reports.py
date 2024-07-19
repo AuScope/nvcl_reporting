@@ -9,7 +9,6 @@ import argparse
 import yaml
 import datetime
 import signal
-from collections import OrderedDict
 
 # External imports
 import numpy as np
@@ -19,8 +18,6 @@ pd.options.mode.chained_assignment = None
 import seaborn as sns
 sns.set_context("talk")
 
-from pyproj.transformer import Transformer
-
 # Financial year imports
 import fiscalyear
 fiscalyear.setup_fiscal_calendar(start_month=7)
@@ -29,16 +26,15 @@ fiscalyear.setup_fiscal_calendar(start_month=7)
 from nvcl_kit.reader import NVCLReader
 from nvcl_kit.param_builder import param_builder
 from nvcl_kit.constants import has_VNIR, has_SWIR, has_TIR
-from types import SimpleNamespace
 from multiprocessing import Pool
 
 # Local imports
 from db.readwrite_db import import_db, export_db, DF_COLUMNS
-from db.schema import DF_Row
 from db.tsg_metadata import TSGMeta
-from reports import calc_stats, plot_results
+from calculations import calc_stats, plot_results
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, ABORT_FILE, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import MAX_BOREHOLES, REPORT_DATE
+from helpers import conv_mindata, to_metres, make_row
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -46,44 +42,6 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
-
-'''
-Internal functions
-'''
-
-def conv_mindata(mindata: OrderedDict) -> list:
-    """ Convert mineral data to a list e.g.
-    from: OrderedDict([(0.5, namespace(className='', classCount=75, classText='Andesite lava breccia', colour=(0.21568627450980393, 1.0, 0.0, 1.0))), 
-    to: [[0.5, {'className': '', 'classText': 'Jarosite', 'colour': [0.40784313725490196, 0.3764705882352941, 0.10588235294117647, 1.0]}],
-    """
-    data_list = []
-    if isinstance(mindata, OrderedDict):
-        for depth, obj in mindata.items():
-            # vars() converts Namespace -> dict
-            if isinstance(obj, SimpleNamespace):
-                data_list.append([depth, vars(obj)])
-            elif isinstance(obj, list) and len(obj) == 0:
-                continue
-            else:
-                print(repr(obj), type(obj))
-                print("ERROR unknown obj type in 'data' var")
-                sys.exit(1)
-    else:
-        print(f"ERROR {mindata} is not an ordered list")
-        sys.exit(8)
-    return data_list
-
-
-def to_metres(x: float, y: float) -> (float, float):
-    """ Convert from EPSG:4326 WGS84 (units: degrees) to EPSG:7842 GDA2020 (units: metres)
-    """
-    transformer = Transformer.from_crs(4326, 7842)
-    return transformer.transform(y, x)
-
-
-'''
-Primary functions
-'''
 
 def update_data(prov_list: [], db_file: str):
     """ Read database for any past data and poll NVCL services to see if there is any new data
@@ -95,10 +53,11 @@ def update_data(prov_list: [], db_file: str):
     """
     tsg_meta = TSGMeta(os.path.join("db","metadata.csv"))
 
+    MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 2
-        new_prov_list = ['TAS', 'WA','NSW','QLD','VIC', 'NT']
+        MAX_BOREHOLES = 10
+        new_prov_list = ['TAS'] # , 'WA','NSW','QLD','VIC', 'NT']
         prov_list = new_prov_list
 
 
@@ -134,7 +93,7 @@ def update_data(prov_list: [], db_file: str):
     try:
         # Run each provider in parallel
         with Pool(processes=4) as pool:
-            param_list = [(prov, known_id_df, tsg_meta) for prov in prov_list]
+            param_list = [(prov, known_id_df, tsg_meta, MAX_BOREHOLES) for prov in prov_list]
             prov_df_list = pool.starmap(do_prov, param_list)
             # Append new results from a provider to the global dataframe
             for prov_df in prov_df_list:
@@ -159,8 +118,7 @@ def update_data(prov_list: [], db_file: str):
         print(f"\nSaving '{data_cat}' to {db_file}")
         export_db(db_file, g_dfs[data_cat], data_cat, known_id_df)
 
-
-def do_prov(prov, known_id_df, tsg_meta):
+def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
     """ Ask a provider for NVCL data, runs in its own process
 
     :param prov: name of provider, e.g. 'NSW'
@@ -174,7 +132,7 @@ def do_prov(prov, known_id_df, tsg_meta):
         results[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
 
     # Create parameters for NVCL services
-    param = param_builder(prov, max_boreholes=2)
+    param = param_builder(prov, max_boreholes=MAX_BOREHOLES)
     if not param:
         print(f"Cannot build parameters for {prov}: {param}")
         return results
@@ -205,38 +163,15 @@ def do_prov(prov, known_id_df, tsg_meta):
             print(f"{nvcl_id} in {prov} is already imported, next...")
             continue
 
-        easting, northing = to_metres(boreholes_list[idx]['x'], boreholes_list[idx]['y'])
-
         # Download previously unknown NVCL id dataset from service
         logs_data_list = reader.get_logs_data(nvcl_id)
-        now_datetime = datetime.datetime.now()
+        now_date = datetime.datetime.now().date()
         ###
         # If no NVCL data in this borehole, make a 'nodata' record
         ###
         if not logs_data_list:
             print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
-            new_row = DF_Row(provider=prov,
-               borehole_id=nvcl_id,
-               drill_hole_name=boreholes_list[idx]['name'],
-               hl_scan_date=now_datetime.date(),
-               easting=easting,
-               northing=northing,
-               crs="EPSG:7842",
-               start_depth=0,
-               end_depth=boreholes_list[idx]['boreholeLength_m'],
-               has_vnir=False,
-               has_swir=False,
-               has_tir=False,
-               has_mir=False,
-               nvcl_id=nvcl_id,
-               modified_datetime=now_datetime.date(),
-               log_id='',
-               algorithm='',
-               log_type='',
-               algorithm_id='',
-               minerals=[],
-               mincnts=[],
-               data=[])
+            new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min)
             #print("AS_LIST:", new_row.as_list())
             results['nodata'] = pd.concat([results['nodata'], pd.Series(new_row.as_list(), index=results['nodata'].columns).to_frame().T], ignore_index=True)
             continue
@@ -250,55 +185,44 @@ def do_prov(prov, known_id_df, tsg_meta):
                 print(f"Log id {ld.log_id} already imported, next...")
                 continue
             minerals = []
+
             # If provider supports modified_date then use it
             modified_datetime = getattr(ld, 'modified_date', None)
             if isinstance(modified_datetime, datetime.datetime):
                 modified_date = modified_datetime.date()
             else:
-                modified_date = now_datetime.date()
-
-            # print(f"From NVCL {modified_date=}")
+                modified_date = datetime.date.min
 
             # Get Hylogger scan date from CSV file
+            hl_scan_date = None
             if nvcl_id in tsg_meta.dt_lkup:
-                hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S').date()
-            else:
+                try:
+                    hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S').date()
+                except ValueError:
+                    pass
+            if hl_scan_date is None:
+                # If there is no scan date, then use 'created_date', if there is one
                 created_datetime = getattr(ld, 'created_date', None)
                 if isinstance(created_datetime, datetime.datetime):
                     hl_scan_date = created_datetime.date()
                 else:
-                    h1_scan_date = modified_date
+                    hl_scan_date = datetime.date.min
 
-            # print(f"HYLOGGER SCAN DATE {hl_scan_date=}")
-            assert isinstance(hl_scan_date, datetime.date)
+            # Check hl_scan_date
+            if not isinstance(hl_scan_date, datetime.date):
+                print(f"#{idx+1} has a skipped row:")
+                print(f"  {hl_scan_date=} is type {type(hl_scan_date)}")
+                print(f"  {prov=}"
+                print(f"  {boreholes_list[id]=}")
+                continue
+            # Make a new row for insertion
+            new_row = make_row(prov, boreholes_list[idx], hl_scan_date, modified_date)
 
-            new_row = DF_Row(provider=prov,
-               borehole_id=boreholes_list[idx]['nvcl_id'],
-               drill_hole_name=boreholes_list[idx]['name'],
-               hl_scan_date=hl_scan_date,
-               easting=easting,
-               northing=northing,
-               crs="EPSG:7842",
-               start_depth=0,
-               end_depth=boreholes_list[idx]['boreholeLength_m'],
-               has_vnir=False,
-               has_swir=False,
-               has_tir=False,
-               has_mir=False,
-               nvcl_id=nvcl_id,
-               modified_datetime=modified_date,
-               log_id='',
-               algorithm='',
-               log_type='',
-               algorithm_id='',
-               minerals=[],
-               mincnts=[],
-               data=[])
             # If type 1 then get the mineral class data
             if ld.log_type == '1':
                 bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                 if bh_data:
-                    minerals, mincnts = np.unique([getattr(bh_data[i], 'classText', 'Unknown') for i in bh_data.keys()], return_counts=True)
+                    minerals, mincnts = np.unique([getattr(v, 'classText', 'Unknown') for v in bh_data.values()], return_counts=True)
                     new_row.log_id = ld.log_id
                     new_row.algorithm = ld.log_name # ???
                     new_row.has_vnir = has_VNIR(new_row.algorithm)
