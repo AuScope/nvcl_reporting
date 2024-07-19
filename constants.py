@@ -5,7 +5,7 @@ import datetime
 Various shared constants
 """
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
-PROV_LIST = ['NSW', 'NT', 'TAS', 'VIC', 'QLD', 'SA', 'WA']
+PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA']
 
 # Configuration file
 CONFIG_FILE = "config.yaml"
