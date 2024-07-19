@@ -212,7 +212,7 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
             if not isinstance(hl_scan_date, datetime.date):
                 print(f"#{idx+1} has a skipped row:")
                 print(f"  {hl_scan_date=} is type {type(hl_scan_date)}")
-                print(f"  {prov=}"
+                print(f"  {prov=}")
                 print(f"  {boreholes_list[id]=}")
                 continue
             # Make a new row for insertion
