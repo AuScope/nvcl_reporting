@@ -290,19 +290,17 @@ if __name__ == "__main__":
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL report data creator")
     parser.add_argument('-u', '--update', action='store_true', help="Update database from NVCL services")
-    parser.add_argument('-s', '--stats', action='store_true', help="Calculate statistics")
     parser.add_argument('-p', '--plot', action='store_true', help="Create plots & report")
     parser.add_argument('-b', '--brief_plot', action='store_true', help="Create brief plots & report")
-    parser.add_argument('-l', '--load', action='store_true', help="Load data from database")
-
+    parser.add_argument('-r', '--report_date', action='store', help="Create report based on this date, format: YYYY-MM-DD")
     parser.add_argument('-d', '--db', action='store', help="Database filename.")
 
     # Parse command line arguments
     args = parser.parse_args()
 
     # Complain & exit if nothing selected
-    if not (args.update or args.stats or args.plot or args.brief_plot or args.load):
-        print("No instructional options were selected. What should I do? Please select an option.")
+    if not (args.update or args.plot or args.brief_plot):
+        print("No procedural options were selected. What should I do? Please select an option.")
         parser.print_usage()
         sys.exit(1)
 
@@ -311,7 +309,15 @@ if __name__ == "__main__":
     sys.stdout.flush()
 
     data_loaded = False
-    stats_loaded = False
+
+    # Set report date if not supplied on command line
+    report_date = REPORT_DATE
+    if args.report_date:
+        try:
+            report_date = datetime.datetime.strptime(args.report_date, '%Y-%m-%d')
+        except ValueError as ve:
+            print(f"Report date has incorrect format: {ve}")
+            sys.exit(1)
 
     # Assigns a database, defaults to database defined in config
     if args.db is not None:
@@ -333,22 +339,17 @@ if __name__ == "__main__":
     if not data_loaded:
         load_data(db)
 
-    # Update/calculate statistics
-    if args.stats:
-        # Calculate stats
-        calc_stats(g_dfs, PROV_LIST, db)
-        stats_loaded = True
-
     # Plot results
     if args.plot or args.brief_plot:
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
         if not plot_path.exists():
             os.mkdir(plot_dir)
-        if not stats_loaded:
-            calc_stats(g_dfs, PROV_LIST, db)
+        # Calculate stats for graphs
+        calc_stats(g_dfs, PROV_LIST, db)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
-        plot_results(REPORT_DATE, g_dfs, plot_dir, prefix, args.brief_plot)
+        # Create plots and report
+        plot_results(report_date, g_dfs, plot_dir, prefix, args.brief_plot)
 
     print("Done.")
