@@ -218,31 +218,32 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
             # Make a new row for insertion
             new_row = make_row(prov, boreholes_list[idx], hl_scan_date, modified_date)
 
-            # If type 1 then get the mineral class data
-            if ld.log_type == '1':
+            # log types : 0=domain 1=class 2=decimal 3=image 4=profilometer 5=spectral 6=mask
+            # From: https://github.com/AuScope/NVCLDataServices/blob/master/sql/Oracle/createNVCLDB11g.sql
+            key = 'empty'
+            if ld.log_type in ['0', '1', '2', '3', '4', '5', '6']:
+                key = f"log{ld.log_type}"
+                new_row.log_type = ld.log_type
+                new_row.log_id = ld.log_id
+                new_row.algorithm = ld.log_name # ???
+                new_row.has_vnir = has_VNIR(new_row.algorithm)
+                new_row.has_swir = has_SWIR(new_row.algorithm)
+                new_row.has_tir = has_TIR(new_row.algorithm)
+                new_row.algorithm_id = ld.algorithm_id
+                # TODO: Expand to other types
+                # If type 1 (others?) then get the mineral class data
                 bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
                 if bh_data:
                     minerals, mincnts = np.unique([getattr(v, 'classText', 'Unknown') for v in bh_data.values()], return_counts=True)
-                    new_row.log_id = ld.log_id
-                    new_row.algorithm = ld.log_name # ???
-                    new_row.has_vnir = has_VNIR(new_row.algorithm)
-                    new_row.has_swir = has_SWIR(new_row.algorithm)
-                    new_row.has_tir = has_TIR(new_row.algorithm)
-                    new_row.log_type = ld.log_type
-                    new_row.algorithm_id = ld.algorithm_id
                     new_row.minerals = minerals.tolist()
                     new_row.mincnts = mincnts.tolist()
                     new_row.data = conv_mindata(bh_data)
+
+            # Convert to list for insertion into data frame
             new_data = new_row.as_list()
 
             # Add new data to the results dataframe
-            if len(minerals) > 0:
-                key = f"log{ld.log_type}"
-                # print(f"Adding row to dataframe at {key}")
-                results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
-            else:
-                # print("Adding row to dataframe at 'empty'")
-                results['empty'] = pd.concat([results['empty'], pd.Series(new_data, index=results['empty'].columns).to_frame().T], ignore_index=True)
+            results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
     return results
 
 
