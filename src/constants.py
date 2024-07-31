@@ -27,4 +27,10 @@ HEIGHT_RESOLUTION = 1.0
 ANALYSIS_CLASS = ''
 
 # Report time window is based on this date
-REPORT_DATE = datetime.datetime(2020, 10, 17)
+REPORT_DATE = datetime.datetime.now()
+
+# Plot image size
+IMAGE_SZ = [150, 100]
+
+# Report font
+FONT = 'helvetica'

@@ -2,9 +2,8 @@ import os
 from fpdf import FPDF
 from PIL import Image
 
-# Plot image size
-IMAGE_SZ = [150, 100]
-FONT = 'helvetica'
+from constants import IMAGE_SZ, FONT
+
 
 # PDF class used to customize page layout
 class PDF(FPDF):
@@ -16,7 +15,12 @@ class PDF(FPDF):
     # Page header
     def header(self):
         # Insert AuScope logo
-        self.image(os.path.join('images','AuScope.png'), 10, 8, 33)
+        img_path = os.path.join('assets', 'images', 'AuScope.png')
+        if os.exists(img_path):
+            self.image(img_path, 10, 8, 33)
+        else:
+            print(f"WARNING: AuScope logo {image_path} cannot be found, will be missing from report")
+
         # Set font to helvetica bold 15
         self.set_font(FONT, 'B', 15)
         # Move to the right
