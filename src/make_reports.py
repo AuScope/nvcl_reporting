@@ -43,20 +43,21 @@ g_dfs = {}
 SW_ignore_importedIDs = True
 
 
-def update_data(prov_list: [], db_file: str):
+def update_data(prov_list: [], db_file: str, meta_file: str):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
 
         :param prov_list: list of NVCL service providers
         :param db_file: database filename
+        :param meta_file: TSG metadata filename
     """
-    tsg_meta = TSGMeta(os.path.join("db","metadata.csv"))
+    tsg_meta = TSGMeta(meta_file)
 
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 10
+        #MAX_BOREHOLES = 10
         new_prov_list = ['TAS'] # , 'WA','NSW','QLD','VIC', 'NT']
         prov_list = new_prov_list
 
@@ -287,6 +288,7 @@ if __name__ == "__main__":
     # Load configuration
     config = load_and_check_config()
     plot_dir = config['plot_dir']
+    meta_file = config['meta_file']
 
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL report data creator")
@@ -333,7 +335,7 @@ if __name__ == "__main__":
 
     # Open database, talk to services, update database
     if args.update:
-        update_data(PROV_LIST, db)
+        update_data(PROV_LIST, db, meta_file)
         data_loaded = True
 
     # Load database from designated database
