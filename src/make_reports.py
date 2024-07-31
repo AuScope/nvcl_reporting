@@ -33,7 +33,7 @@ from db.readwrite_db import import_db, export_db, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, plot_results
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, ABORT_FILE, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
-from constants import MAX_BOREHOLES, REPORT_DATE
+from constants import MAX_BOREHOLES, REPORT_DATE, DATA_CATS_NUMS
 from helpers import conv_mindata, to_metres, make_row
 
 # Dataset dictionary - stores current NVCL datasets
@@ -222,7 +222,7 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
             # log types : 0=domain 1=class 2=decimal 3=image 4=profilometer 5=spectral 6=mask
             # From: https://github.com/AuScope/NVCLDataServices/blob/master/sql/Oracle/createNVCLDB11g.sql
             key = 'empty'
-            if ld.log_type in ['0', '1', '2', '3', '4', '5', '6']:
+            if ld.log_type in DATA_CATS_NUMS:
                 key = f"log{ld.log_type}"
                 new_row.log_type = ld.log_type
                 new_row.log_id = ld.log_id
