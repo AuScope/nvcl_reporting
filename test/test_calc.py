@@ -1,5 +1,7 @@
 import os
 import sys
+import datetime
+import math
 
 # Add in path to source scripts
 src_path = os.path.join(os.path.abspath(os.pardir), 'src')
@@ -22,9 +24,46 @@ def test_calc_bh_depths(db_df):
     """
     df_dict = { 'log1': db_df }
     depth = calc_bh_depths(df_dict, 'TAS')
-    assert depth == 0.975
+    assert math.isclose(depth, 0.975)
+    cnts, depth = calc_bh_depths(df_dict, 'TAS', return_cnts=True)
+    assert math.isclose(depth, 0.975)
+    assert cnts == 5
 
 
+def test_calc_bh_depths(db_df):
+    df_dict = { 'log1': db_df }
+    depth = calc_bh_depths(df_dict, 'QLD')
+    assert math.isclose(depth, 0.0)
+    cnts, depth = calc_bh_depths(df_dict, 'QLD', return_cnts=True)
+    assert math.isclose(depth, 0.0)
+    assert cnts == 0
 
+def test_calc_bh_depths(db_df):
+    """ Testing date ranges
+    24582|2011-11-06
+    24598|2011-11-07
+    24725|2014-01-15
+    24998|2019-04-02
+    24999|2019-07-17
+    """
+    df_dict = { 'log1': db_df }
+    depth = calc_bh_depths(df_dict, 'TAS', start_date=datetime.date(2011,11,12))
+    assert math.isclose(depth, 0.962)
+    cnts, depth = calc_bh_depths(df_dict, 'TAS', start_date=datetime.date(2011,11,12), return_cnts=True)
+    assert math.isclose(depth, 0.962)
+    assert cnts == 3
 
+    depth = calc_bh_depths(df_dict, 'TAS', start_date=datetime.date(2011,11,6),
+                                           end_date=datetime.date(2011,11,12))
+    assert math.isclose(depth, 0.007)
+    cnts, depth = calc_bh_depths(df_dict, 'TAS', start_date=datetime.date(2011,11,6),
+                                                 end_date=datetime.date(2011,11,12), return_cnts=True)
+    assert math.isclose(depth, 0.007)
+    assert cnts == 1
+
+    depth = calc_bh_depths(df_dict, 'TAS', end_date=datetime.date(2011,11,7))
+    assert math.isclose(depth, 0.006)
+    cnts, depth = calc_bh_depths(df_dict, 'TAS', end_date=datetime.date(2011,11,7), return_cnts=True)
+    assert math.isclose(depth, 0.006)
+    assert cnts == 1
 

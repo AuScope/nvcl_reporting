@@ -59,9 +59,10 @@ def calc_metric_diffs(all_keys: list, larger: dict, smaller: dict):
 
 
 def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.date = None,
-                end_date: datetime.date = None, return_cnts: bool = False) -> int:
+                end_date: datetime.date = None, return_cnts: bool = False) -> float:
     """
-    Assemble dicts of borehole depths (and optional counts) from start date to end date
+    Calculate depth by assembling dicts of borehole depths (and optional counts) from start date to end date
+    Uses 'log1' mineral depths to calculate depths
 
     :param dfs: source dataframe dict
     :param prov: name of data provider, state or territory
@@ -74,12 +75,20 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
     print(f"calc_bh_depths({prov})")
     if dfs['log1'].empty:
         if not return_cnts:
-            return 0
-        return 0, 0
+            return 0.0
+        return 0, 0.0
 
-    if start_date is None or end_date is None:
+    if start_date is None and end_date is None:
+        # Has neither start_date nor end_date
         df = dfs['log1'][dfs['log1']['provider'] == prov]
+    elif start_date is None:
+        # Only has end_date
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] < end_date)]
+    elif end_date is None:
+        # Only has start_date
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] > start_date)]
     else:
+        # Has both start_date and end_date
         df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] > start_date) & (dfs['log1']['hl_scan_date'] < end_date)]
     bh_kms = {}
     nvcl_ids = np.unique(df['nvcl_id'])
