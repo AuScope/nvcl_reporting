@@ -210,8 +210,9 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df:
         assert isinstance(row_df_dict['modified_datetime'], date) 
         assert isinstance(row_df_dict['hl_scan_date'], date)
         
-        if len(known_id_df.query("nvcl_id == '" + row_df_dict['nvcl_id'] +
-                                 "' and provider == '" + row_df_dict['provider'] + "'")) > 0:
+        if not known_id_df.empty and \
+                len(known_id_df.query("nvcl_id == '" + row_df_dict['nvcl_id'] +
+                                      "' and provider == '" + row_df_dict['provider'] + "'")) > 0:
             print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
             continue
         try:
