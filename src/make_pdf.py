@@ -19,7 +19,7 @@ class PDF(FPDF):
         if os.exists(img_path):
             self.image(img_path, 10, 8, 33)
         else:
-            print(f"WARNING: AuScope logo {image_path} cannot be found, will be missing from report")
+            print(f"WARNING: AuScope logo {img_path} cannot be found, will be missing from report")
 
         # Set font to helvetica bold 15
         self.set_font(FONT, 'B', 15)
