@@ -58,7 +58,7 @@ def update_data(prov_list: [], db_file: str, meta_file: str):
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         #MAX_BOREHOLES = 10
-        new_prov_list = ['TAS'] # , 'WA','NSW','QLD','VIC', 'NT']
+        new_prov_list = ['TAS'] # 'TAS', 'WA','NSW','QLD','VIC', 'NT']
         prov_list = new_prov_list
 
 
