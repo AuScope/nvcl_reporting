@@ -90,8 +90,8 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
         nvclid_df = df[df.nvcl_id == nvcl_id]
         for idx, row in nvclid_df.iterrows():
             depths = [depth for depth, minerals in row['data']]
-            # Skip "Tray" algorithms 
-            if row['algorithm'] != 'Tray':
+            # Skip "Tray" algorithms etc.
+            if row['algorithm'] not in ['Tray', 'Domain', 'HoleID', 'HyLogDiag', '', 'Rockmarks']:
                 # Each element of the 'data' column is a dictionary whose key is depth
                 # Create a set of depth range tuples
                 depth_set.update(set(depths))
@@ -101,7 +101,7 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
         #print(f"{depth_list=}")
         if len(depth_list) > 0:
             bh_kms[nvcl_id] = (1.0 + max(depth_list) - min(depth_list)) / 1000.0
-            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]:.4f} kms")
+            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]:.3f} kms")
 
     if not return_cnts:
         return sum(bh_kms.values())
