@@ -196,12 +196,7 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
                 modified_date = datetime.date.min
 
             # Get Hylogger scan date from CSV file
-            hl_scan_date = None
-            if nvcl_id in tsg_meta.dt_lkup:
-                try:
-                    hl_scan_date = datetime.datetime.strptime(tsg_meta.dt_lkup[nvcl_id], '%Y-%m-%d %H:%M:%S').date()
-                except ValueError:
-                    pass
+            hl_scan_date = tsg_meta.get_hl_scan_date(nvcl_id)
             if hl_scan_date is None:
                 # If there is no scan date, then use 'created_date' as the scan date
                 created_datetime = getattr(ld, 'created_date', None)
