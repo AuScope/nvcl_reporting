@@ -141,8 +141,10 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
         df = pd.DataFrame(columns=DF_COLUMNS)
     assert type(df['modified_datetime']) is not pd.Timestamp
 
-    # Convert to usable datatypes
+    # Create new frame for populating
     new_df = pd.DataFrame(columns=DF_COLUMNS)
+
+    # Convert imported DataFrame column by column to usable data types
     for col in df.columns:
         #print(f"converting {col}")
         # dates in db are converted to 'datetime.date' objects
@@ -210,13 +212,15 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df:
         assert isinstance(row_df_dict['modified_datetime'], date) 
         assert isinstance(row_df_dict['hl_scan_date'], date)
         
+        # Skip known ids
         if not known_id_df.empty and \
                 len(known_id_df.query("nvcl_id == '" + row_df_dict['nvcl_id'] +
                                       "' and provider == '" + row_df_dict['provider'] + "'")) > 0:
             print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
             continue
+
+        # Create new row in db
         try:
-            # Create new row in db
             #print(f"Inserting {row_df_dict=}")
             tbl_handle = meas_mdl.create(**row_df_dict)
             tbl_handle.save()
