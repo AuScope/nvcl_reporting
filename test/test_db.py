@@ -10,10 +10,15 @@ import pytest
 import pandas as pd
 
 from db.readwrite_db import import_db, export_db
+from db.tsg_metadata import TSGMeta
 
 @pytest.fixture
 def db_df():
     return import_db(os.path.join("data","simple.db"), "log1")
+
+@pytest.fixture
+def tsg_meta():
+    return TSGMeta(os.path.join("data","metadata.csv"))
 
 def test_import_db():
     """ Testing import from sqlite db to dataframe
@@ -22,10 +27,10 @@ def test_import_db():
     assert(isinstance(df, pd.DataFrame))
     assert(len(df) == 126)
 
-def test_export_db(db_df):
+def test_export_db(db_df, tsg_meta):
     """ Can I export, then re-import and the dataframe is still the same?
     """
-    export_db("test.db", db_df, "log1", pd.DataFrame())
+    export_db("test.db", db_df, "log1", tsg_meta)
     db_df_2 = import_db(os.path.join("test.db"), "log1")
     assert(db_df_2.compare(db_df).empty)
 

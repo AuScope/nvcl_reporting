@@ -11,7 +11,7 @@ PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA']
 CONFIG_FILE = "config.yaml"
 
 # Test run
-TEST_RUN = False
+TEST_RUN = True
 
 # Maximum number of boreholes to retrieve from each provider
 MAX_BOREHOLES = 999999
@@ -23,8 +23,8 @@ ABORT_FILE = Path('./run_NVCL_abort.txt')
 DATA_CATS = ['log0', 'log1', 'log2', 'log3', 'log4', 'log5', 'log6', 'empty', 'nodata']
 DATA_CATS_NUMS = ['0', '1', '2', '3', '4', '5', '6']
 # Borehole parameters
-HEIGHT_RESOLUTION = 1.0
-ANALYSIS_CLASS = ''
+HEIGHT_RESOLUTION = 1.0 # One metre resolution
+ANALYSIS_CLASS = ''     # All classes
 
 # Report time window is based on this date
 REPORT_DATE = datetime.datetime.now()

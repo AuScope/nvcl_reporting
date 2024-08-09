@@ -22,6 +22,7 @@ from playhouse.reflection import generate_models
 
 
 from db.schema import Meas, DATE_FMT, DF_COLUMNS
+from db.tsg_metadata import TSGMeta
 
 # Database columns = 'report_category' + list of columns in a new DataFrame
 from db.schema import DF_COLUMNS
@@ -83,43 +84,6 @@ def conv_str2json(json_str) -> list:
 #    return dt.strftime(DATE_FMT)
 
 
-def update_datetime(meas: Model, df_row: dict):
-    '''
-    If the record already exists in the database, then check if modified_datetime needs updating.
-    If so, then update the database.
-
-    This exists because the older versions of NVCL Services do not return a date stamp.
-    Gradually they will upgrade and the date stamps will be available.
-    We have been inserting the time when the dataset was retrieved.
-    Therefore this routine checks that the NVCL Services datetime is older and inserts it in the db
-
-    :param con: SQLITE connection to db
-    :param all_fields: tuple of all fields to be inserted into db
-    '''
-    # Get record from db
-    db_rec = meas.select().where(
-                       (meas.report_category == df_row['report_category']) &
-                       (meas.provider == df_row['provider']) &
-                       (meas.nvcl_id == df_row['nvcl_id']) &
-                       (meas.log_id == df_row['log_id']) &
-                       (meas.algorithm == df_row['algorithm']) &
-                       (meas.log_type ==df_row['log_type']) &
-                       (meas.algorithm_id == df_row['algorithm_id']))
-    assert len(db_rec) == 1
-    df_modified_dt = df_row['modified_datetime']
-    assert type(df_modified_dt) is not pd.Timestamp
-
-    db_modified_dt = db_rec[0].modified_datetime
-    assert type(db_modified_dt) is not pd.Timestamp
-    #print(f"{df_modified_dt=}")
-    #print(f"{db_modified_dt=}")
-
-    # If older than current value in db, then must be the more accurate NVCL Services, so update the row
-    if db_modified_dt > df_modified_dt:
-        db_rec[0].modified_datetime = df_modified_dt
-        db_rec[0].save()
-
-
 def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
     ''' 
     Reads a report category from SQLITE database converts it into a dataframe 
@@ -146,7 +110,6 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
 
     # Convert imported DataFrame column by column to usable data types
     for col in df.columns:
-        #print(f"converting {col}")
         # dates in db are converted to 'datetime.date' objects
         if col in ['modified_datetime','hl_scan_date']:
             new_df[col] = df[col].apply(conv_str2dt)
@@ -158,6 +121,7 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
             new_df[col] = df[col]
 
     assert type(new_df['modified_datetime']) is not pd.Timestamp
+    assert type(new_df['hl_scan_date']) is not pd.Timestamp
     return new_df
 
 
@@ -170,14 +134,14 @@ def conv_obj2str(arr: []) -> str:
         sys.exit(9)
 
 
-def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df: pd.DataFrame):
+def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta: TSGMeta):
     '''
-    Writes a dataframe to SQLITE database
+    Writes entire dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
     :param df: dataframe whose rows are exported to db
     :param report_category: report category
-    :param known_id_df: DataFrame of providers & NVCL ids that are already in the database
+    :param tsg_meta: TSG metadata used to fetch Hylogger scan date
     '''
     # DB cols: report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithm_id, minerals, mincnts, data 
     #
@@ -190,11 +154,8 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df:
         sdb.create_tables([Meas])
         models = generate_models(sdb)
     meas_mdl = models['meas']
-    # Loop over all rows in dataframe
+    # Loop over all rows in dataframe to be exported
     for idx, row_arr in df.iterrows():
-        #print(f"{DF_COLUMNS=}")
-        #print(f"{[cols for cols in df.columns]}")
-        #print(f"{df.head()=}")
 
         # Assemble a dict from dataframe row
         row_df_dict = dict(zip(DF_COLUMNS, row_arr))
@@ -204,38 +165,26 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, known_id_df:
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
 
         ## Check data type
-        #if type(row_df_dict['modified_datetime']) is not pd.Timestamp:
-        #    print("NB:", repr(row_df_dict['modified_datetime']))
-        #    sys.exit(1)
-        #print("modified_datetime type is ", type(row_df_dict['modified_datetime']))
-        #print("hl_scan_date type is", type(row_df_dict['hl_scan_date']))
         assert isinstance(row_df_dict['modified_datetime'], date) 
         assert isinstance(row_df_dict['hl_scan_date'], date)
-        
-        # Skip known ids
-        if not known_id_df.empty and \
-                len(known_id_df.query("nvcl_id == '" + row_df_dict['nvcl_id'] +
-                                      "' and provider == '" + row_df_dict['provider'] + "'")) > 0:
-            print(f"Skipping {row_df_dict['nvcl_id']}, it is a known id")
-            continue
+
+        # Assuming incremental updates, update 'hl_scan_date'
+        # The 'hl_scan_date' comes from a source that may be updated after the NVCLDataServices
+        # so initially 'hl_scan_date' maybe unavailable
+        hl_scan_date = tsg_meta.get_hl_scan_date(row_df_dict['nvcl_id'])
+        if hl_scan_date is not None:
+            print(f"Changing {row_df_dict['hl_scan_date']} to {hl_scan_date}")
+            row_df_dict['hl_scan_date'] = hl_scan_date
 
         # Create new row in db
         try:
-            #print(f"Inserting {row_df_dict=}")
             tbl_handle = meas_mdl.create(**row_df_dict)
             tbl_handle.save()
         except peewee.IntegrityError as pie:
             # NB: Many rows with an 'empty' report_category will be duplicates
             print("Duplicate row", pie)
             print("Tried to insert", row_df_dict)
-            # Update 'modified_datetime' if required
-            update_datetime(meas_mdl, row_df_dict)
         except peewee.InterfaceError as sie:
             print("Bad param", sie)
             print("Tried to insert", row_df_dict)
             sys.exit(1)
-
-if __name__ == "__main__":
-    # Used for testing
-    print(import_db("nvcl-test.db", "log2"))
-

@@ -32,9 +32,9 @@ from multiprocessing import Pool
 from db.readwrite_db import import_db, export_db, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, plot_results
-from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, ABORT_FILE, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
-from constants import MAX_BOREHOLES, REPORT_DATE, DATA_CATS_NUMS
-from helpers import conv_mindata, to_metres, make_row
+from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
+from constants import REPORT_DATE, DATA_CATS_NUMS
+from helpers import conv_mindata, make_row
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -110,14 +110,14 @@ def update_data(prov_list: [], db_file: str, meta_file: str):
         #        f.write(current_id)
         ## Save out data & exit
         #for data_cat in DATA_CATS:
-        #    export_db(db_file, g_dfs[data_cat], data_cat, known_id_df)
+        #    export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
 
     # Once finished, save out data to database
     for data_cat in DATA_CATS:
         print(f"\nSaving '{data_cat}' to {db_file}")
-        export_db(db_file, g_dfs[data_cat], data_cat, known_id_df)
+        export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta)
 
 def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
     """ Ask a provider for NVCL data, runs in its own process
@@ -192,6 +192,7 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
             if isinstance(modified_datetime, datetime.datetime):
                 modified_date = modified_datetime.date()
             else:
+                # If there is no 'modified_date' then use min date - i.e. year 1
                 modified_date = datetime.date.min
 
             # Get Hylogger scan date from CSV file
@@ -202,21 +203,15 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
                 except ValueError:
                     pass
             if hl_scan_date is None:
-                # If there is no scan date, then use 'created_date', if there is one
+                # If there is no scan date, then use 'created_date' as the scan date
                 created_datetime = getattr(ld, 'created_date', None)
                 if isinstance(created_datetime, datetime.datetime):
                     hl_scan_date = created_datetime.date()
                 else:
+                    # If there is no 'created_date' or scan date, then use min date - i.e. year 1
                     hl_scan_date = datetime.date.min
 
-            # Check hl_scan_date
-            if not isinstance(hl_scan_date, datetime.date):
-                print(f"#{idx+1} has a skipped row:")
-                print(f"  {hl_scan_date=} is type {type(hl_scan_date)}")
-                print(f"  {prov=}")
-                print(f"  {boreholes_list[id]=}")
-                continue
-            # Make a new row for insertion
+            # Make a new row for insertion with hl_scan_date and modified_date
             new_row = make_row(prov, boreholes_list[idx], hl_scan_date, modified_date)
 
             # log types : 0=domain 1=class 2=decimal 3=image 4=profilometer 5=spectral 6=mask
