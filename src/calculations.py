@@ -12,15 +12,12 @@ pd.options.mode.chained_assignment = None
 
 import numpy as np
 from itertools import zip_longest
-from nvcl_kit.reader import NVCLReader
-from nvcl_kit.param_builder import param_builder
 from fiscalyear import FiscalDate
 
 # Local imports
-from make_plots import (plot_borehole_percent, plot_borehole_number, plot_borehole_kilometres,
+from plots import (plot_borehole_percent, plot_borehole_number, plot_borehole_kilometres,
                           plot_geophysics, plot_elements, plot_spectrum_group, plot_algorithms)
-from make_pdf import write_report
-from constants import PROV_LIST
+from pdf import write_report
 
 
 def make_table(table_data: list, title_list: list, table_header: list, table_datarows: list, title: str):
