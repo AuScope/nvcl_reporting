@@ -33,6 +33,7 @@ def test_export_db(db_df, tsg_meta):
     export_db("test.db", db_df, "log1", tsg_meta)
     db_df_2 = import_db(os.path.join("test.db"), "log1")
     assert(db_df_2.compare(db_df).empty)
+    os.remove("test.db")
 
 
 

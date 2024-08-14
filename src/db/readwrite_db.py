@@ -95,7 +95,13 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
     '''
 
     # Read category data from database
-    con = sqlite3.connect(db_file)
+    try:
+        con = sqlite3.connect(db_file)
+    except sqlite3.Error as s3e:
+        print(f"Cannot connect to database {db_file}: {s3e}")
+        sys.exit(1)
+
+    # Convert db data to dataframe
     try:
         df = pd.read_sql(f"select {df_col_str()} from meas where report_category = '{report_datacat}'", con) 
     except pandas.io.sql.DatabaseError as de:

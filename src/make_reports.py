@@ -290,8 +290,12 @@ def load_and_check_config(config_file: str) -> dict:
                 sys.exit(1)
     return config
 
-if __name__ == "__main__":
 
+def main(sys_argv):
+    """ MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN
+
+    :param sys_argv: sys.argv from command line, can be overridden for testing purposes
+    """
     # Configure command line arguments
     parser = argparse.ArgumentParser(description="NVCL Report Creator")
     parser.add_argument('-u', '--update', action='store_true', help="Update database from NVCL services")
@@ -302,7 +306,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', action='store', help="Config file")
 
     # Parse command line arguments
-    args = parser.parse_args()
+    args = parser.parse_args(sys_argv[1:])
 
     # Complain & exit if nothing selected
     if not (args.update or args.full or args.brief):
@@ -354,7 +358,7 @@ if __name__ == "__main__":
         print("Database not defined in config file, nor on command line")
         sys.exit(1)
     if not os.path.exists(db):
-        print(f"{db} does not exist. Creating new one...")
+        print(f"{db} does not exist. Will attempt to create a new one...")
 
     # Open database, talk to services, update database
     if args.update:
@@ -379,3 +383,7 @@ if __name__ == "__main__":
         plot_results(report_date, g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")
+
+if __name__ == "__main__":
+    main(sys.argv)
+
