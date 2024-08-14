@@ -43,22 +43,22 @@ g_dfs = {}
 SW_ignore_importedIDs = True
 
 
-def update_data(prov_list: [], db_file: str, meta_file: str):
+def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
 
         :param prov_list: list of NVCL service providers
         :param db_file: database filename
-        :param meta_file: TSG metadata filename
+        :param tsg_meta_file: TSG metadata filename
     """
-    tsg_meta = TSGMeta(meta_file)
+    tsg_meta = TSGMeta(tsg_meta_file)
 
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         #MAX_BOREHOLES = 10
-        new_prov_list = ['TAS'] # 'TAS', 'WA','NSW','QLD','VIC', 'NT']
+        new_prov_list = ['TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
 
@@ -250,22 +250,38 @@ def load_data(db_file):
     print("Loading database done.")
 
 
-def load_and_check_config():
+def load_and_check_config(config_file: str) -> dict:
     """ Loads config file
     This file contains the directories where the database file is kept, 
-    and the directory where the plot files are kept.
+    TSG metadata file and the directory where the plot files are kept.
+
+    :param config_file: config filename
+    :returns: dict of config values
     """
+    # Open config file
     try:
-        with open(CONFIG_FILE, "r") as fd:
-            config = yaml.safe_load(fd)
+        with open(config_file, "r") as fd:
+            # Parse config file
+            try:
+                config = yaml.safe_load(fd)
+            except yaml.YAMLError as ye:
+                print(f"Error in configuration file: {ye}")
+                sys.exit(1)
     except OSError as oe:
-        print(f"Cannot load config file {CONFIG_FILE}: {oe}")
+        print(f"Cannot load config file {config_file}: {oe}")
         sys.exit(1)
+
+    # If nothing in file
+    if config is None:
+        print(f"Cannot load config file {config_file}, it is empty")
+        sys.exit(1)
+
     # Check keys
-    for key in ('db', 'plot_dir'):
+    for key in ('db', 'plot_dir', 'tsg_meta_file'):
         if key not in config:
-            print(f"config file {CONFIG_FILE} is missing a value for '{key}'")
+            print(f"Config file {config_file} is missing a value for '{key}'")
             sys.exit(1)
+        # Try to create plot directory
         if key in ('plot_dir') and not os.path.exists(config[key]):
             try:
                 os.mkdir(config[key])
@@ -275,28 +291,45 @@ def load_and_check_config():
     return config
 
 if __name__ == "__main__":
-    # Load configuration
-    config = load_and_check_config()
-    plot_dir = config['plot_dir']
-    meta_file = config['meta_file']
 
     # Configure command line arguments
-    parser = argparse.ArgumentParser(description="NVCL report data creator")
+    parser = argparse.ArgumentParser(description="NVCL Report Creator")
     parser.add_argument('-u', '--update', action='store_true', help="Update database from NVCL services")
-    parser.add_argument('-p', '--plot', action='store_true', help="Create plots & report")
-    parser.add_argument('-b', '--brief_plot', action='store_true', help="Create brief plots & report")
+    parser.add_argument('-f', '--full', action='store_true', help="Create full report")
+    parser.add_argument('-b', '--brief', action='store_true', help="Create brief report")
     parser.add_argument('-r', '--report_date', action='store', help="Create report based on this date, format: YYYY-MM-DD")
-    parser.add_argument('-d', '--db', action='store', help="Database filename.")
+    parser.add_argument('-d', '--db', action='store', help="Database filename")
+    parser.add_argument('-c', '--config', action='store', help="Config file")
 
     # Parse command line arguments
     args = parser.parse_args()
 
     # Complain & exit if nothing selected
-    if not (args.update or args.plot or args.brief_plot):
-        print("No procedural options were selected. What should I do? Please select an option.")
+    if not (args.update or args.full or args.brief):
+        print("No procedural command line options were selected. Please use '--update' and/or either '--full' or '--brief'")
         parser.print_usage()
         sys.exit(1)
 
+    # Complain if both full and brief reports were selected
+    if args.full and args.brief:
+        print("Cannot select both full and brief report. Please select one or the other.")
+        parser.print_usage()
+        sys.exit(1)
+
+    # Complain if config file does not exist
+    if args.config is not None and not os.path.isfile(args.config):
+        print(f"Cannot find config file {args.config}")
+        parser.print_usage()
+        sys.exit(1)
+    if args.config is None:
+        config_file = CONFIG_FILE
+    else:
+        config_file = args.config 
+
+    # Load configuration
+    config = load_and_check_config(config_file)
+    plot_dir = config['plot_dir']
+    tsg_meta_file = config['tsg_meta_file']
     now = datetime.datetime.now()
     print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
@@ -325,15 +358,15 @@ if __name__ == "__main__":
 
     # Open database, talk to services, update database
     if args.update:
-        update_data(PROV_LIST, db, meta_file)
+        update_data(PROV_LIST, db, tsg_meta_file)
         data_loaded = True
 
     # Load database from designated database
     if not data_loaded:
         load_data(db)
 
-    # Plot results
-    if args.plot or args.brief_plot:
+    # Create report
+    if args.full or args.brief:
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
         if not plot_path.exists():
@@ -343,6 +376,6 @@ if __name__ == "__main__":
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        plot_results(report_date, g_dfs, plot_dir, prefix, args.brief_plot)
+        plot_results(report_date, g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")

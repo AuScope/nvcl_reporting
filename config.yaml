@@ -1,3 +1,3 @@
 plot_dir: plots
 db: DBs/nvcl9-full.db
-meta_file: DBs/metadata.csv
+tsg_meta_file: DBs/metadata.csv
