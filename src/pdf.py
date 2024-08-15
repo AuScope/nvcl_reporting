@@ -16,7 +16,7 @@ class PDF(FPDF):
     def header(self):
         # Insert AuScope logo
         img_path = os.path.join('assets', 'images', 'AuScope.png')
-        if os.exists(img_path):
+        if os.path.isfile(img_path):
             self.image(img_path, 10, 8, 33)
         else:
             print(f"WARNING: AuScope logo {img_path} cannot be found, will be missing from report")
