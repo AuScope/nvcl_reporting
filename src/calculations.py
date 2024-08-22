@@ -22,37 +22,19 @@ from pdf import write_report
 
 def make_table(table_data: list, title_list: list, table_header: list, table_datarows: list, title: str):
         """ Makes a table data structure for passing to report building routines
+            NB: Return value is in 'title_list' (pass by ref)
 
         :param table_data: list passed to report building routines
         :param title_list: list of table titles
         :param table_header: list of table header strings
         :param table_datarow: list of data rows to be inserted into table, each row same length as headers string list
         :param title: title of data table
+
         """
         table_rows = [table_header]
         table_rows.append(table_datarows)
         table_data.append(table_rows)
         title_list.append(title)
-
-def calc_metric_diffs(all_keys: list, larger: dict, smaller: dict):
-    '''
-    Calculate numerical difference between dicts of metrics, key is provider name
-    NB: if value is missing zero is returned
-
-    :param all_keys: list of all possible dict keys (provider names)
-    :param larger: dict of metric values keys are provider names
-    :param smaller: dict of metric values keys are provider names
-    :returns: array of differences, one for each value in 'all_keys'
-    '''
-    # print(f"{all_keys=} {larger=} {smaller=}")
-    result = []
-    for key in all_keys:
-        if key in larger and key in smaller and larger[key] > smaller[key]:
-            result.append(larger[key] - smaller[key])
-        else:
-            result.append(0)
-    # print(f"{result=}")
-    return result    
 
 
 def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.date = None,
@@ -240,12 +222,12 @@ def get_fy_date_ranges(report_date: datetime.date) -> (datetime.date, datetime.d
     return y_start, y_end, q_start, q_end
 
 
-def get_cnts(dfs: dict[str, pd.DataFrame], all_provs: list,
+def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list,
              start_date: datetime.date, end_date: datetime.date) -> (int, int):
     """
     Gets kilometres and borehole counts for a provider
 
-    :param dfs: source dataframe dict
+    :param df_dict: source dataframe dict
     :param prov: provider string
     :param start_date: start date, datetime.date() object
     :param end_date: start date, datetime.date() object
@@ -255,7 +237,7 @@ def get_cnts(dfs: dict[str, pd.DataFrame], all_provs: list,
     kms = {}
     for prov in all_provs:
         # Borehole counts and depths from 'start_date' to 'end_date'
-        cnts[prov], kms[prov] = calc_bh_depths(dfs, prov, start_date, end_date, True)
+        cnts[prov], kms[prov] = calc_bh_depths(df_dict, prov, start_date, end_date, True)
     return cnts, kms
 
 
@@ -265,8 +247,8 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
 
     :param report_date: base date from which reporting occurs
     :param df_dict: source dataframe dict, key is log type
-    :param prefix: sorting prefix
     :param plot_dir: where plots are stored
+    :param prefix: sorting prefix
     :param brief: if True will create a smaller report
     """
     # Remove old plots
@@ -275,6 +257,7 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
 
     table_data = []
     title_list = []
+    # Check 'df_dict' for empty dataframes
     if not any(key in df_dict and ((type(df_dict[key]) is dict and df_dict[key] != {}) or (isinstance(df_dict[key], pd.DataFrame) and not df_dict[key].empty)) for key in ('log1','log2','empty','nodata')):
         print("Datasets are empty, please create them before enabling plots")
         print(f"df_dict.keys()={df_dict.keys()}")
@@ -342,9 +325,9 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
 
     # get start and end of previous financial year and quarter
     y_start, y_end, q_start, q_end = get_fy_date_ranges(report_date)
-    # Number of boreholes added and total amount of depths added from tne end of last FY to now
+    # Number of boreholes added and total amount of depths added from tne end of last FY to report_date
     y_cnts, y_kms = get_cnts(df_dict, all_provs, y_end, report_date)
-    # Number of boreholes added and total amount of depths added from the end of the quarter to now
+    # Number of boreholes added and total amount of depths added from the end of the quarter to report_date
     q_cnts, q_kms = get_cnts(df_dict, all_provs, q_end, report_date)
 
     # Pretty printed date strings
@@ -353,36 +336,33 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     y_date_pretty = y_end.strftime("%A %d %b %Y")
     q_date_pretty = q_end.strftime("%A %d %b %Y")
 
-    # All possible providers are taken from annual data
-    all_keys = list(y_cnts.keys())
-
     # Plot yearly and quarterly comparisons for counts by provider
     all_cnts_dict = dict(zip(all_provs, all_counts))
-    q_cnt_list = [q_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
-    y_cnt_list = [y_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
+    q_cnt_list = [q_cnts[prov] for prov in all_provs]
+    y_cnt_list = [y_cnts[prov] for prov in all_provs]
 
-    plot_borehole_number(df_dict, plot_dir, all_keys, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date_str}", filename="borehole_number_y.png")
-    plot_borehole_number(df_dict, plot_dir, all_keys, q_cnt_list, title=f"Borehole counts since last quarter {q_date_str}", filename="borehole_number_q.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date_str}", filename="borehole_number_y.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, q_cnt_list, title=f"Borehole counts since last quarter {q_date_str}", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
-    make_table(table_data, title_list, list(all_keys), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date_str}")
-    make_table(table_data, title_list, list(all_keys), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date_str}")
+    make_table(table_data, title_list, list(all_provs), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date_str}")
+    make_table(table_data, title_list, list(all_provs), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date_str}")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
     nkilometres_dict = dict(zip(all_provs, nkilometres_totals))
     print("nkilometres_dict = ", nkilometres_dict)
     print("q_kms = ", q_kms)
     print("y_kms = ", y_kms)
-    q_kms_list = [q_kms[prov] for prov in all_keys] # calc_metric_diffs(all_keys, nkilometres_dict, q_kilometres)
-    y_kms_list = [y_kms[prov] for prov in all_keys] # calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
-    print(f"{all_keys=}")
+    q_kms_list = [q_kms[prov] for prov in all_provs]
+    y_kms_list = [y_kms[prov] for prov in all_provs]
+    print(f"{all_provs=}")
     print(f"{nkilometres_dict=}")
-    plot_borehole_kilometres(all_keys, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date_str}", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_keys, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date_str}", filename="borehole_kilometres_q.png")
+    plot_borehole_kilometres(all_provs, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date_str}", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_provs, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date_str}", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
-    make_table(table_data, title_list, list(all_keys), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date_str}")
-    make_table(table_data, title_list, list(all_keys), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date_str}")
+    make_table(table_data, title_list, list(all_provs), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date_str}")
+    make_table(table_data, title_list, list(all_provs), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date_str}")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
