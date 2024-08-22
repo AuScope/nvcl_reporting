@@ -5,6 +5,7 @@ import datetime
 import shutil
 import os
 import sys
+from types import SimpleNamespace
 
 # External imports
 import pandas as pd
@@ -225,6 +226,42 @@ def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list,
         cnts[prov], kms[prov] = calc_bh_depths(df_dict, prov, start_date, end_date, True)
     return cnts, kms
 
+def calc_fyq(report_date: datetime.date, df_dict: dict[str, pd.DataFrame], all_provs: list):
+    """
+    Calculate quarterly and yearly data
+
+    :param report_date: base date from which reporting occurs
+    :param df_dict: source dataframe dict
+    :param all_provs: list of providers
+    :returns: tuple of SimpleNamespace() fields are:
+        start = start date
+        end = end date
+        kms_list = list of borehole kms in provider order
+        cnts_list = list of borehole counts in provider order
+    """
+
+    y = SimpleNamespace()
+    q = SimpleNamespace()
+
+    # Get start and end of previous financial year and quarter
+    y.start, y.end, q.start, q.end = get_fy_date_ranges(report_date)
+
+    # Number of boreholes added and total amount of depths added from tne end of last FY relative to report_date
+    y_cnts, y_kms = get_cnts(df_dict, all_provs, y.start, y.end)
+
+    # Number of boreholes added and total amount of depths added from the end of the quarter realtive to report_date
+    q_cnts, q_kms = get_cnts(df_dict, all_provs, q.start, q.end)
+
+    # List of providers' kms, in provider order
+    q.kms_list = [q_kms[prov] for prov in all_provs]
+    y.kms_list = [y_kms[prov] for prov in all_provs]
+
+    # List of providers' counts, in provider order
+    q.cnt_list = [q_cnts[prov] for prov in all_provs]
+    y.cnt_list = [y_cnts[prov] for prov in all_provs]
+
+    return y, q
+
 
 def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
     """
@@ -307,46 +344,32 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     # Plot borehole kilometres by provider
     plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
-    # get start and end of previous financial year and quarter
-    y_start, y_end, q_start, q_end = get_fy_date_ranges(report_date)
-    # Number of boreholes added and total amount of depths added from tne end of last FY to report_date
-    y_cnts, y_kms = get_cnts(df_dict, all_provs, y_end, report_date)
-    # Number of boreholes added and total amount of depths added from the end of the quarter to report_date
-    q_cnts, q_kms = get_cnts(df_dict, all_provs, q_end, report_date)
+    # Calculate quarterly and financial year data
+    y, q = calc_fyq(report_date, df_dict, all_provs)
 
     # Pretty printed date strings
-    y_date_str = y_end.strftime('(%d/%m/%Y)')
-    q_date_str = q_end.strftime('(%d/%m/%Y)')
-    y_date_pretty = y_end.strftime("%A %d %b %Y")
-    q_date_pretty = q_end.strftime("%A %d %b %Y")
+    y_start_date_str = y.start.strftime('%d/%m/%Y')
+    q_start_date_str = q.start.strftime('%d/%m/%Y')
+    y_end_date_str = y.end.strftime('%d/%m/%Y')
+    q_end_date_str = q.end.strftime('%d/%m/%Y')
+    y_end_date_pretty = y.end.strftime("%A %d %b %Y")
+    q_end_date_pretty = q.end.strftime("%A %d %b %Y")
 
     # Plot yearly and quarterly comparisons for counts by provider
-    all_cnts_dict = dict(zip(all_provs, all_counts))
-    q_cnt_list = [q_cnts[prov] for prov in all_provs]
-    y_cnt_list = [y_cnts[prov] for prov in all_provs]
-
-    plot_borehole_number(df_dict, plot_dir, all_provs, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date_str}", filename="borehole_number_y.png")
-    plot_borehole_number(df_dict, plot_dir, all_provs, q_cnt_list, title=f"Borehole counts since last quarter {q_date_str}", filename="borehole_number_q.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, y.cnt_list, title=f"Borehole counts for previous FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, q.cnt_list, title=f"Borehole counts for last quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
-    report.add_table(list(all_provs), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date_str}")
-    report.add_table(list(all_provs), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date_str}")
+    report.add_table(list(all_provs), q.cnt_list, f"Borehole counts by Provider for last quarter ({q_start_date_str} - {q_end_date_str})")
+    report.add_table(list(all_provs), y.cnt_list, f"Borehole counts by Provider for previous FY ({y_start_date_str} - {y_end_date_str})")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
-    nkilometres_dict = dict(zip(all_provs, nkilometres_totals))
-    print("nkilometres_dict = ", nkilometres_dict)
-    print("q_kms = ", q_kms)
-    print("y_kms = ", y_kms)
-    q_kms_list = [q_kms[prov] for prov in all_provs]
-    y_kms_list = [y_kms[prov] for prov in all_provs]
-    print(f"{all_provs=}")
-    print(f"{nkilometres_dict=}")
-    plot_borehole_kilometres(all_provs, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date_str}", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_provs, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date_str}", filename="borehole_kilometres_q.png")
+    plot_borehole_kilometres(all_provs, y.kms_list, plot_dir, title=f"Borehole kilometres for previous FY ({y_start_date_str} - {y_end_date_str})", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_provs, q.kms_list, plot_dir, title=f"Borehole kilometres for last quarter ({q_start_date_str} - {q_end_date_str})", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
-    report.add_table(list(all_provs), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date_str}")
-    report.add_table(list(all_provs), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date_str}")
+    report.add_table(list(all_provs), q.kms_list, f"Borehole kilometres by Provider for last quarter ({q_start_date_str} - {q_end_date_str})")
+    report.add_table(list(all_provs), y.kms_list, f"Borehole kilometres by Provider for previous FY ({y_start_date_str} - {y_end_date_str})")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -397,8 +420,9 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
                  "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
                  "Base Report Date": report_date.strftime("%A %b %d %Y"),
-                 "Using quarterly data from": q_date_pretty,
-                 "Using EOFY data from": y_date_pretty }
+                 "Using quarterly data ending at": f"{q_end_date_pretty}",
+                 "Using EOFY data ending at": f"{y_end_date_pretty}"
+    }
 
     # Finally write out PDF report
     write_report(f'{"report-brief.pdf" if brief else "report.pdf"}', plot_dir, report, metadata, brief)
