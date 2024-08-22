@@ -293,7 +293,7 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
 
     # Plot number of boreholes by provider
     report_date_str = report_date.strftime('%d/%m/%Y')
-    plot_borehole_number(df_dict, plot_dir, all_provs, all_counts, "Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, all_counts, f"Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
 
     # Table of number of boreholes by provider
     report.add_table(list(all_provs), list(all_counts), f"Number of boreholes by Provider up to {report_date_str}")
@@ -305,7 +305,7 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     report.add_table(list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
     
     # Plot borehole kilometres by provider
-    plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, "Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
+    plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
     # get start and end of previous financial year and quarter
     y_start, y_end, q_start, q_end = get_fy_date_ranges(report_date)
