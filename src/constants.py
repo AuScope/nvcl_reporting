@@ -27,7 +27,7 @@ HEIGHT_RESOLUTION = 1.0 # One metre resolution
 ANALYSIS_CLASS = ''     # All classes
 
 # Report time window is based on this date
-REPORT_DATE = datetime.datetime.now()
+REPORT_DATE = datetime.datetime.now().date()
 
 # Plot image size
 IMAGE_SZ = [150, 100]

@@ -48,8 +48,16 @@ def plot_borehole_percent(plot_dir, nodata_counts, log1_counts, all_counts, log1
     plt.legend(loc="lower left")
     plt.savefig(os.path.join(plot_dir, "borehole_percent.png"))
 
-def plot_borehole_number(dfs, plot_dir, all_provs, all_counts, title="Number of boreholes by provider", filename="borehole_number.png"):
-    # Plot number of boreholes by provider
+def plot_borehole_number(dfs: dict, plot_dir: str, all_provs: np.array, all_counts: np.array, title: str, filename: str):
+    """ Plot number of boreholes by provider
+
+    :param dfs: dataframe dict, key is log type
+    :param plot_dir: directory in filesystem where plot is saved
+    :param all_provs: array of provider strings
+    :param all_counts: array of counts
+    :param title: plot title
+    :param filename: plot filename
+    """
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
     ax1 = ax.bar(all_provs, all_counts)
@@ -70,9 +78,7 @@ def plot_borehole_number(dfs, plot_dir, all_provs, all_counts, title="Number of 
         df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
         return df.to_numpy().tolist()
 
-def plot_borehole_kilometres(all_provs: np.array, all_counts: np.array, plot_dir: str,
-                             title="Number of borehole kilometres by provider",
-                             filename="borehole_kilometres.png"):
+def plot_borehole_kilometres(all_provs: np.array, all_counts: np.array, plot_dir: str, title: str, filename:str):
     """
     Plot number of borehole kilometres by provider
 

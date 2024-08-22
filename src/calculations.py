@@ -223,7 +223,7 @@ def fill_in(src_labels, dest, dest_labels):
             dest = np.insert(dest, idx, 0.0)
     return dest, dest_labels
 
-def get_fy_date_ranges(report_date: datetime.datetime) -> (datetime.date, datetime.date, datetime.date, datetime.date):
+def get_fy_date_ranges(report_date: datetime.date) -> (datetime.date, datetime.date, datetime.date, datetime.date):
     """
     Returns four datetime.date() objects for start & end of financial year and quarter
 
@@ -259,12 +259,12 @@ def get_cnts(dfs: dict[str, pd.DataFrame], all_provs: list,
     return cnts, kms
 
 
-def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
+def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
     """
     Generates a set of plot files
 
-    :param report_date: datetime from which reporting occurs
-    :param dfs: source dataframe dict
+    :param report_date: base date from which reporting occurs
+    :param df_dict: source dataframe dict, key is log type
     :param prefix: sorting prefix
     :param plot_dir: where plots are stored
     :param brief: if True will create a smaller report
@@ -275,20 +275,19 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
 
     table_data = []
     title_list = []
-    if not any(key in dfs and ((type(dfs[key]) is dict and dfs[key] != {}) or (isinstance(dfs[key], pd.DataFrame) and not dfs[key].empty)) for key in ('log1','log2','empty','nodata')):
+    if not any(key in df_dict and ((type(df_dict[key]) is dict and df_dict[key] != {}) or (isinstance(df_dict[key], pd.DataFrame) and not df_dict[key].empty)) for key in ('log1','log2','empty','nodata')):
         print("Datasets are empty, please create them before enabling plots")
-        print(f"dfs.keys()={dfs.keys()}")
-        print(f"dfs={dfs}")
+        print(f"df_dict.keys()={df_dict.keys()}")
+        print(f"df_dict={df_dict}")
         sys.exit(1)
-    df_all = pd.concat([dfs['log1'], dfs['log2'], dfs['empty'], dfs['nodata']])
-    dfs_log2_all = pd.concat([dfs['log2'], dfs['empty'][dfs['empty']['log_type'] == '2']])
-    all_provs, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
-    print(f"{all_provs=}")
-    print(f"{all_counts=}")
+    df_all = pd.concat([df_dict['log1'], df_dict['log2'], df_dict['empty'], df_dict['nodata']])
+    dfs_log2_all = pd.concat([df_dict['log2'], df_dict['empty'][df_dict['empty']['log_type'] == '2']])
+    # Count boreholes up until the report_date
+    all_provs, all_counts = np.unique(df_all[(df_all['hl_scan_date'] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
 
     if not brief:
         # Count log1 data for all providers
-        log1_provs, log1_counts = np.unique(dfs['log1'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+        log1_provs, log1_counts = np.unique(df_dict['log1'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
         # Insert zeros for any providers that are missing
         if len(all_provs) > len(log1_provs):
             log1_counts, log1_provs = fill_in(all_provs, log1_counts, log1_provs)
@@ -296,7 +295,7 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         make_table(table_data, title_list, list(log1_provs), list(log1_counts), "Log 1 Counts by Provider")
 
         # Count log2 data for all providers
-        log2_provs, log2_counts = np.unique(dfs['log2'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+        log2_provs, log2_counts = np.unique(df_dict['log2'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
         # Insert zeros for any providers that are missing
         if len(all_provs) > len(log2_provs):
             log2_counts, log2_provs = fill_in(all_provs, log2_counts, log2_provs)
@@ -304,7 +303,7 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         make_table(table_data, title_list, list(log2_provs), list(log2_counts), "Log 2 Counts by Provider")
 
         # Count 'nodata' data for all providers
-        nodata_provs, nodata_counts = np.unique(dfs['nodata'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+        nodata_provs, nodata_counts = np.unique(df_dict['nodata'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
         # Insert zeros for any provider that are missing
         if len(all_provs) > len(nodata_provs):
             nodata_counts, nodata_provs = fill_in(all_provs, nodata_counts, nodata_provs)
@@ -313,7 +312,7 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         make_table(table_data, title_list, list(nodata_provs), list(nodata_counts), "'No data' Counts by Provider")
 
         # Count 'empty' data for all provider 
-        df_empty_log1 = dfs['empty'][dfs['empty']['log_type'] == '1']
+        df_empty_log1 = df_dict['empty'][df_dict['empty']['log_type'] == '1']
         empty_provs, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
         # Insert zeros for any providers that are missing
         if len(all_provs) > len(empty_provs):
@@ -326,33 +325,31 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         plot_borehole_percent(plot_dir, nodata_counts, log1_counts, all_counts, log1_provs, nodata_provs, empty_provs)
 
     # Plot number of boreholes by provider
-    plot_borehole_number(dfs, plot_dir, all_provs, all_counts)
-    
-    # Table of number of boreholes by provider
-    make_table(table_data, title_list, list(all_provs), list(all_counts), "Number of boreholes by Provider")
+    report_date_str = report_date.strftime('%d/%m/%Y')
+    plot_borehole_number(df_dict, plot_dir, all_provs, all_counts, "Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
 
-    # Calculate a list of total depths in kms, one value for each provider 
-    nkilometres_totals = [ calc_bh_depths(dfs, prov) for prov in all_provs ]
+    # Table of number of boreholes by provider
+    make_table(table_data, title_list, list(all_provs), list(all_counts), f"Number of boreholes by Provider up to {report_date_str}")
+
+    # Calculate a list of total depths in kms, one value for each provider, up until the report date
+    nkilometres_totals = [ calc_bh_depths(df_dict, prov, end_date=report_date) for prov in all_provs ]
 
     # Make number of kilometres by provider table
-    make_table(table_data, title_list, list(all_provs), nkilometres_totals, "Number of borehole kilometres by Provider")
+    make_table(table_data, title_list, list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
     
     # Plot borehole kilometres by provider
-    plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir)
+    plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, "Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
     # get start and end of previous financial year and quarter
-    print(f"{report_date=}")
     y_start, y_end, q_start, q_end = get_fy_date_ranges(report_date)
-    print(f"{y_start=}, {y_end=}, {q_start=}, {q_end=}")
     # Number of boreholes added and total amount of depths added from tne end of last FY to now
-    y_cnts, y_kms = get_cnts(dfs, all_provs, y_end, report_date.date())
+    y_cnts, y_kms = get_cnts(df_dict, all_provs, y_end, report_date)
     # Number of boreholes added and total amount of depths added from the end of the quarter to now
-    q_cnts, q_kms = get_cnts(dfs, all_provs, q_end, report_date.date())
-    print(f"{y_cnts=}, {q_cnts=}")
+    q_cnts, q_kms = get_cnts(df_dict, all_provs, q_end, report_date)
 
     # Pretty printed date strings
-    y_date = y_end.strftime('(%d/%m/%Y)')
-    q_date = q_end.strftime('(%d/%m/%Y)')
+    y_date_str = y_end.strftime('(%d/%m/%Y)')
+    q_date_str = q_end.strftime('(%d/%m/%Y)')
     y_date_pretty = y_end.strftime("%A %d %b %Y")
     q_date_pretty = q_end.strftime("%A %d %b %Y")
 
@@ -361,16 +358,15 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
 
     # Plot yearly and quarterly comparisons for counts by provider
     all_cnts_dict = dict(zip(all_provs, all_counts))
-    print(f"{all_cnts_dict=}")
     q_cnt_list = [q_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, q_cnts)
     y_cnt_list = [y_cnts[prov] for prov in all_keys] # calc_metric_diffs(all_keys, all_cnts_dict, y_cnts)
-    print(f"{q_cnt_list=} {y_cnt_list=}")
-    plot_borehole_number(dfs, plot_dir, all_keys, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date}", filename="borehole_number_y.png")
-    plot_borehole_number(dfs, plot_dir, all_keys, q_cnt_list, title=f"Borehole counts since last quarter {q_date}", filename="borehole_number_q.png")
+
+    plot_borehole_number(df_dict, plot_dir, all_keys, y_cnt_list, title=f"Borehole counts since end of last financial year {y_date_str}", filename="borehole_number_y.png")
+    plot_borehole_number(df_dict, plot_dir, all_keys, q_cnt_list, title=f"Borehole counts since last quarter {q_date_str}", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
-    make_table(table_data, title_list, list(all_keys), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date}")
-    make_table(table_data, title_list, list(all_keys), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date}")
+    make_table(table_data, title_list, list(all_keys), q_cnt_list, f"Number of boreholes by Provider since last quarter {q_date_str}")
+    make_table(table_data, title_list, list(all_keys), y_cnt_list, f"Number of boreholes by Provider since end of last financial year {y_date_str}")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
     nkilometres_dict = dict(zip(all_provs, nkilometres_totals))
@@ -381,12 +377,12 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
     y_kms_list = [y_kms[prov] for prov in all_keys] # calc_metric_diffs(all_keys, nkilometres_dict, y_kilometres)
     print(f"{all_keys=}")
     print(f"{nkilometres_dict=}")
-    plot_borehole_kilometres(all_keys, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date}", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_keys, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date}", filename="borehole_kilometres_q.png")
+    plot_borehole_kilometres(all_keys, y_kms_list, plot_dir, title=f"Borehole kilometres since end of last financial year {y_date_str}", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_keys, q_kms_list, plot_dir, title=f"Borehole kilometres since last quarter {q_date_str}", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
-    make_table(table_data, title_list, list(all_keys), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date}")
-    make_table(table_data, title_list, list(all_keys), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date}")
+    make_table(table_data, title_list, list(all_keys), q_kms_list, f"Number of borehole kilometres by Provider since last quarter {q_date_str}")
+    make_table(table_data, title_list, list(all_keys), y_kms_list, f"Number of borehole kilometres by Provider since end of last financial year {y_date_str}")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -416,10 +412,10 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         algoid2ver['0'] = '0'
 
         # Plot algorithms
-        plot_algorithms(dfs, plot_dir, algoid2ver)
+        plot_algorithms(df_dict, plot_dir, algoid2ver)
 
         # Plot uTSAS graphs
-        plot_spectrum_group(dfs, plot_dir, algoid2ver, prefix)
+        plot_spectrum_group(df_dict, plot_dir, algoid2ver, prefix)
 
         '''
         pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
@@ -435,8 +431,8 @@ def plot_results(report_date: datetime.datetime, dfs: dict[str:pd.DataFrame], pl
         plot_geophysics(dfs_log2_all, plot_dir)
 
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
-                 "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the state geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
-                 "Report Date": report_date.strftime("%A %b %d %Y"),
+                 "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
+                 "Base Report Date": report_date.strftime("%A %b %d %Y"),
                  "Using quarterly data from": q_date_pretty,
                  "Using EOFY data from": y_date_pretty }
 

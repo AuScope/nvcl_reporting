@@ -344,7 +344,7 @@ def main(sys_argv):
     report_date = REPORT_DATE
     if args.report_date:
         try:
-            report_date = datetime.datetime.strptime(args.report_date, '%Y-%m-%d')
+            report_date = datetime.datetime.strptime(args.report_date, '%Y-%m-%d').date()
         except ValueError as ve:
             print(f"Report date has incorrect format: {ve}")
             sys.exit(1)
