@@ -3,6 +3,7 @@ from fpdf import FPDF
 from PIL import Image
 
 from constants import IMAGE_SZ, FONT
+from report_table_data import ReportTableData
 
 
 # PDF class used to customize page layout
@@ -14,6 +15,8 @@ class PDF(FPDF):
 
     # Page header
     def header(self):
+        """ Write page header
+        """
         # Insert AuScope logo
         img_path = os.path.join('assets', 'images', 'AuScope.png')
         if os.path.isfile(img_path):
@@ -32,6 +35,8 @@ class PDF(FPDF):
 
     # Page footer
     def footer(self):
+        """ Write page footer
+        """
         # Position at 1.5 cm from bottom
         self.set_y(-15)
         # Set font to helvetica italic 8
@@ -39,7 +44,13 @@ class PDF(FPDF):
         # Write page number
         self.cell(0, 10, f"Page {self.page_no()}", 0, 0, 'C')
 
-def write_table(pdf, title, data):
+def write_table(pdf: PDF, title: str, row_data: list):
+    """ Write a table using a PDF class
+
+    :param pdf: PDF() object to write to
+    :param title: table's title
+    :param data: row data
+    """
     # Table column width
     col_width = None
     # Page width
@@ -57,7 +68,7 @@ def write_table(pdf, title, data):
     # Line break before table
     pdf.ln(3.0)
     # Draw table
-    for row in data:
+    for row in row_data:
         if col_width is None:
             col_width = page_width/len(row)
         for datum in row:
@@ -68,40 +79,49 @@ def write_table(pdf, title, data):
         pdf.ln(2*text_height)
 
 
-def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], title_list=[], metadata={}, brief=True):
+def write_report(report_file, image_dir, report: ReportTableData, metadata, brief):
+    """ Writes a PDF report to filsystem
 
-    #
-    # Main part starts here
-    #
+    :param report_file: filename of PDF report
+    :param image_dir: directory where it expects the images to be
+    :param report: report table structure and values
+    :param metadata: report metadata
+    :param brief: iff True will do a brief report
+    """
+
+    # Define which graphs appear in which sections
     if brief:
-        report_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
+        graph_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
                              'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
         }
     else:
-        report_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_state.png',
+        graph_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_state.png',
                                             'elem_suffix_stats.png', 'elem_S.png',
                                             'elems_suffix.png'],
            'Geophysics Graphs': [ 'geophys_count.png', 'geophys_state.png' ],
            'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
         }
 
-    # Create an A4 portrait PDF file
+    # Write out title page
     if brief:
         header_title="Brief NVCL Report"
     else:
         header_title="NVCL Report"
+    # Create an A4 portrait PDF file
     pdf = PDF(orientation="P", unit="mm", format="A4", header_title=header_title)
     pdf.add_page()
-    pdf.set_font('Times', 'B', 14)
 
+    # Write out contents page
+    pdf.set_font('Times', 'B', 14)
     pdf.cell(0, 10, "Contents", 0, 1)
     pdf.set_font('Times', '', 12)
     link_list = []
-    for section_header in report_sections:
+    for section_header in graph_sections:
         link_id = pdf.add_link()
         link_list.append(link_id)
         pdf.cell(0, 12, section_header, 0, 1, link=link_id)
 
+    # Write out report metadata
     pdf.set_font('Times', 'B', 14)
     pdf.cell(0, 14, "Information", 0, 1)
     pdf.set_font('Times', '', 12)
@@ -110,8 +130,8 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
     
     pdf.add_page()
 
-    # Iterate over sections
-    for idx, (section_header, image_list) in enumerate(report_sections.items()):
+    # Lay out graphs: iterate over graph sections
+    for idx, (section_header, image_list) in enumerate(graph_sections.items()):
         pdf.cell(0, 10, section_header, 0, 1)
         pdf.set_link(link_list[idx])
         # Iterate over images within each section
@@ -133,15 +153,16 @@ def write_report(report_file='report.pdf', image_dir='outputs', table_data=[], t
                     out_w = IMAGE_SZ[0] * src_aspect / dest_aspect
                     out_h = IMAGE_SZ[1]
                 pdf.image(image_file, w=out_w, h=out_h)
+        # One page per section
         pdf.add_page()
 
-    # Write tables, four to a page
-    for idx, title in enumerate(title_list):
+    # Lay out tables, four to a page
+    for idx, tabl in enumerate(report.table_list):
         if idx % 4 == 0 and idx > 0:
             pdf.add_page()
-        write_table(pdf, title, table_data[idx])
+        write_table(pdf, tabl.title, tabl.rows)
 
-    # Create report file
+    # Write report file to filesystem
     if os.path.exists(report_file):
         os.remove(report_file)
     pdf.output(report_file)
