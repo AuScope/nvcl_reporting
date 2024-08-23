@@ -229,6 +229,8 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
                     new_row.minerals = minerals.tolist()
                     new_row.mincnts = mincnts.tolist()
                     new_row.data = conv_mindata(bh_data)
+                else:
+                    key = 'empty'
 
             # Convert to list for insertion into data frame
             new_data = new_row.as_list()
@@ -376,7 +378,8 @@ def main(sys_argv):
         if not plot_path.exists():
             os.mkdir(plot_dir)
         # Calculate stats for graphs
-        calc_stats(g_dfs, PROV_LIST, db)
+        if args.full:
+            calc_stats(g_dfs, PROV_LIST, db)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report

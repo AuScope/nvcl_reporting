@@ -37,7 +37,6 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
     :returns: (optional) borehole counts, sum of borehole depths (units: kilometres)
     """
     # Filter by data provider, optional date range
-    print(f"calc_bh_depths({prov})")
     if dfs['log1'].empty:
         if not return_cnts:
             return 0.0
@@ -72,10 +71,8 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
 
         # Divide by 1000 to convert from metres to kilometres
         depth_list = list(depth_set)
-        #print(f"{depth_list=}")
         if len(depth_list) > 0:
             bh_kms[nvcl_id] = (1.0 + max(depth_list) - min(depth_list)) / 1000.0
-            print(f"Borehole {nvcl_id} has {bh_kms[nvcl_id]:.3f} kms")
 
     if not return_cnts:
         return sum(bh_kms.values())
@@ -123,7 +120,6 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
                 IDs = df_algorithm_id.to_list()
             algos = []
             for iC, col in df_nbores.items():
-                # print(IDs[iC])
                 algo = f"algorithm_{IDs[iC]}"
                 algos.append(algo)
                 if algo not in df_cstats:
@@ -285,8 +281,11 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
         print(f"df_dict.keys()={df_dict.keys()}")
         print(f"df_dict={df_dict}")
         sys.exit(1)
-    df_all = pd.concat([df_dict['log1'], df_dict['log2'], df_dict['empty'], df_dict['nodata']])
-    dfs_log2_all = pd.concat([df_dict['log2'], df_dict['empty'][df_dict['empty']['log_type'] == '2']])
+    df_all_list = [df_dict[key] for key in ('log1', 'log2', 'empty', 'nodata') if not df_dict[key].empty]
+    df_all = pd.concat(df_all_list)
+    df_log2_list = [df for df in (df_dict['log2'], df_dict['empty'][df_dict['empty']['log_type'] == '2']) if not df.empty]
+    dfs_log2_all = pd.concat(df_log2_list)
+
     # Count boreholes up until the report_date
     all_provs, all_counts = np.unique(df_all[(df_all['hl_scan_date'] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
 
@@ -357,20 +356,20 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     q_end_date_pretty = q.end.strftime("%A %d %b %Y")
 
     # Plot yearly and quarterly comparisons for counts by provider
-    plot_borehole_number(df_dict, plot_dir, all_provs, y.cnt_list, title=f"Borehole counts for previous FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
-    plot_borehole_number(df_dict, plot_dir, all_provs, q.cnt_list, title=f"Borehole counts for last quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, y.cnt_list, title=f"Borehole counts for this FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
+    plot_borehole_number(df_dict, plot_dir, all_provs, q.cnt_list, title=f"Borehole counts for this quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
-    report.add_table(list(all_provs), q.cnt_list, f"Borehole counts by Provider for last quarter ({q_start_date_str} - {q_end_date_str})")
-    report.add_table(list(all_provs), y.cnt_list, f"Borehole counts by Provider for previous FY ({y_start_date_str} - {y_end_date_str})")
+    report.add_table(list(all_provs), q.cnt_list, f"Borehole counts by Provider for this quarter ({q_start_date_str} - {q_end_date_str})")
+    report.add_table(list(all_provs), y.cnt_list, f"Borehole counts by Provider for this FY ({y_start_date_str} - {y_end_date_str})")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
-    plot_borehole_kilometres(all_provs, y.kms_list, plot_dir, title=f"Borehole kilometres for previous FY ({y_start_date_str} - {y_end_date_str})", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_provs, q.kms_list, plot_dir, title=f"Borehole kilometres for last quarter ({q_start_date_str} - {q_end_date_str})", filename="borehole_kilometres_q.png")
+    plot_borehole_kilometres(all_provs, y.kms_list, plot_dir, title=f"Borehole kilometres for this FY ({y_start_date_str} - {y_end_date_str})", filename="borehole_kilometres_y.png")
+    plot_borehole_kilometres(all_provs, q.kms_list, plot_dir, title=f"Borehole kilometres for this quarter ({q_start_date_str} - {q_end_date_str})", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
-    report.add_table(list(all_provs), q.kms_list, f"Borehole kilometres by Provider for last quarter ({q_start_date_str} - {q_end_date_str})")
-    report.add_table(list(all_provs), y.kms_list, f"Borehole kilometres by Provider for previous FY ({y_start_date_str} - {y_end_date_str})")
+    report.add_table(list(all_provs), q.kms_list, f"Borehole kilometres by Provider for this quarter ({q_start_date_str} - {q_end_date_str})")
+    report.add_table(list(all_provs), y.kms_list, f"Borehole kilometres by Provider for this FY ({y_start_date_str} - {y_end_date_str})")
 
     # Plot word clouds
     # plot_wordclouds(dfs_log2_all)
@@ -442,13 +441,11 @@ def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:
         nbores = nbores.sum()
     nbores.name = 'nbores'
     ca_stats = pd.concat([ca_stats, nbores])
-    print(f"1:{ca_stats=}")
     nmetres = cdf.loc['mincnts']
     if isinstance(nmetres, pd.DataFrame):
         nmetres = nmetres.sum()
     nmetres.name = 'mincnts'
     ca_stats = pd.concat([ca_stats, nmetres])
-    print(f"2:{ca_stats=}")
     IDs = np.unique(list(filter(lambda x: re.match(r"algorithm_\d+", x), cdf.index.tolist())))
     for ID in IDs:
         cID = cdf.loc[ID]
@@ -456,11 +453,7 @@ def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:
             cID = cID.sum()
         cID.name = ID
         ca_stats = pd.concat([ca_stats, cID])
-    print(f"3:{ca_stats=}")
-    print(f"{ca_stats.index=}")
-    print(f"Before {ca_stats.index.duplicated().any()=}")
     # Add up duplicates
     ca_stats = ca_stats.groupby(ca_stats.index).sum()
-    print(f"After {ca_stats.index.duplicated().any()=}")
     
     return pd.DataFrame(ca_stats).transpose()

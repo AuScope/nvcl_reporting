@@ -231,22 +231,16 @@ def plot_spectrum_group(dfs, plot_dir, algoid2ver, prefix):
     # Grp=uTSAS[uTSAS.algorithm.str.startswith('Grp')]
     # [grp_algos, grp_counts] = np.unique(dfs['log1'][dfs['log1'].algorithm.str.startswith('Grp')]['algorithm'], return_counts=True)
 
-    #print("plot_spectrum_group()")
     Grp_uTSAS = pd.DataFrame()
     for key, value in dfs['stats_byalgorithms'].items():
         if key.startswith('Grp') and key.endswith('uTSAS'):
-            #print(f"Before {Grp_uTSAS=}")
-            #print(f"{value=}")
-            Grp_uTSAS = pd.concat([Grp_uTSAS, value], ignore_index=True).fillna(0).groupby(level=0).sum()
-            #print(f"After {Grp_uTSAS=}")
+            Grp_uTSAS = pd.concat([Grp_uTSAS, value], ignore_index=True).groupby(level=0).sum()
     Grp_uTSAS = dfcol_algoid2ver(Grp_uTSAS, algoid2ver)
     Min_uTSAS = pd.DataFrame()
     for key, value in dfs['stats_byalgorithms'].items():
         if key.startswith('Min') and key.endswith('uTSAS'):
-            Min_uTSAS = pd.concat([Min_uTSAS, value]).fillna(0).groupby(level=0).sum()
+            Min_uTSAS = pd.concat([Min_uTSAS, value]).groupby(level=0).sum()
     Min_uTSAS = dfcol_algoid2ver(Min_uTSAS, algoid2ver)
-    #print(f"{Grp_uTSAS=}")
-    #print(f"{Min_uTSAS=}")
 
     # Plot Grp_uTSAS sorted by group name and version
     plot_df = Grp_uTSAS[sort_cols(Grp_uTSAS, prefix)]
@@ -279,7 +273,7 @@ def plot_spectrum_group(dfs, plot_dir, algoid2ver, prefix):
         ax = plot_df.plot(kind='barh', figsize=(20, 10), title="Min_uTSAS sorted by group name and version")
         ax.set(ylabel='Group', xlabel="Number of data records")
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, "min_utsas_musc.png"))
+        plt.savefig(os.path.join(plot_dir, "min_utsas_misc.png"))
     plt.close('all')
 
 
@@ -314,6 +308,8 @@ def plot_algorithms(dfs, plot_dir, algoid2ver, prefix='version'):
             ax.set(xlabel='Provider', ylabel="Number of boreholes")
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, "log1_nonstdalgos.png"))
+        else:
+            print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
 
         # Plot number of boreholes by algorithm and provider
         ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and provider")
@@ -361,6 +357,6 @@ def dfcol_algoid2ver(df, algoid2ver):
         :returns: transformed dataframe
         """
         df = df.rename({y: re.sub(r'algorithm_(\d+)', lambda x: f"version_{algoid2ver.get(x.group(1), '0')}", y) for y in df.columns}, axis='columns')
-        df = df.fillna(0).groupby(level=0).sum()
+        df = df.groupby(level=0).sum()
         return df
 
