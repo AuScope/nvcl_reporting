@@ -7,7 +7,7 @@ import math
 src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
-from calculations import calc_bh_depths
+from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges
 
 from test_db import db_df
 
@@ -64,4 +64,43 @@ def test_calc_bh_depths_date_ranges(db_df):
     cnts, depth = calc_bh_depths(df_dict, 'TAS', end_date=datetime.date(2011,11,7), return_cnts=True)
     assert math.isclose(depth, 0.006)
     assert cnts == 1
+
+
+def test_get_fy_date_ranges():
+     # Jan 12 2024 - first quarter of calendar year
+     y_start, y_end, q_start, q_end = get_fy_date_ranges(datetime.date(2024, 1, 12))
+     assert y_start == datetime.date(2023, 7, 1)
+     assert y_end == datetime.date(2024, 6, 30)
+     assert q_start == datetime.date(2024, 1, 1)
+     assert q_end == datetime.date(2024, 3, 31)
+
+     # April 12 2024 - second quarter of calendar year
+     y_start, y_end, q_start, q_end = get_fy_date_ranges(datetime.date(2024, 4, 12))
+     assert y_start == datetime.date(2023, 7, 1)
+     assert y_end == datetime.date(2024, 6, 30)
+     assert q_start == datetime.date(2024, 4, 1)
+     assert q_end == datetime.date(2024, 6, 30)
+
+     # July 12 2024 - third quarter of calendar year
+     y_start, y_end, q_start, q_end = get_fy_date_ranges(datetime.date(2024, 7, 12))
+     assert y_start == datetime.date(2024, 7, 1)
+     assert y_end == datetime.date(2025, 6, 30)
+     assert q_start == datetime.date(2024, 7, 1)
+     assert q_end == datetime.date(2024, 9, 30)
+
+     # October 12 2024 - fourth quarter of calendar year
+     y_start, y_end, q_start, q_end = get_fy_date_ranges(datetime.date(2024, 10, 12))
+     assert y_start == datetime.date(2024, 7, 1)
+     assert y_end == datetime.date(2025, 6, 30)
+     assert q_start == datetime.date(2024, 10, 1)
+     assert q_end == datetime.date(2024, 12, 31)
+
+
+#def test_calc_fyq(db_df):
+#    """
+#    Test quarterly and yearly calculations
+#    """
+#    df_dict = { 'log1': db_df }
+#    y, q = calc_fyq(datetime.date(2012, 1, 4), df_dict, ['TAS'])
+#    assert y == 0
 

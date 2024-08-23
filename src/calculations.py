@@ -13,7 +13,7 @@ pd.options.mode.chained_assignment = None
 
 import numpy as np
 from itertools import zip_longest
-from fiscalyear import FiscalDate
+from fiscalyear import fiscal_calendar, FiscalDate, FiscalYear, FiscalQuarter
 
 # Local imports
 from plots import (plot_borehole_percent, plot_borehole_number, plot_borehole_kilometres,
@@ -198,14 +198,15 @@ def get_fy_date_ranges(report_date: datetime.date) -> (datetime.date, datetime.d
     :param report_date: reference datetime for the date ranges
     :returns: y_start, y_end, q_start, q_end datetime.date() objects
     """
-    y = FiscalDate(report_date.year, report_date.month, report_date.day)
-    py = y.prev_fiscal_year
-    y_start = py.start.date()
-    y_end = py.end.date()
-    pq = y.prev_fiscal_quarter
-    q_start = pq.start.date()
-    q_end = pq.end.date()
-    return y_start, y_end, q_start, q_end
+    with fiscal_calendar(start_month=7):
+        y = FiscalDate(report_date.year, report_date.month, report_date.day)
+        py = FiscalYear(y.fiscal_year)
+        y_start = py.start.date()
+        y_end = py.end.date()
+        pq = FiscalQuarter(y.fiscal_year, y.fiscal_quarter)
+        q_start = pq.start.date()
+        q_end = pq.end.date()
+        return y_start, y_end, q_start, q_end
 
 
 def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list,
