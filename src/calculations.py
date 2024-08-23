@@ -89,7 +89,7 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
     """
     df_allstats = pd.DataFrame()
     # Munge data
-    print(f"Calculating initial statistics ...{dfs}")
+    print(f"Calculating initial statistics ... ")
     # Loop around for each provider
     for prov in prov_list:
         # Get all rows for a provider

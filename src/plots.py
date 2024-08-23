@@ -285,69 +285,66 @@ def plot_algorithms(dfs, plot_dir, algoid2ver, prefix='version'):
     :param plot_dir: directory in filesystem where plot is saved
     :param algoid2ver: dictionary of algorithm id -> version id
     """
-    algos = np.unique(dfs['log1'][dfs['log1'].algorithm.str.contains('^Min|Grp')]['algorithm'])
-    try:
-        suffixes = np.unique([x.split()[1] for x in algos])
-        dfs['log1']['versions'] = dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithm_id'], '0'), axis=1)
+    algos = np.unique(dfs['log1'][dfs['log1'].algorithm.str.contains('^Min\d |Grp\d ')]['algorithm'])
+    suffixes = np.unique([x.split()[1] for x in algos])
+    dfs['log1']['versions'] = dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithm_id'], '0'), axis=1)
 
-        df_algo_stats = pd.DataFrame()
-        df_algoID_stats = pd.DataFrame()
-        for suffix in suffixes:
-            provs, count = np.unique(dfs['log1'][dfs['log1'].algorithm.str.endswith(suffix)].drop_duplicates('nvcl_id')['provider'], return_counts=True)
-            df_algo_stats = pd.concat([df_algo_stats, pd.DataFrame({suffix: count}, index=provs)], axis=1, sort=False)
-            IDs, count = np.unique(dfs['log1'][dfs['log1'].algorithm.str.endswith(suffix)]['versions'], return_counts=True)
-            # IDs = ['algorithm_'+x for x in IDs]
-            vers = ['version_' + x for x in IDs]
-            df_algoID_stats = pd.concat([df_algoID_stats, pd.DataFrame([np.array(count)], columns=vers, index=[suffix])], sort=False)
+    df_algo_stats = pd.DataFrame()
+    df_algoID_stats = pd.DataFrame()
+    for suffix in suffixes:
+        provs, count = np.unique(dfs['log1'][dfs['log1'].algorithm.str.endswith(suffix)].drop_duplicates('nvcl_id')['provider'], return_counts=True)
+        df_algo_stats = pd.concat([df_algo_stats, pd.DataFrame({suffix: count}, index=provs)], axis=1, sort=False)
+        IDs, count = np.unique(dfs['log1'][dfs['log1'].algorithm.str.endswith(suffix)]['versions'], return_counts=True)
+        # IDs = ['algorithm_'+x for x in IDs]
+        vers = ['version_' + x for x in IDs]
+        df_algoID_stats = pd.concat([df_algoID_stats, pd.DataFrame([np.array(count)], columns=vers, index=[suffix])], sort=False)
 
-        # Plot number of boreholes for non-standard algorithms by provider
-        dfs_log1_nonstd = dfs['log1'][~(dfs['log1']['algorithm'].str.contains((r'^(?:Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
-        if not dfs_log1_nonstd.empty:
-            dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
-            ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['provider', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by provider")
-            ax.set(xlabel='Provider', ylabel="Number of boreholes")
-            plt.tight_layout()
-            plt.savefig(os.path.join(plot_dir, "log1_nonstdalgos.png"))
-        else:
-            print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
-
-        # Plot number of boreholes by algorithm and provider
-        ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and provider")
-        ax.set(ylabel="Number of boreholes")
-        # for p in ax.patches:
-        #    ax.annotate(str(int(p.get_height())), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', va='center', xytext=(0, 10), textcoords="offset points", size=4, fontweight='bold')
+    # Plot number of boreholes for non-standard algorithms by provider
+    dfs_log1_nonstd = dfs['log1'][~(dfs['log1']['algorithm'].str.contains((r'^(?:Grp|Min|Sample|Lith|HoleID|Strat|Form)'), case=False))]
+    if not dfs_log1_nonstd.empty:
+        dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
+        ax = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['provider', "Algorithm Prefix"]).size().unstack().plot(kind='bar', rot=0, figsize=(20, 10), title="Number of boreholes for non-standard algorithms by provider")
+        ax.set(xlabel='Provider', ylabel="Number of boreholes")
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, "log1_algos.png"))
+        plt.savefig(os.path.join(plot_dir, "log1_nonstdalgos.png"))
+    else:
+        print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
 
-        # Plot number of data records of standard algorithms by version
-        ax = df_algoID_stats[sort_cols(df_algoID_stats, prefix)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
+    # Plot number of boreholes by algorithm and provider
+    ax = df_algo_stats.plot(kind='bar', stacked=False, figsize=(20, 10), rot=0, title="Number of boreholes by algorithm and provider")
+    ax.set(ylabel="Number of boreholes")
+    # for p in ax.patches:
+    #    ax.annotate(str(int(p.get_height())), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', va='center', xytext=(0, 10), textcoords="offset points", size=4, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "log1_algos.png"))
+
+    # Plot number of data records of standard algorithms by version
+    ax = df_algoID_stats[sort_cols(df_algoID_stats, prefix)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
+    ax.legend(loc="center left", bbox_to_anchor=BBX2A)
+    # ax.grid(True, which='major', linestyle='-')
+    # ax.grid(True, which='minor', linestyle='--')
+    ax.set(ylabel="Number of data records")
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "log1_algoIDs.png"))
+
+    # Plot number of data records of standard algorithms by version and provider
+    ax = dfs['log1'].groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and provider")
+    ax.legend(loc='center left', bbox_to_anchor=BBX2A)
+    ax.set(xlabel='Provider', ylabel="Number of data records")
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "log1_algoIDs_prov.png"))
+    plt.close('all')
+
+    # Plot number of data records of algorithmXXX by version and provider
+    for alg in df_algo_stats.columns:
+        cAlg = dfs['log1'][dfs['log1'].algorithm.str.endswith(alg)]
+        ax = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and provider")
         ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-        # ax.grid(True, which='major', linestyle='-')
-        # ax.grid(True, which='minor', linestyle='--')
-        ax.set(ylabel="Number of data records")
+        ax.set(xlabel='Provider', ylabel="Number of boreholes")
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, "log1_algoIDs.png"))
+        plt.savefig(os.path.join(plot_dir, f"log1_{alg}-IDs_prov.png"))
+    plt.close('all')
 
-        # Plot number of data records of standard algorithms by version and provider
-        ax = dfs['log1'].groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and provider")
-        ax.legend(loc='center left', bbox_to_anchor=BBX2A)
-        ax.set(xlabel='Provider', ylabel="Number of data records")
-        plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, "log1_algoIDs_prov.png"))
-        plt.close('all')
-
-        # Plot number of data records of algorithmXXX by version and provider
-        for alg in df_algo_stats.columns:
-            cAlg = dfs['log1'][dfs['log1'].algorithm.str.endswith(alg)]
-            ax = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and provider")
-            ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-            ax.set(xlabel='Provider', ylabel="Number of boreholes")
-            plt.tight_layout()
-            plt.savefig(os.path.join(plot_dir, f"log1_{alg}-IDs_prov.png"))
-        plt.close('all')
-
-    except IndexError:
-        pass
 
 def dfcol_algoid2ver(df, algoid2ver):
         """ Renames columns in dataframe from algorithm id to version id
