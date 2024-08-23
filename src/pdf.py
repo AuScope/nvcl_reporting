@@ -95,10 +95,10 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
                              'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
         }
     else:
-        graph_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_state.png',
+        graph_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_prov.png',
                                             'elem_suffix_stats.png', 'elem_S.png',
                                             'elems_suffix.png'],
-           'Geophysics Graphs': [ 'geophys_count.png', 'geophys_state.png' ],
+           'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],
            'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
         }
 
