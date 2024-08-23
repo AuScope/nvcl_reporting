@@ -128,7 +128,7 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
                 algos.append(algo)
                 if algo not in df_cstats:
                     df_cstats.insert(0, algo, 0 * len(df_cstats))
-                df_cstats[algo].loc[col.dropna().tolist()] += 1
+                df_cstats.loc[col.dropna().tolist(), algo] += 1
             df_cstats[np.unique(algos)] = df_cstats[np.unique(algos)].replace({0: np.nan})
 
             for row, value in df_nborescount.items():
