@@ -3,13 +3,19 @@ import sys
 import datetime
 import math
 
+import pytest
+
 # Add in path to source scripts
 src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
 from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges
-
 from test_db import db_df
+from db.readwrite_db import import_db
+
+@pytest.fixture
+def bigger_db_df():
+    return import_db(os.path.join("data","bigger.db"), "log1")
 
 def test_calc_bh_depths_cnts(db_df):
     """ Testing depth calculation
@@ -96,11 +102,23 @@ def test_get_fy_date_ranges():
      assert q_end == datetime.date(2024, 12, 31)
 
 
-#def test_calc_fyq(db_df):
-#    """
-#    Test quarterly and yearly calculations
-#    """
-#    df_dict = { 'log1': db_df }
-#    y, q = calc_fyq(datetime.date(2012, 1, 4), df_dict, ['TAS'])
-#    assert y == 0
+def test_calc_fyq(bigger_db_df):
+    """
+    Test ranges and borehole counts of quarterly and yearly calculations
 
+    sqlite> select count(distinct borehole_id), provider from meas where hl_scan_date < '2021-06-30' and hl_scan_date > '2020-07-01' group by provider;
+    16|NT
+    20|TAS
+
+    sqlite> select count(distinct borehole_id), provider from meas where hl_scan_date < '2021-06-30' and hl_scan_date > '2021-04-01' group by provider;
+    15|TAS
+
+    """
+    df_dict = { 'log1': bigger_db_df }
+    y, q = calc_fyq(datetime.date(2021, 5, 6), df_dict, ['TAS', 'NT'])
+    assert y.start == datetime.date(2020, 7, 1)
+    assert y.end == datetime.date(2021, 6, 30)
+    assert q.start == datetime.date(2021, 4, 1)
+    assert q.end == datetime.date(2021, 6, 30)
+    assert y.cnt_list == [20, 16]
+    assert q.cnt_list == [15, 0]
