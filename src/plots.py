@@ -338,11 +338,15 @@ def plot_algorithms(dfs, plot_dir, algoid2ver, prefix='version'):
     # Plot number of data records of algorithmXXX by version and provider
     for alg in df_algo_stats.columns:
         cAlg = dfs['log1'][dfs['log1'].algorithm.str.endswith(alg)]
-        ax = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and provider")
-        ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-        ax.set(xlabel='Provider', ylabel="Number of boreholes")
-        plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, f"log1_{alg}-IDs_prov.png"))
+        # Catch error when no plot data available
+        try:
+            ax = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and provider")
+            ax.legend(loc="center left", bbox_to_anchor=BBX2A)
+            ax.set(xlabel='Provider', ylabel="Number of boreholes")
+            plt.tight_layout()
+            plt.savefig(os.path.join(plot_dir, f"log1_{alg}-IDs_prov.png"))
+        except ValueError as ve:
+            print(f"WARNING: Cannot plot algorithm {alg}: {ve}")
     plt.close('all')
 
 
