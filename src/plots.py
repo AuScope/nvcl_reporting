@@ -345,7 +345,7 @@ def plot_algorithms(dfs, plot_dir, algoid2ver, prefix='version'):
             ax.set(xlabel='Provider', ylabel="Number of boreholes")
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, f"log1_{alg}-IDs_prov.png"))
-        except ValueError as ve:
+        except TypeError as ve:
             print(f"WARNING: Cannot plot algorithm {alg}: {ve}")
     plt.close('all')
 
