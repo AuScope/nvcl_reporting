@@ -69,7 +69,6 @@ def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
         # Import data frame from database file
         print(f"Importing db {db_file}, {data_cat}")
         g_dfs[data_cat] = import_db(db_file, data_cat)
-        # print(f"g_dfs[{data_cat}] = {g_dfs[data_cat]}")
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
@@ -310,7 +309,7 @@ def main(sys_argv):
     parser.add_argument('-r', '--report_date', action='store', help="Create report based on this date, format: YYYY-MM-DD")
     parser.add_argument('-d', '--db', action='store', help="Database filename")
     parser.add_argument('-c', '--config', action='store', help="Config file")
-    parser.add_argument('-o', '--output_dir', action='store', help="Report output directory")
+    parser.add_argument('-o', '--output', action='store', help="Report output file & path")
 
     # Parse command line arguments
     args = parser.parse_args(sys_argv[1:])
@@ -342,7 +341,6 @@ def main(sys_argv):
     plot_dir = config['plot_dir']
     tsg_meta_file = config['tsg_meta_file']
     now = datetime.datetime.now()
-    print(config)
     print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
 
@@ -389,7 +387,7 @@ def main(sys_argv):
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        assemble_report(args.output_dir, report_date, g_dfs, plot_dir, prefix, args.brief)
+        assemble_report(args.output, report_date, g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")
 
