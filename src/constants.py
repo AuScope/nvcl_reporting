@@ -1,6 +1,12 @@
 from pathlib import Path
 import datetime
 
+# This file's path
+file_path = Path( __file__ ).absolute()
+
+# Repo root path
+ROOT_PATH = file_path.parents[1]
+
 """
 Various shared constants
 """
@@ -8,7 +14,7 @@ Various shared constants
 PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA']
 
 # Configuration file
-CONFIG_FILE = "config.yaml"
+CONFIG_FILE = str(ROOT_PATH / "config.yaml")
 
 # Test run
 TEST_RUN = True

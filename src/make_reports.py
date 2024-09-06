@@ -31,7 +31,7 @@ from multiprocessing import Pool
 # Local imports
 from db.readwrite_db import import_db, export_db, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
-from calculations import calc_stats, plot_results
+from calculations import calc_stats, assemble_report
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import REPORT_DATE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row
@@ -256,10 +256,12 @@ def load_and_check_config(config_file: str) -> dict:
     """ Loads config file
     This file contains the directories where the database file is kept, 
     TSG metadata file and the directory where the plot files are kept.
+    NB: These files' paths are relative to the config file
 
-    :param config_file: config filename
+    :param config_file: config full path and filename
     :returns: dict of config values
     """
+    config_dir = Path(__file__).absolute().parents[1]
     # Open config file
     try:
         with open(config_file, "r") as fd:
@@ -283,6 +285,8 @@ def load_and_check_config(config_file: str) -> dict:
         if key not in config:
             print(f"Config file {config_file} is missing a value for '{key}'")
             sys.exit(1)
+        # Prepend config directory to make an absolute path
+        config[key] = os.path.join(config_dir, config[key])
         # Try to create plot directory
         if key in ('plot_dir') and not os.path.exists(config[key]):
             try:
@@ -306,6 +310,7 @@ def main(sys_argv):
     parser.add_argument('-r', '--report_date', action='store', help="Create report based on this date, format: YYYY-MM-DD")
     parser.add_argument('-d', '--db', action='store', help="Database filename")
     parser.add_argument('-c', '--config', action='store', help="Config file")
+    parser.add_argument('-o', '--output_dir', action='store', help="Report output directory")
 
     # Parse command line arguments
     args = parser.parse_args(sys_argv[1:])
@@ -337,6 +342,7 @@ def main(sys_argv):
     plot_dir = config['plot_dir']
     tsg_meta_file = config['tsg_meta_file']
     now = datetime.datetime.now()
+    print(config)
     print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
 
@@ -344,7 +350,7 @@ def main(sys_argv):
 
     # Set report date if not supplied on command line
     report_date = REPORT_DATE
-    if args.report_date:
+    if args.report_date is not None:
         try:
             report_date = datetime.datetime.strptime(args.report_date, '%Y-%m-%d').date()
         except ValueError as ve:
@@ -383,7 +389,7 @@ def main(sys_argv):
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        plot_results(report_date, g_dfs, plot_dir, prefix, args.brief)
+        assemble_report(args.output_dir, report_date, g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")
 

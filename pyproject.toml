@@ -16,7 +16,6 @@ dependencies = [
     "periodictable",
     "seaborn",
     "xmltodict",
-    "requests",
     "nvcl-kit>=1.1.8",
     "fpdf2",
     "pillow",
@@ -24,8 +23,10 @@ dependencies = [
     "peewee>=3.16.2",
     "fiscalyear>=0.4.0",
     "numpy==1.26.4",
+    "threddsclient>=0.4.5",
+    "requests>=2.31.0",
 ]
-requires-python = ">=3.10"
+requires-python = "<3.12,>=3.10"
 
 [build-system]
 requires = ["pdm-backend"]

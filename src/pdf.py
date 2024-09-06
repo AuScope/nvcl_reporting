@@ -2,7 +2,7 @@ import os
 from fpdf import FPDF
 from PIL import Image
 
-from constants import IMAGE_SZ, FONT
+from constants import IMAGE_SZ, FONT, ROOT_PATH
 from report_table_data import ReportTableData
 
 
@@ -18,7 +18,7 @@ class PDF(FPDF):
         """ Write page header
         """
         # Insert AuScope logo
-        img_path = os.path.join('assets', 'images', 'AuScope.png')
+        img_path = os.path.join(ROOT_PATH, 'assets', 'images', 'AuScope.png')
         if os.path.isfile(img_path):
             self.image(img_path, 10, 8, 33)
         else:
@@ -82,7 +82,7 @@ def write_table(pdf: PDF, title: str, row_data: list):
 def write_report(report_file, image_dir, report: ReportTableData, metadata, brief):
     """ Writes a PDF report to filsystem
 
-    :param report_file: filename of PDF report
+    :param report_file: path and filename of PDF report
     :param image_dir: directory where it expects the images to be
     :param report: report table structure and values
     :param metadata: report metadata

@@ -260,10 +260,11 @@ def calc_fyq(report_date: datetime.date, df_dict: dict[str, pd.DataFrame], all_p
     return y, q
 
 
-def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
+def assemble_report(report_dir: str, report_date: datetime.date, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
     """
-    Generates a set of plot files
+    Generates a set of plot files and writes out PDF report
 
+    :param report_dir: output directory for report file
     :param report_date: base date from which reporting occurs
     :param df_dict: source dataframe dict, key is log type
     :param plot_dir: where plots are stored
@@ -425,7 +426,11 @@ def plot_results(report_date: datetime.date, df_dict: dict[str:pd.DataFrame], pl
     }
 
     # Finally write out PDF report
-    write_report(f'{"report-brief.pdf" if brief else "report.pdf"}', plot_dir, report, metadata, brief)
+    date_str = report_date.strftime("%Y-%m-%d")
+    report_filename = f"{date_str}-report-brief.pdf" if brief else f"{date_str}-report.pdf"
+    if report_dir is not None:
+        report_filename = os.path.join(report_dir, report_filename)
+    write_report(report_filename, plot_dir, report, metadata, brief)
 
 
 def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:

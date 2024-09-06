@@ -1,3 +1,4 @@
+# All paths must to relative to this file's directory
 plot_dir: plots
 db: DBs/nvcl9-full.db
 tsg_meta_file: DBs/metadata.csv
