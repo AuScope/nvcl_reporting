@@ -20,7 +20,7 @@ fi
 eval $(pdm venv activate)
 
 # Run TSG harvest
-./src/tsg_harvest/tsg_harvest.py
+./src/tsg_harvest/harvest.py
 
 #
 # Run reports
