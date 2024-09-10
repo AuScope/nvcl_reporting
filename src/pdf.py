@@ -126,7 +126,7 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
     pdf.cell(w=0, h=14, text="Information")
     pdf.set_font('Times', '', 12)
     for key, val in metadata.items():
-        pdf.multi_cell(w=0, h=12, txt=f"{key}: {val}")
+        pdf.multi_cell(w=0, h=12, text=f"{key}: {val}")
     
     pdf.add_page()
 
