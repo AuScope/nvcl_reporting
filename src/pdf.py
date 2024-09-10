@@ -9,8 +9,8 @@ from report_table_data import ReportTableData
 # PDF class used to customize page layout
 class PDF(FPDF):
 
-    def __init__(self, orientation="portrait", unit="mm", format="A4", font_cache_dir=True, header_title="NVCL Report"):
-        super().__init__(orientation, unit, format, font_cache_dir)
+    def __init__(self, orientation="portrait", unit="mm", format="A4", header_title="NVCL Report"):
+        super().__init__(orientation=orientation, unit=unit, format=format)
         self.header_title = header_title
 
     # Page header
@@ -29,7 +29,7 @@ class PDF(FPDF):
         # Move to the right
         self.cell(80)
         # Make title
-        self.cell(30, 10, self.header_title, 'B', 0, 'C')
+        self.cell(w=30, h=10, text=self.header_title, border='B', align='C')
         # Insert line break
         self.ln(20)
 
@@ -42,7 +42,7 @@ class PDF(FPDF):
         # Set font to helvetica italic 8
         self.set_font(FONT, 'I', 8)
         # Write page number
-        self.cell(0, 10, f"Page {self.page_no()}", 0, 0, 'C')
+        self.cell(w=0, h=10, text=f"Page {self.page_no()}", align='C')
 
 def write_table(pdf: PDF, title: str, row_data: list):
     """ Write a table using a PDF class
@@ -62,7 +62,7 @@ def write_table(pdf: PDF, title: str, row_data: list):
     # Set table title font
     pdf.set_font(FONT,'B',14.0)
     # Create table title
-    pdf.cell(page_width, 0.0, title, align='C')
+    pdf.cell(w=page_width, h=0.0, text=title, align='C')
     # Set table font
     pdf.set_font(FONT,'',10.0)
     # Line break before table
@@ -73,9 +73,9 @@ def write_table(pdf: PDF, title: str, row_data: list):
             col_width = page_width/len(row)
         for datum in row:
             if isinstance(datum, float):
-                pdf.cell(col_width, 2*text_height, f"{datum:.1f}", border=1)
+                pdf.cell(w=col_width, h=2*text_height, text=f"{datum:.1f}", border=1)
             else:
-                pdf.cell(col_width, 2*text_height, str(datum), border=1)
+                pdf.cell(w=col_width, h=2*text_height, text=str(datum), border=1)
         pdf.ln(2*text_height)
 
 
@@ -113,26 +113,26 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
 
     # Write out contents page
     pdf.set_font('Times', 'B', 14)
-    pdf.cell(0, 10, "Contents", 0, 1)
+    pdf.cell(w=0, h=10, text="Contents")
     pdf.set_font('Times', '', 12)
     link_list = []
     for section_header in graph_sections:
         link_id = pdf.add_link()
         link_list.append(link_id)
-        pdf.cell(0, 12, section_header, 0, 1, link=link_id)
+        pdf.cell(w=0, h=12, text=section_header, link=link_id)
 
     # Write out report metadata
     pdf.set_font('Times', 'B', 14)
-    pdf.cell(0, 14, "Information", 0, 1)
+    pdf.cell(w=0, h=14, text="Information")
     pdf.set_font('Times', '', 12)
     for key, val in metadata.items():
-        pdf.multi_cell(w=0, h=12, txt=f"{key}: {val}", ln=1)
+        pdf.multi_cell(w=0, h=12, txt=f"{key}: {val}")
     
     pdf.add_page()
 
     # Lay out graphs: iterate over graph sections
     for idx, (section_header, image_list) in enumerate(graph_sections.items()):
-        pdf.cell(0, 10, section_header, 0, 1)
+        pdf.cell(w=0, h=10, text=section_header)
         pdf.set_link(link_list[idx])
         # Iterate over images within each section
         for image in image_list: 
