@@ -17,17 +17,20 @@ If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
 git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
 cd nvcl_reporting
 pdm install
-
-# Add two email addresses to a text file
-# First line are the "To:" addresses
-# Second line is the "From:" address
-# Use a comma with no spaces to separate multiple email addresses
+```
+* Add two lines of email addresses to a text file called '.email_addr' in the root directory
+  - First line has the "To:" addresses
+  - Second line has the "From:" address
+  - Use a comma with no spaces to separate multiple email addresses
+```
 vi .email_addr
 ```
 
 ### Email PDF reports (will update data & extract files)
 ```
 eval $(pdm venv activate)
+
+cd scripts
 
 # Send off annual email report (run this once a year)
 ./run_reports.sh A
@@ -42,6 +45,8 @@ eval $(pdm venv activate)
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
 eval $(pdm venv activate)
+
+cd src
 
 # Yearly report (run this once a year)
 ./make_reports.py -usp
