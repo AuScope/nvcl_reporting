@@ -13,7 +13,7 @@ import requests
 
 
 # Directory where TSG files will be written to
-DOWNLOAD_DIR = "/datasets/work/mr-geochem/work/nci_ncvl_collection"
+DOWNLOAD_DIR = "/datasets/mr-geochem/work/nci_ncvl_collection"
 
 # URL of NVCL TSG datasets
 THREDDS_CAT = 'https://thredds.nci.org.au/thredds/catalog/rs07/{prov}/catalog.xml'
