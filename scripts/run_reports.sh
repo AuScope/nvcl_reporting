@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # Main script to run reports
 #
@@ -6,17 +6,18 @@
 # * Quarterly run: ./run_reports.sh Q
 # * Weekly run: ./run_reports.sh W
 #
-# Go to reporting directory
+# Assumes we're in script directory
 
 # Add pdm to PATH
 export PATH=$HOME/.local/bin:$PATH
 
-cd $HOME/dev/gitlab/nvcl_reporting
+# Go to repository root directory
+cd ..
 
-# Check email
+# Check email file
 if [ ! -e .email_addr ]; then
-echo "Missing 2 line '.email_addr' file with email addresses inside!"
-echo "First line is 'To:' address, second is 'From:'"
+echo "Missing '.email_addr' file with email addresses inside!"
+echo "First line is 'To:' addresses separated by spaces"
 exit 1
 fi
 
@@ -24,6 +25,7 @@ fi
 eval $(pdm venv activate)
 
 # Run TSG harvest
+echo "Running TSG harvest"
 ./src/tsg_harvest/harvest.py
 
 #
@@ -32,18 +34,21 @@ eval $(pdm venv activate)
 if [ "$1" = "A" ]; then
 # Takes a while, only run once a year (midnight June 30)
 echo "Annual run"
+FREQUENCY="Annual"
 REPORT_NAME=annual-nvcl-report.pdf
 ./src/make_reports.py -uf -o $REPORT_NAME
 
 elif [ "$1" = "Q" ]; then
 # Takes a while, only run at end of quarter (Mar 31 etc.)
 echo "Quarterly run"
+FREQUENCY="Quarterly"
 REPORT_NAME=quarterly-nvcl-report.pdf
 ./src/make_reports.py -uf -o $REPORT_NAME
 
 elif [ "$1" = "W" ]; then
 # Run every week, accumulates boreholes created in the past week
 echo "Weekly run"
+FREQUENCY="Weekly Brief"
 REPORT_NAME=brief-nvcl-report.pdf
 ./src/make_reports.py -ub -o $REPORT_NAME
 
@@ -53,9 +58,9 @@ echo "Usage: run_reports.sh [A|Q|W]"
 exit 1
 fi
 
-# Send reports via email
-# First address is 'To:' address, second is 'From:'
+echo "Sending report email"
+# First line is 'To:' addresses
 TO_ADDR=`head -1 .email_addr`
-FROM_ADDR=`tail -1 .email_addr`
-echo " Here is NVCL Report  " | mutt -s 'NVCL Report' -a $REPORT_NAME $TO_ADDR
+# Send reports via email using mutt
+echo "Please find attached $FREQUENCY NVCL Report" | mutt -s "$FREQUENCY NVCL Report" -a $REPORT_NAME -- $TO_ADDR
 exit 0
