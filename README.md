@@ -11,19 +11,39 @@ There are also some Python scripts to generate PDF reports and send emails about
 
 ### Setup
 
-If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
+1. If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
 
+2. Clone repository
 ```
 git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
 cd nvcl_reporting
 pdm install
 ```
-* Add two lines of email addresses to a text file called '.email_addr' in the root directory
+
+3. Set up email. Add a line of email addresses to a text file called '.email_addr' in the root directory
   - First line has the "To:" addresses
-  - Second line has the "From:" address
-  - Use a comma with no spaces to separate multiple email addresses
+  - Use a space to separate multiple email addresses
 ```
 vi .email_addr
+```
+
+4. Install [mutt](http://www.mutt.org) email client
+```
+sudo apt install mutt
+```
+
+5. Configure sending address
+```
+vi ~/.muttrc
+```
+
+Add the following:
+```
+###############
+# Identity
+#
+set realname = "Fred Smith"
+set from = "fred.smith@blah.org.au"
 ```
 
 ### Email PDF reports (will update data & extract files)
@@ -42,17 +62,24 @@ cd scripts
 ./run_reports.sh W
 ```
 
+### Sample crontab
+
+Run 1am Sunday morning each week
+```
+00 01 * * SUN /usr/bin/bash -c "cd $HOME/gitlab/nvcl_reporting/scripts && ./run_reports.sh W > output.weekly 2>&1"
+```
+
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
 eval $(pdm venv activate)
 
 cd src
 
-# Yearly report (run this once a year)
-./make_reports.py -usp
+# Yearly or Quarterly report (run this once a year)
+./make_reports.py -uf
 
 # Brief weekly report (run this once a week)
-./make_reports.py -usb
+./make_reports.py -ub
 ```
 
 ### DB Format
