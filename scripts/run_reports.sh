@@ -36,6 +36,7 @@ if [ "$1" = "A" ]; then
 echo "Annual run"
 FREQUENCY="Annual"
 REPORT_NAME=annual-nvcl-report.pdf
+\rm -f $REPORT_NAME
 ./src/make_reports.py -uf -o $REPORT_NAME
 
 elif [ "$1" = "Q" ]; then
@@ -43,6 +44,7 @@ elif [ "$1" = "Q" ]; then
 echo "Quarterly run"
 FREQUENCY="Quarterly"
 REPORT_NAME=quarterly-nvcl-report.pdf
+\rm -f $REPORT_NAME
 ./src/make_reports.py -uf -o $REPORT_NAME
 
 elif [ "$1" = "W" ]; then
@@ -50,6 +52,7 @@ elif [ "$1" = "W" ]; then
 echo "Weekly run"
 FREQUENCY="Weekly Brief"
 REPORT_NAME=brief-nvcl-report.pdf
+\rm -f $REPORT_NAME
 ./src/make_reports.py -ub -o $REPORT_NAME
 
 else
