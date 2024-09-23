@@ -42,7 +42,7 @@ class PDF(FPDF):
         # Set font to helvetica italic 8
         self.set_font(FONT, 'I', 8)
         # Write page number
-        self.cell(w=0, h=10, text=f"Page {self.page_no()}", align='C')
+        self.cell(h=10, text=f"Page {self.page_no()}", align='C')
 
 def write_table(pdf: PDF, title: str, row_data: list):
     """ Write a table using a PDF class
@@ -113,26 +113,27 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
 
     # Write out contents page
     pdf.set_font('Times', 'B', 14)
-    pdf.cell(w=0, h=10, text="Contents")
+    pdf.multi_cell(w=0, h=pdf.font_size * 1.5, text="Contents\n")
     pdf.set_font('Times', '', 12)
     link_list = []
     for section_header in graph_sections:
         link_id = pdf.add_link()
         link_list.append(link_id)
-        pdf.cell(w=0, h=12, text=section_header, link=link_id)
+        pdf.multi_cell(w=0, h=pdf.font_size * 1.2, text=section_header+"\n", link=link_id)
 
     # Write out report metadata
     pdf.set_font('Times', 'B', 14)
-    pdf.cell(w=0, h=14, text="Information")
+    pdf.multi_cell(w=0, h=pdf.font_size * 1.5, text="Information\n")
     pdf.set_font('Times', '', 12)
     for key, val in metadata.items():
-        pdf.multi_cell(w=0, h=12, text=f"{key}: {val}")
+        print(f"Writing {key}: {val}")
+        pdf.multi_cell(w=0, h=pdf.font_size * 1.2, text=f"{key}: {val}\n", align="L")
     
     pdf.add_page()
 
     # Lay out graphs: iterate over graph sections
     for idx, (section_header, image_list) in enumerate(graph_sections.items()):
-        pdf.cell(w=0, h=10, text=section_header)
+        pdf.cell(h=10, text=section_header)
         pdf.set_link(link_list[idx])
         # Iterate over images within each section
         for image in image_list: 
