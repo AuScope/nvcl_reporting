@@ -11,7 +11,7 @@ ROOT_PATH = file_path.parents[1]
 Various shared constants
 """
 # NVCL provider list. Format is (WFS service URL, NVCL service URL, bounding box coords)
-PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA']
+PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA', 'VIC', 'CSIRO']
 
 # Configuration file
 CONFIG_FILE = str(ROOT_PATH / "config.yaml")
