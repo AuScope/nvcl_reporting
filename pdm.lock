@@ -432,8 +432,8 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.1.9"
-requires_python = ">=3.8"
+version = "1.1.10"
+requires_python = ">=3.9"
 summary = "Downloads Australian National Virtual Core Library (NVCL) datasets"
 dependencies = [
     "owslib>=0.29.2",
@@ -443,8 +443,8 @@ dependencies = [
     "shapely>=2.0.1",
 ]
 files = [
-    {file = "nvcl-kit-1.1.9.tar.gz", hash = "sha256:ba39fa96c1710c0c67b6d355e0c62b1050af1ad34041a2fc02eed78cf9992f3a"},
-    {file = "nvcl_kit-1.1.9-py3-none-any.whl", hash = "sha256:3bb72db320f559484ca302d6961f8695ccf5469429ef2a92ee876981ee07c0ab"},
+    {file = "nvcl-kit-1.1.10.tar.gz", hash = "sha256:3e8a66d79d9c830155e50afdd3c65bde746d792162e58619e99b0b616d9c22f4"},
+    {file = "nvcl_kit-1.1.10-py3-none-any.whl", hash = "sha256:8aa4adc1146b48bb1e5b7b6be2639f23f8fdf6584e0796f681285900b926dc05"},
 ]
 
 [[package]]
