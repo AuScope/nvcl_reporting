@@ -69,6 +69,9 @@ def write_table(pdf: PDF, title: str, row_data: list):
     pdf.ln(3.0)
     # Draw table
     for row in row_data:
+        # Skip empty row
+        if len(row) < 1:
+            continue
         if col_width is None:
             col_width = page_width/len(row)
         for datum in row:
@@ -76,6 +79,7 @@ def write_table(pdf: PDF, title: str, row_data: list):
                 pdf.cell(w=col_width, h=2*text_height, text=f"{datum:.1f}", border=1)
             else:
                 pdf.cell(w=col_width, h=2*text_height, text=str(datum), border=1)
+        # Separator
         pdf.ln(2*text_height)
 
 
