@@ -12,7 +12,9 @@ def test_tsg_meta():
     """ Testing TSGMeta class
     """
     t = TSGMeta(os.path.join("data", "metadata.csv"))
-    assert t.get_hl_scan_date('yndd013') == datetime.date(2015, 4, 20)
-    assert t.get_hl_scan_date('ZNDD005') == datetime.date(2017, 6, 15)
-    assert t.get_hl_scan_date('DFGDFHTRJYTRYUJwsdfsdgfsdgsd54353543cewrfww45tKTYKU') == None
-    assert len(t.dt_lkup) == 4817
+    frame = t.get_frame()
+    assert frame.shape  == (10,3)
+    assert list(frame.columns) == ['nvcl_id', 'hl scan date', 'tsg publish date']
+    assert(frame.at[1, 'nvcl_id'] == 'MIN_003542')
+    assert(frame.at[8, 'tsg publish date'] == datetime.date(2022, 10, 20))
+    assert(frame.at[8, 'hl scan date'] == datetime.date(2022, 6, 1))
