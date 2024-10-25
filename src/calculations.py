@@ -23,7 +23,7 @@ from pdf import write_report
 from report_table_data import ReportTableData
 
 
-def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.date = None,
+def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, date_fieldname: str,  start_date: datetime.date = None,
                 end_date: datetime.date = None, return_cnts: bool = False) -> float:
     """
     Calculate depth by assembling dicts of borehole depths (and optional counts) from start date to end date
@@ -31,6 +31,7 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
 
     :param dfs: source dataframe dict
     :param prov: name of data provider, state or territory
+    :param date_fieldname: name of date field to use in calculations
     :param start_date: optional start date, datetime.date() object
     :param end_date: optional end date, datetime.date() object
     :param return_cnts: if true will return counts
@@ -47,13 +48,13 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, start_date: datetime.
         df = dfs['log1'][dfs['log1']['provider'] == prov]
     elif start_date is None:
         # Only has end_date
-        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] < end_date)]
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1'][date_fieldname] < end_date)]
     elif end_date is None:
         # Only has start_date
-        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] > start_date)]
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1'][date_fieldname] > start_date)]
     else:
         # Has both start_date and end_date
-        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1']['hl_scan_date'] > start_date) & (dfs['log1']['hl_scan_date'] < end_date)]
+        df = dfs['log1'][(dfs['log1']['provider'] == prov) & (dfs['log1'][date_fieldname] > start_date) & (dfs['log1'][date_fieldname] < end_date)]
     bh_kms = {}
     nvcl_ids = np.unique(df['nvcl_id'])
     cnts = len(nvcl_ids)
@@ -205,13 +206,14 @@ def get_fy_date_ranges(report_date: datetime.date) -> (datetime.date, datetime.d
         return y_start, y_end, q_start, q_end
 
 
-def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list,
+def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list, date_fieldname: str,
              start_date: datetime.date, end_date: datetime.date) -> (int, int):
     """
     Gets kilometres and borehole counts for a provider
 
     :param df_dict: source dataframe dict
-    :param prov: provider string
+    :param all_provs: provider string
+    :param date_fieldname: name of date field to use in calculations
     :param start_date: start date, datetime.date() object
     :param end_date: start date, datetime.date() object
     :returns: tuple (borehole counts, borehole kilometres)
@@ -220,14 +222,15 @@ def get_cnts(df_dict: dict[str, pd.DataFrame], all_provs: list,
     kms = {}
     for prov in all_provs:
         # Borehole counts and depths from 'start_date' to 'end_date'
-        cnts[prov], kms[prov] = calc_bh_depths(df_dict, prov, start_date, end_date, True)
+        cnts[prov], kms[prov] = calc_bh_depths(df_dict, prov, date_fieldname, start_date, end_date, True)
     return cnts, kms
 
-def calc_fyq(report_date: datetime.date, df_dict: dict[str, pd.DataFrame], all_provs: list):
+def calc_fyq(report_date: datetime.date, date_fieldname: str,  df_dict: dict[str, pd.DataFrame], all_provs: list):
     """
     Calculate quarterly and yearly data
 
     :param report_date: base date from which reporting occurs
+    :param date_fieldname: name of date field to use in calculations
     :param df_dict: source dataframe dict
     :param all_provs: list of providers
     :returns: tuple of SimpleNamespace() fields are:
@@ -244,10 +247,10 @@ def calc_fyq(report_date: datetime.date, df_dict: dict[str, pd.DataFrame], all_p
     y.start, y.end, q.start, q.end = get_fy_date_ranges(report_date)
 
     # Number of boreholes added and total amount of depths added from tne end of last FY relative to report_date
-    y_cnts, y_kms = get_cnts(df_dict, all_provs, y.start, y.end)
+    y_cnts, y_kms = get_cnts(df_dict, all_provs, date_fieldname, y.start, y.end)
 
     # Number of boreholes added and total amount of depths added from the end of the quarter realtive to report_date
-    q_cnts, q_kms = get_cnts(df_dict, all_provs, q.start, q.end)
+    q_cnts, q_kms = get_cnts(df_dict, all_provs, date_fieldname, q.start, q.end)
 
     # List of providers' kms, in provider order
     q.kms_list = [q_kms[prov] for prov in all_provs]
@@ -260,12 +263,13 @@ def calc_fyq(report_date: datetime.date, df_dict: dict[str, pd.DataFrame], all_p
     return y, q
 
 
-def assemble_report(report_file: str, report_date: datetime.date, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
+def assemble_report(report_file: str, report_date: datetime.date, date_fieldname: str, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
     """
     Generates a set of plot files and writes out PDF report
 
     :param report_file: output directory & file for report
     :param report_date: base date from which reporting occurs
+    :param date_fieldname: name of date field to use in calculations
     :param df_dict: source dataframe dict, key is log type
     :param plot_dir: where plots are stored
     :param prefix: sorting prefix
@@ -288,7 +292,7 @@ def assemble_report(report_file: str, report_date: datetime.date, df_dict: dict[
     dfs_log2_all = pd.concat(df_log2_list)
 
     # Count boreholes up until the report_date
-    all_provs, all_counts = np.unique(df_all[(df_all['hl_scan_date'] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+    all_provs, all_counts = np.unique(df_all[(df_all[date_fieldname] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
 
     if not brief:
         # Count log1 data for all providers
@@ -337,7 +341,7 @@ def assemble_report(report_file: str, report_date: datetime.date, df_dict: dict[
     report.add_table(list(all_provs), list(all_counts), f"Number of boreholes by Provider up to {report_date_str}")
 
     # Calculate a list of total depths in kms, one value for each provider, up until the report date
-    nkilometres_totals = [ calc_bh_depths(df_dict, prov, end_date=report_date) for prov in all_provs ]
+    nkilometres_totals = [ calc_bh_depths(df_dict, prov, date_fieldname, end_date=report_date) for prov in all_provs ]
 
     # Make number of kilometres by provider table
     report.add_table(list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
@@ -346,7 +350,7 @@ def assemble_report(report_file: str, report_date: datetime.date, df_dict: dict[
     plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
     # Calculate quarterly and financial year data
-    y, q = calc_fyq(report_date, df_dict, all_provs)
+    y, q = calc_fyq(report_date, date_fieldname, df_dict, all_provs)
 
     # Pretty printed date strings
     y_start_date_str = y.start.strftime('%d/%m/%Y')

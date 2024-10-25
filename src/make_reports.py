@@ -35,6 +35,7 @@ from calculations import calc_stats, assemble_report
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import REPORT_DATE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row
+from tsg_harvest.harvest import TSG_PUBLISH_DATE
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -43,16 +44,15 @@ g_dfs = {}
 SW_ignore_importedIDs = True
 
 
-def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
+def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
 
         :param prov_list: list of NVCL service providers
         :param db_file: database filename
-        :param tsg_meta_file: TSG metadata filename
+        :param tsg_meta_df: TSG metadata dataframe
     """
-    tsg_meta = TSGMeta(tsg_meta_file)
 
     MAX_BOREHOLES = 9999
     if TEST_RUN:
@@ -68,7 +68,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
     for data_cat in DATA_CATS:
         # Import data frame from database file
         print(f"Importing db {db_file}, {data_cat}")
-        g_dfs[data_cat] = import_db(db_file, data_cat)
+        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta_df)
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
@@ -93,7 +93,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
     try:
         # Run each provider in parallel
         with Pool(processes=4) as pool:
-            param_list = [(prov, known_id_df, tsg_meta, MAX_BOREHOLES) for prov in prov_list]
+            param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES) for prov in prov_list]
             prov_df_list = pool.starmap(do_prov, param_list)
             # Append new results from a provider to the global dataframe
             for prov_df in prov_df_list:
@@ -109,19 +109,21 @@ def update_data(prov_list: [], db_file: str, tsg_meta_file: str):
         #        f.write(current_id)
         ## Save out data & exit
         #for data_cat in DATA_CATS:
-        #    export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta)
+        #    export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
 
     # Once finished, save out data to database
     for data_cat in DATA_CATS:
         print(f"\nSaving '{data_cat}' to {db_file}")
-        export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta)
+        export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
 
-def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
+def do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES):
     """ Ask a provider for NVCL data, runs in its own process
 
     :param prov: name of provider, e.g. 'NSW'
+    :param known_id_df: known NVCL ID dataframe
+    :param tsg_meta_df: TSG metadata dataframe
     :returns: pandas DataFrame with columns defined by DF_COLUMNS
     """
     print('\n'+'>'*15+f"    {prov}    "+'<'*15)
@@ -194,19 +196,19 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
                 # If there is no 'modified_date' then use min date - i.e. year 1
                 modified_date = datetime.date.min
 
-            # Get Hylogger scan date from CSV file
-            hl_scan_date = tsg_meta.get_hl_scan_date(nvcl_id)
-            if hl_scan_date is None:
-                # If there is no scan date, then use 'created_date' as the scan date
+            # Get publish date from CSV file
+            publish_date = tsg_meta_df[ tsg_meta_df['nvcl_id'] == nvcl_id].at[0, TSG_PUBLISH_DATE]
+            if publish_date is None:
+                # If there is no publish date, then use 'created_date' as the publish date
                 created_datetime = getattr(ld, 'created_date', None)
                 if isinstance(created_datetime, datetime.datetime):
-                    hl_scan_date = created_datetime.date()
+                    publish_date = created_datetime.date()
                 else:
-                    # If there is no 'created_date' or scan date, then use min date - i.e. year 1
-                    hl_scan_date = datetime.date.min
+                    # If there is no 'created_date' or publish date, then use min date - i.e. year 1
+                    publish_date = datetime.date.min
 
-            # Make a new row for insertion with hl_scan_date and modified_date
-            new_row = make_row(prov, boreholes_list[idx], hl_scan_date, modified_date)
+            # Make a new row for insertion with publish_date and modified_date
+            new_row = make_row(prov, boreholes_list[idx], publish_date, modified_date)
 
             # log types : 0=domain 1=class 2=decimal 3=image 4=profilometer 5=spectral 6=mask
             # From: https://github.com/AuScope/NVCLDataServices/blob/master/sql/Oracle/createNVCLDB11g.sql
@@ -239,14 +241,14 @@ def do_prov(prov, known_id_df, tsg_meta, MAX_BOREHOLES):
     return results
 
 
-def load_data(db_file):
+def load_data(db_file: str, tsg_meta: TSGMeta):
     """ Load NVCL data from database file
 
     :param db_file: directory path of database file
     """
     print(f"Loading database {db_file}")
     for idx, data_cat in enumerate(DATA_CATS):
-        g_dfs[data_cat] = import_db(db_file, data_cat)
+        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta)
         print(f"{idx+1} of {len(DATA_CATS)}: {data_cat} done")
     print("Loading database done.")
 
@@ -339,7 +341,8 @@ def main(sys_argv):
     # Load configuration
     config = load_and_check_config(config_file)
     plot_dir = config['plot_dir']
-    tsg_meta_file = config['tsg_meta_file']
+    tsg_meta = TSGMeta(config['tsg_meta_file'])
+    tsg_meta_df = tsg_meta.get_frame()
     now = datetime.datetime.now()
     print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
@@ -368,12 +371,12 @@ def main(sys_argv):
 
     # Open database, talk to services, update database
     if args.update:
-        update_data(PROV_LIST, db, tsg_meta_file)
+        update_data(PROV_LIST, db, tsg_meta_df)
         data_loaded = True
 
     # Load database from designated database
     if not data_loaded:
-        load_data(db)
+        load_data(db, tsg_meta_df)
 
     # Create report
     if args.full or args.brief:
@@ -387,10 +390,9 @@ def main(sys_argv):
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        assemble_report(args.output, report_date, g_dfs, plot_dir, prefix, args.brief)
+        assemble_report(args.output, report_date, 'publish_date', g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")
 
 if __name__ == "__main__":
     main(sys.argv)
-

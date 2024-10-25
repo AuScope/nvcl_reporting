@@ -21,10 +21,9 @@ from peewee import SqliteDatabase, Model
 from playhouse.reflection import generate_models
 
 
-from db.schema import Meas, DATE_FMT, DF_COLUMNS
-from db.tsg_metadata import TSGMeta
+from db.schema import Meas, DATE_FMT, DB_COLUMNS
 
-# Database columns = 'report_category' + list of columns in a new DataFrame
+# Dataframe columns = list of columns in database - 'report_category' + 'hl_scan_date' + 'publish_date'
 from db.schema import DF_COLUMNS
 
 '''
@@ -35,11 +34,16 @@ more complex types
 i.e. pandas won't convert a column of arrays or json for your sqlite db even if you use sqlalchemy
 '''
 
-def df_col_str() -> str:
+def db_col_str() -> str:
     '''
-    Makes a comma sep string of dataframe column names
+    Makes a comma sep string of column names for converting the database table to a DataFrame
     '''
-    return ', '.join(DF_COLUMNS)
+    # Get dataframe columns
+    db_cols = DF_COLUMNS.copy()
+    # Remove columns sourced from TSG files
+    db_cols.remove('hl_scan_date')
+    db_cols.remove('publish_date')
+    return ', '.join(db_cols)
 
 
 def conv_str2dt(dt_str: str) -> date:
@@ -84,7 +88,7 @@ def conv_str2json(json_str) -> list:
 #    return dt.strftime(DATE_FMT)
 
 
-def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
+def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> pd.DataFrame:
     ''' 
     Reads a report category from SQLITE database converts it into a dataframe 
     Assumes file exists
@@ -103,32 +107,36 @@ def import_db(db_file: str, report_datacat: str) -> pd.DataFrame:
 
     # Convert db data to dataframe
     try:
-        df = pd.read_sql(f"select {df_col_str()} from meas where report_category = '{report_datacat}'", con) 
+        src_df = pd.read_sql(f"select {db_col_str()} from meas where report_category = '{report_datacat}'", con)
     except pandas.io.sql.DatabaseError as de:
         # If does not exist, create a new one
         print(f"Cannot find data in database {db_file}: {de}")
         print("Creating a new database")
-        df = pd.DataFrame(columns=DF_COLUMNS)
-    assert type(df['modified_datetime']) is not pd.Timestamp
+        src_df = pd.DataFrame(columns=DF_COLUMNS)
+    assert type(src_df['modified_datetime']) is not pd.Timestamp
 
     # Create new frame for populating
     new_df = pd.DataFrame(columns=DF_COLUMNS)
+    # Remove to avoid confusion, as they will be merged in
+    new_df = new_df.drop(columns=['publish_date', 'hl_scan_date'])
 
     # Convert imported DataFrame column by column to usable data types
-    for col in df.columns:
+    for col in src_df.columns:
         # dates in db are converted to 'datetime.date' objects
-        if col in ['modified_datetime','hl_scan_date']:
-            new_df[col] = df[col].apply(conv_str2dt)
+        if col in ['modified_datetime']:
+            new_df[col] = src_df[col].apply(conv_str2dt)
         # minerals, mineral counts and mineral data are converted to lists and dicts
         elif col in ['minerals', 'mincnts', 'data']:
-            new_df[col] = df[col].apply(conv_str2json)
-        # Strings are left alone
+            new_df[col] = src_df[col].apply(conv_str2json)
+        # Strings are left as is
         else:
-            new_df[col] = df[col]
+            new_df[col] = src_df[col]
 
-    assert type(new_df['modified_datetime']) is not pd.Timestamp
-    assert type(new_df['hl_scan_date']) is not pd.Timestamp
-    return new_df
+    # Merge columns from TSG files
+    merged_df = pd.merge(new_df, tsg_meta_df, left_on='nvcl_id', right_on='nvcl_id')
+    # Rename from 'tsg_meta_df' column names to report column names
+    merged_df = merged_df.rename(columns={'hl scan date': 'hl_scan_date', 'tsg publish date': 'publish_date'})
+    return merged_df
 
 
 def conv_obj2str(arr: []) -> str:
@@ -140,14 +148,14 @@ def conv_obj2str(arr: []) -> str:
         sys.exit(9)
 
 
-def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta: TSGMeta):
+def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df: pd.DataFrame):
     '''
     Writes entire dataframe to SQLITE database
 
     :param db_file: SQLITE database file name
     :param df: dataframe whose rows are exported to db
     :param report_category: report category
-    :param tsg_meta: TSG metadata used to fetch Hylogger scan date
+    :param tsg_meta_df: TSG metadata dataframe
     '''
     # DB cols: report_category, provider, nvcl_id, modified_datetime, log_id, algorithm, log_type, algorithm_id, minerals, mincnts, data 
     #
@@ -164,8 +172,9 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta: TS
     for idx, row_arr in df.iterrows():
 
         # Assemble a dict from dataframe row
-        row_df_dict = dict(zip(DF_COLUMNS, row_arr))
+        row_df_dict = dict(zip(DB_COLUMNS, row_arr))
         row_df_dict['report_category'] = report_category
+        # Convert Python data structures to strings
         row_df_dict['mincnts'] = conv_obj2str(row_df_dict['mincnts'])
         row_df_dict['minerals'] = conv_obj2str(row_df_dict['minerals'])
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
@@ -173,14 +182,6 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta: TS
         ## Check data type
         assert isinstance(row_df_dict['modified_datetime'], date) 
         assert isinstance(row_df_dict['hl_scan_date'], date)
-
-        # Assuming incremental updates, update 'hl_scan_date'
-        # The 'hl_scan_date' comes from a source that may be updated after the NVCLDataServices
-        # so initially 'hl_scan_date' maybe unavailable
-        hl_scan_date = tsg_meta.get_hl_scan_date(row_df_dict['nvcl_id'])
-        if hl_scan_date is not None:
-            print(f"Changing {row_df_dict['hl_scan_date']} to {hl_scan_date}")
-            row_df_dict['hl_scan_date'] = hl_scan_date
 
         # Create new row in db
         try:

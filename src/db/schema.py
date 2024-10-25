@@ -17,7 +17,7 @@ from peewee import Field, Model, TextField, DateField, CompositeKey, BooleanFiel
 DATE_FMT = '%Y-%m-%d'
 
 # Dataframe columns
-DF_COLUMNS = ['provider', 'borehole_id', 'drill_hole_name', 'hl_scan_date', 'easting', 'northing', 'crs', 'start_depth', 'end_depth', 'has_vnir', 'has_swir', 'has_tir', 'has_mir', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data']
+DF_COLUMNS = ['provider', 'borehole_id', 'drill_hole_name', 'publish_date', 'hl_scan_date', 'easting', 'northing', 'crs', 'start_depth', 'end_depth', 'has_vnir', 'has_swir', 'has_tir', 'has_mir', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data']
 
 
 class ScalarsField(Field):
@@ -97,12 +97,15 @@ class JSONField(Field):
 
 
 class Meas(Model):
-    # NB: 'report_category' field is not stored when converted to a DataFrame
+    """
+    Database table structure
+
+    NB: 'report_category' field is not stored when converted to a DataFrame, instead kept as a dict key
+    """
     report_category = TextField() # Can be any one of 'log1', 'log2', 'log6', 'empty' and 'nodata'
     provider = TextField()
     borehole_id = TextField()
     drill_hole_name = TextField()
-    hl_scan_date = DateField(formats=[DATE_FMT]) # from TSG files
     easting = DoubleField()
     northing = DoubleField()
     crs = TextField() # EPSG:7842
@@ -113,7 +116,7 @@ class Meas(Model):
     has_tir = BooleanField()
     has_mir = BooleanField()
     nvcl_id = TextField()
-    modified_datetime = DateField(formats=[DATE_FMT]) # Only some providers supply it, else retrieval date is used
+    modified_datetime = DateField(formats=[DATE_FMT]) # Unfortunately only some providers supply it
     log_id = TextField()
     algorithm = TextField()
     log_type = TextField()
@@ -126,6 +129,8 @@ class Meas(Model):
         primary_key = CompositeKey('report_category', 'provider', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithm_id')
         database = None
 
+DB_COLUMNS = [field.name for field in Meas._meta.fields.values()]
+
 
 # 'dataclass' annotation automatically provides __init__ & __repr__
 @dataclass
@@ -136,7 +141,8 @@ class DF_Row:
     provider: str
     borehole_id: str
     drill_hole_name: str
-    hl_scan_date: datetime.date # Hylogger scan date
+    publish_date: datetime.date # Publish date of TSG file on NCI's website (not in database)
+    hl_scan_date: datetime.date # Hylogger scan date taken from TSG file (not in database)
     easting: float
     northing: float
     crs: str # CRS for northing & easting
@@ -164,6 +170,7 @@ class DF_Row:
         ATTR_LIST = ["provider",
     "borehole_id",
     "drill_hole_name",
+    "publish_date",
     "hl_scan_date",
     "easting",
     "northing",
