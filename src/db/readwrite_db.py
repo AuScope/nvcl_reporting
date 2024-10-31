@@ -172,16 +172,18 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
     for idx, row_arr in df.iterrows():
 
         # Assemble a dict from dataframe row
-        row_df_dict = dict(zip(DB_COLUMNS, row_arr))
+        # Skip the first column in DB_COLUMNS - it is 'report_category' which is not
+        # in the dataframe
+        row_df_dict = dict(zip(DB_COLUMNS[1:], row_arr))
+        # Insert missing report category
         row_df_dict['report_category'] = report_category
         # Convert Python data structures to strings
         row_df_dict['mincnts'] = conv_obj2str(row_df_dict['mincnts'])
         row_df_dict['minerals'] = conv_obj2str(row_df_dict['minerals'])
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
 
-        ## Check data type
+        # Check data type
         assert isinstance(row_df_dict['modified_datetime'], date) 
-        assert isinstance(row_df_dict['hl_scan_date'], date)
 
         # Create new row in db
         try:

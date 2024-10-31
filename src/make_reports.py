@@ -118,7 +118,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
         print(f"\nSaving '{data_cat}' to {db_file}")
         export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
 
-def do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES):
+def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int):
     """ Ask a provider for NVCL data, runs in its own process
 
     :param prov: name of provider, e.g. 'NSW'
@@ -134,7 +134,7 @@ def do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES):
         results[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
 
     # Create parameters for NVCL services
-    param = param_builder(prov, max_boreholes=MAX_BOREHOLES)
+    param = param_builder(prov, max_boreholes=max_boreholes)
     if not param:
         print(f"Cannot build parameters for {prov}: {param}")
         return results
@@ -241,14 +241,14 @@ def do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES):
     return results
 
 
-def load_data(db_file: str, tsg_meta: TSGMeta):
+def load_data(db_file: str, tsg_meta_df: pd.Dataframe):
     """ Load NVCL data from database file
 
     :param db_file: directory path of database file
     """
     print(f"Loading database {db_file}")
     for idx, data_cat in enumerate(DATA_CATS):
-        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta)
+        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta_df)
         print(f"{idx+1} of {len(DATA_CATS)}: {data_cat} done")
     print("Loading database done.")
 

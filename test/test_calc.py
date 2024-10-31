@@ -10,12 +10,9 @@ src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
 from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges
-from test_db import db_df
+from test_db import db_df, bigger_db_df
 from db.readwrite_db import import_db
 
-@pytest.fixture
-def bigger_db_df():
-    return import_db(os.path.join("data","bigger.db"), "log1")
 
 def test_calc_bh_depths_cnts(db_df):
     """ Testing depth calculation
