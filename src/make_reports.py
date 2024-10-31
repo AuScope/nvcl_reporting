@@ -241,7 +241,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     return results
 
 
-def load_data(db_file: str, tsg_meta_df: pd.Dataframe):
+def load_data(db_file: str, tsg_meta_df: pd.DataFrame):
     """ Load NVCL data from database file
 
     :param db_file: directory path of database file
