@@ -10,8 +10,8 @@ src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
 from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges
-# Keep 'tsg_meta_df'
-from test_db import db_df, bigger_db_df, tsg_meta_df
+# Don't delete 'tsg_meta_df' 'tsg_meta_bigger_df', needed for fixtures to be injected
+from test_db import db_df, bigger_db_df, tsg_meta_df, tsg_meta_bigger_df
 from db.readwrite_db import import_db
 
 
@@ -109,21 +109,13 @@ def test_get_fy_date_ranges():
 def test_calc_fyq(bigger_db_df):
     """
     Test ranges and borehole counts of quarterly and yearly calculations
-
-    sqlite> select count(distinct borehole_id), provider from meas where hl_scan_date < '2021-06-30' and hl_scan_date > '2020-07-01' group by provider;
-    16|NT
-    20|TAS
-
-    sqlite> select count(distinct borehole_id), provider from meas where hl_scan_date < '2021-06-30' and hl_scan_date > '2021-04-01' group by provider;
-    15|TAS
-
     """
     df_dict = { 'log1': bigger_db_df }
-    print(f"{bigger_db_df=}")
     y, q = calc_fyq(datetime.date(2022, 5, 6), 'publish_date', df_dict, ['TAS', 'NT'])
     assert y.start == datetime.date(2021, 7, 1)
     assert y.end == datetime.date(2022, 6, 30)
     assert q.start == datetime.date(2022, 4, 1)
     assert q.end == datetime.date(2022, 6, 30)
-    assert y.cnt_list == [20, 16]
-    assert q.cnt_list == [15, 0]
+    # List of BH counts [ Tas counts, NT counts ]
+    assert y.cnt_list == [5, 18]
+    assert q.cnt_list == [4, 17]

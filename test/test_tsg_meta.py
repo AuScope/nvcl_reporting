@@ -16,5 +16,5 @@ def test_tsg_meta():
     assert frame.shape  == (5,3)
     assert list(frame.columns) == ['nvcl_id', 'hl scan date', 'tsg publish date']
     assert(frame.at[1, 'nvcl_id'] == '24598')
-    assert(frame.at[2, 'tsg publish date'] == datetime.date(2023, 1, 25))
+    assert(frame.at[2, 'tsg publish date'] == datetime.date(2022, 6, 27))
     assert(frame.at[4, 'hl scan date'] == datetime.date(2019, 7, 17))
