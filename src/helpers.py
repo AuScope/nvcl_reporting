@@ -1,5 +1,8 @@
 import sys
+import datetime
+
 from pyproj.transformer import Transformer
+
 from db.schema import DF_Row
 from collections import OrderedDict
 from types import SimpleNamespace
@@ -37,19 +40,21 @@ def to_metres(x: float, y: float) -> (float, float):
     transformer = Transformer.from_crs(4326, 7842)
     return transformer.transform(y, x)
 
-def make_row(prov, borehole, scan_date, modified_date):
+def make_row(prov: str, borehole: str, scan_date: datetime.date, modified_date: datetime.date, publish_date: datetime.date):
     """ Returns a DF_Row() instance populated with borehole data abd dates provided
 
     :param prov: provider string
     :param borehole: dict of borehole metadata
     :param scan_date: HyLogger scan date
-    :param modified_date: modified date
+    :param modified_date: modified date according to NVCLServices API
+    :param publish_date: date TSG file was published at NCI
     :returns: DF_Row() instance 
     """
     easting, northing = to_metres(borehole['x'], borehole['y'])
     return DF_Row(provider=prov,
         borehole_id=borehole['nvcl_id'],
         drill_hole_name=borehole['name'],
+        publish_date=publish_date,
         hl_scan_date=scan_date,
         easting=easting,
         northing=northing,

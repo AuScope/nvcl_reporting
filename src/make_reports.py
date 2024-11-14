@@ -9,6 +9,7 @@ import argparse
 import yaml
 import datetime
 import signal
+from types import SimpleNamespace
 
 # External imports
 import numpy as np
@@ -35,7 +36,7 @@ from calculations import calc_stats, assemble_report
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import REPORT_DATE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row
-from tsg_harvest.harvest import TSG_PUBLISH_DATE
+from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -57,8 +58,8 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        #MAX_BOREHOLES = 10
-        new_prov_list = ['TAS','WA','NSW','QLD','NT','SA']
+        MAX_BOREHOLES = 10
+        new_prov_list = ['VIC','TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
 
@@ -118,6 +119,52 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
         print(f"\nSaving '{data_cat}' to {db_file}")
         export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
 
+
+def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (datetime.date, datetime.date, datetime.date):
+    """
+    Fetches dates
+
+    :param ld: Borehole WFS metadata
+    :param df: TSG file metadata
+    :param nvcl_id: NVCL id
+    :returns: scan_date, modified_date, published_date
+    """
+    # If NVCLDataServices provider supports modified_date then use it
+    modified_datetime = getattr(ld, 'modified_date', None)
+    if isinstance(modified_datetime, datetime.datetime):
+        modified_date = modified_datetime.date()
+    else:
+        # If there is no 'modified_date' then use min date - i.e. year 1
+        modified_date = datetime.date.min
+
+    # If there is no publish date, then use 'created_date' as the publish date
+    created_datetime = getattr(ld, 'created_date', None)
+    if isinstance(created_datetime, datetime.datetime):
+        created_date = created_datetime.date()
+    else:
+        created_date = datetime.date.min
+
+    # Get TSG file publish date
+    row_df = tsg_meta_df[ tsg_meta_df['nvcl_id'] == nvcl_id]
+    if not row_df.empty:
+        publish_date = row_df.at[0, TSG_PUBLISH_DATE]
+        if publish_date is None:
+                publish_date = created_date
+
+        # Get Hylogger Scan date
+        scan_date = row_df.at[0, HL_SCAN_DATE]
+        if scan_date is None:
+            # If there is no scan date, then use min date - i.e. year 1
+            scan_date = datetime.date.min
+    else:
+        # Use 'created_date' as the publish date
+        publish_date = created_date
+        # If there is no scan date, then use min date - i.e. year 1
+        scan_date = datetime.date.min
+
+    return scan_date, modified_date, publish_date
+
+
 def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int):
     """ Ask a provider for NVCL data, runs in its own process
 
@@ -173,7 +220,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         ###
         if not logs_data_list:
             print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
-            new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min)
+            new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min, datetime.date.min)
             #print("AS_LIST:", new_row.as_list())
             results['nodata'] = pd.concat([results['nodata'], pd.Series(new_row.as_list(), index=results['nodata'].columns).to_frame().T], ignore_index=True)
             continue
@@ -188,27 +235,12 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
                 continue
             minerals = []
 
-            # If provider supports modified_date then use it
-            modified_datetime = getattr(ld, 'modified_date', None)
-            if isinstance(modified_datetime, datetime.datetime):
-                modified_date = modified_datetime.date()
-            else:
-                # If there is no 'modified_date' then use min date - i.e. year 1
-                modified_date = datetime.date.min
 
-            # Get publish date from CSV file
-            publish_date = tsg_meta_df[ tsg_meta_df['nvcl_id'] == nvcl_id].at[0, TSG_PUBLISH_DATE]
-            if publish_date is None:
-                # If there is no publish date, then use 'created_date' as the publish date
-                created_datetime = getattr(ld, 'created_date', None)
-                if isinstance(created_datetime, datetime.datetime):
-                    publish_date = created_datetime.date()
-                else:
-                    # If there is no 'created_date' or publish date, then use min date - i.e. year 1
-                    publish_date = datetime.date.min
+            # Fetch dates 
+            scan_date, modified_date, published_date = get_dates(ld, tsg_meta_df, nvcl_id)
 
             # Make a new row for insertion with publish_date and modified_date
-            new_row = make_row(prov, boreholes_list[idx], publish_date, modified_date)
+            new_row = make_row(prov, boreholes_list[idx], scan_date, modified_date, published_date)
 
             # log types : 0=domain 1=class 2=decimal 3=image 4=profilometer 5=spectral 6=mask
             # From: https://github.com/AuScope/NVCLDataServices/blob/master/sql/Oracle/createNVCLDB11g.sql
