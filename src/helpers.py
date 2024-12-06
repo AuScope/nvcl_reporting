@@ -50,22 +50,22 @@ def make_row(prov: str, borehole: str, scan_date: datetime.date, modified_date: 
     :param publish_date: date TSG file was published at NCI
     :returns: DF_Row() instance 
     """
-    easting, northing = to_metres(borehole['x'], borehole['y'])
+    easting, northing = to_metres(borehole.x, borehole.y)
     return DF_Row(provider=prov,
-        borehole_id=borehole['nvcl_id'],
-        drill_hole_name=borehole['name'],
+        borehole_id=borehole.nvcl_id,
+        drill_hole_name=borehole.name,
         publish_date=publish_date,
         hl_scan_date=scan_date,
         easting=easting,
         northing=northing,
         crs="EPSG:7842",
         start_depth=0,
-        end_depth=borehole['boreholeLength_m'],
+        end_depth=borehole.boreholeLength_m,
         has_vnir=False,
         has_swir=False,
         has_tir=False,
         has_mir=False,
-        nvcl_id=borehole['nvcl_id'],
+        nvcl_id=borehole.nvcl_id,
         modified_datetime=modified_date,
         log_id='',
         algorithm='',

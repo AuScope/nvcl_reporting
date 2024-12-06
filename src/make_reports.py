@@ -213,6 +213,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             continue
 
         # Download previously unknown NVCL id dataset from service
+        print(f"Calling 'get_logs_data' for {nvcl_id} and {prov}")
         logs_data_list = reader.get_logs_data(nvcl_id)
         now_date = datetime.datetime.now().date()
         ###
@@ -234,7 +235,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
                 print(f"Log id {ld.log_id} already imported, next...")
                 continue
             minerals = []
-
+            print(f"Importing log id {ld.log_id} from {nvcl_id} in {prov}")
 
             # Fetch dates 
             scan_date, modified_date, published_date = get_dates(ld, tsg_meta_df, nvcl_id)
