@@ -5,7 +5,7 @@
 groups = ["default", "test"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:a1376091a7ec3e3464772410aba7d9305cbc7ef2ea6aa01d9d422e19291758b2"
+content_hash = "sha256:7ea7ac2b2cf2826a5bfa59e2b3447b09ac431968e597be16429b6d92b89a1256"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.12"
@@ -432,37 +432,19 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.1.10"
+version = "1.2.3"
 requires_python = ">=3.9"
 summary = "Downloads Australian National Virtual Core Library (NVCL) datasets"
 dependencies = [
-    "owslib>=0.29.2",
     "pyproj>=3.5.0",
+    "python-dateutil>=2.9.0.post0",
     "pyyaml>=6.0.1",
     "requests>=2.31.0",
     "shapely>=2.0.1",
 ]
 files = [
-    {file = "nvcl-kit-1.1.10.tar.gz", hash = "sha256:3e8a66d79d9c830155e50afdd3c65bde746d792162e58619e99b0b616d9c22f4"},
-    {file = "nvcl_kit-1.1.10-py3-none-any.whl", hash = "sha256:8aa4adc1146b48bb1e5b7b6be2639f23f8fdf6584e0796f681285900b926dc05"},
-]
-
-[[package]]
-name = "owslib"
-version = "0.29.2"
-requires_python = ">=3.6"
-summary = "OGC Web Service utility library"
-dependencies = [
-    "dataclasses; python_version < \"3.7\"",
-    "lxml",
-    "python-dateutil>=1.5",
-    "pytz",
-    "pyyaml",
-    "requests>=1.0",
-]
-files = [
-    {file = "OWSLib-0.29.2-py2.py3-none-any.whl", hash = "sha256:07a597f3d0029ee41eb159dcf784672ce6b3968b61bb39ad93ca9b29a4f4a2b7"},
-    {file = "OWSLib-0.29.2.tar.gz", hash = "sha256:6c03924747e802466c7b4f5873ed555f16aa51806c9be85dc84af95bbe75466c"},
+    {file = "nvcl_kit-1.2.3-py3-none-any.whl", hash = "sha256:84021786eb53da6c3d19f1acdba75be7a31987b6818fe03819961fdca8298e41"},
+    {file = "nvcl_kit-1.2.3.tar.gz", hash = "sha256:510f0c1839ba52d1104585271c86ce8abb47d04e22ccfc2f57f7479525bf842a"},
 ]
 
 [[package]]
@@ -662,15 +644,15 @@ files = [
 
 [[package]]
 name = "python-dateutil"
-version = "2.8.2"
+version = "2.9.0.post0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 summary = "Extensions to the standard Python datetime module"
 dependencies = [
     "six>=1.5",
 ]
 files = [
-    {file = "python-dateutil-2.8.2.tar.gz", hash = "sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86"},
-    {file = "python_dateutil-2.8.2-py2.py3-none-any.whl", hash = "sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9"},
+    {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
+    {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
 ]
 
 [[package]]
