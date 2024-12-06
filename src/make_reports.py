@@ -195,7 +195,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
     # Search for NVCL boreholes
     boreholes_list = reader.get_boreholes_list()
-    nvcl_id_list = [ bh['nvcl_id'] for bh in boreholes_list ]
+    nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
     print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
 
     # Check for no NVCL ids & skip to next service
