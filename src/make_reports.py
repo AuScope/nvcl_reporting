@@ -147,12 +147,26 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     # Get TSG file publish date
     row_df = tsg_meta_df[ tsg_meta_df['nvcl_id'] == nvcl_id]
     if not row_df.empty:
-        publish_date = row_df.at[0, TSG_PUBLISH_DATE]
+        try:
+            publish_date = row_df.at[0, TSG_PUBLISH_DATE]
+        except KeyError as ke:
+            print(f"{TSG_PUBLISH_DATE=}")
+            print(f"{ke=}")
+            print(f"{row_df=}")
+            publish_date = None
+
         if publish_date is None:
                 publish_date = created_date
 
         # Get Hylogger Scan date
-        scan_date = row_df.at[0, HL_SCAN_DATE]
+        try:
+            scan_date = row_df.at[0, HL_SCAN_DATE]
+        except KeyError as ke:
+            print(f"{HL_SCAN_DATE=}")
+            print(f"{ke=}")
+            print(f"{row_df=}")
+            scan_date = None
+
         if scan_date is None:
             # If there is no scan date, then use min date - i.e. year 1
             scan_date = datetime.date.min
