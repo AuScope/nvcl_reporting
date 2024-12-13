@@ -148,10 +148,10 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     row_df = tsg_meta_df[ tsg_meta_df['nvcl_id'] == nvcl_id]
     if not row_df.empty:
         try:
-            publish_date = row_df.at[0, TSG_PUBLISH_DATE]
-        except KeyError as ke:
+            publish_date = row_df.iat[0, row_df.columns.get_loc(TSG_PUBLISH_DATE)]
+        except (KeyError, IndexError) as e:
+            print(f"Caught exception: {e=}")
             print(f"{TSG_PUBLISH_DATE=}")
-            print(f"{ke=}")
             print(f"{row_df=}")
             publish_date = None
 
@@ -160,10 +160,10 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
 
         # Get Hylogger Scan date
         try:
-            scan_date = row_df.at[0, HL_SCAN_DATE]
-        except KeyError as ke:
+            scan_date = row_df.iat[0, row_df.columns.get_loc(HL_SCAN_DATE)]
+        except (KeyError, IndexError) as e:
+            print(f"Caught exception: {e=}")
             print(f"{HL_SCAN_DATE=}")
-            print(f"{ke=}")
             print(f"{row_df=}")
             scan_date = None
 
