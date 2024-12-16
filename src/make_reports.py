@@ -76,9 +76,6 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
             print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
-    else:
-        # Doesn't exist? Create a new data frame
-        g_dfs[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
 
     # TODO: Reinstate later
     #if ABORT_FILE.is_file():

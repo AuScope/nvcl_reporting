@@ -117,7 +117,7 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
 
     # Create new frame for populating
     new_df = pd.DataFrame(columns=DF_COLUMNS)
-    # Remove to avoid confusion, as they will be merged in
+    # Remove to avoid confusion, drop TSG sourced columns as they will be merged in
     new_df = new_df.drop(columns=['publish_date', 'hl_scan_date'])
 
     # Convert imported DataFrame column by column to usable data types
@@ -128,6 +128,9 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
         # minerals, mineral counts and mineral data are converted to lists and dicts
         elif col in ['minerals', 'mincnts', 'data']:
             new_df[col] = src_df[col].apply(conv_str2json)
+        # Don't merge in TSG sourced columns from src_df
+        elif col in ['publish_date', 'hl_scan_date']:
+            continue
         # Strings are left as is
         else:
             new_df[col] = src_df[col]
