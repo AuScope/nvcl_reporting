@@ -26,7 +26,7 @@ eval $(pdm venv activate)
 
 # Run TSG harvest
 echo "Running TSG harvest"
-./src/tsg_harvest/harvest.py
+./src/tsg_harvest/harvest.py config.yaml
 
 #
 # Run reports

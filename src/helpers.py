@@ -1,11 +1,59 @@
 import sys
+import os
 import datetime
+from pathlib import Path
+import yaml
 
 from pyproj.transformer import Transformer
 
 from db.schema import DF_Row
 from collections import OrderedDict
 from types import SimpleNamespace
+
+def load_and_check_config(config_file: str) -> dict:
+    """ Loads config file
+    This file contains the directories where the database file is kept, 
+    TSG metadata file and the directory where the plot files are kept.
+    NB: These files' paths are relative to the config file
+
+    :param config_file: config full path and filename
+    :returns: dict of config values
+    """
+    config_dir = Path(__file__).absolute().parents[1]
+    # Open config file
+    try:
+        with open(config_file, "r") as fd:
+            # Parse config file
+            try:
+                config = yaml.safe_load(fd)
+            except yaml.YAMLError as ye:
+                print(f"Error in configuration file: {ye}")
+                sys.exit(1)
+    except OSError as oe:
+        print(f"Cannot load config file {config_file}: {oe}")
+        sys.exit(1)
+
+    # If nothing in file
+    if config is None:
+        print(f"Cannot load config file {config_file}, it is empty")
+        sys.exit(1)
+
+    # Check keys
+    for key in ('db', 'plot_dir', 'tsg_meta_file'):
+        if key not in config:
+            print(f"Config file {config_file} is missing a value for '{key}'")
+            sys.exit(1)
+        # Prepend config directory to make an absolute path
+        config[key] = os.path.join(config_dir, config[key])
+        # Try to create plot directory
+        if key in ('plot_dir') and not os.path.exists(config[key]):
+            try:
+                os.mkdir(config[key])
+            except OSError as oe:
+                print(f"Cannot load create directory {config[key]}: {oe}")
+                sys.exit(1)
+    return config
+
 
 def conv_mindata(mindata: OrderedDict) -> list:
     """ Convert mineral data to a list e.g.

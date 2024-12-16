@@ -13,6 +13,8 @@ import threddsclient
 import requests
 
 
+from helpers import load_and_check_config
+
 # Directory where TSG files will be written to
 DOWNLOAD_DIR = "/datasets/mr-geochem/work/nci_ncvl_collection"
 
@@ -146,16 +148,17 @@ def process_prov(prov: str, csvwriter):
                     break
 
 
-
 if __name__ == "__main__":
-    # Get the CSV filename from the command line
+    # Get the config filename from the command line
     parser = argparse.ArgumentParser(
                     prog='tsg_harvest',
                     description='Harvests TSG metadata from NCI and creates a CSV file summary',)
-    parser.add_argument('csv_filename', help='TSG metadata summary will be output to this file')
+    parser.add_argument('config_file', help='config file, used to specify output CSV file')
 
     args = parser.parse_args()
-    with open(args.csv_filename, 'w') as csv_file:
+    config = load_and_check_config(args.config_file)
+
+    with open(config['tsg_meta_file'], 'w') as csv_file:
         csvwriter = csv.writer(csv_file, delimiter='|', quotechar='|', doublequote=False,
                                          quoting=csv.QUOTE_NONE)
         # Write CSV header
