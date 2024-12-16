@@ -6,6 +6,7 @@ import configparser
 import csv
 import sys
 from pathlib import Path, PurePath, PureWindowsPath
+import argparse
 
 
 import threddsclient
@@ -147,7 +148,14 @@ def process_prov(prov: str, csvwriter):
 
 
 if __name__ == "__main__":
-    with open("metadata.csv", 'w') as csv_file:
+    # Get the CSV filename from the command line
+    parser = argparse.ArgumentParser(
+                    prog='tsg_harvest',
+                    description='Harvests TSG metadata from NCI and creates a CSV file summary',)
+    parser.add_argument('csv_filename', help='TSG metadata summary will be output to this file')
+
+    args = parser.parse_args()
+    with open(args.csv_filename, 'w') as csv_file:
         csvwriter = csv.writer(csv_file, delimiter='|', quotechar='|', doublequote=False,
                                          quoting=csv.QUOTE_NONE)
         # Write CSV header
