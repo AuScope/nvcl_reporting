@@ -1,4 +1,5 @@
 import os
+import glob
 from fpdf import FPDF
 from PIL import Image
 
@@ -99,7 +100,10 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
                              'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
         }
     else:
-        graph_sections = { 'Element Graphs': [ 'elems_count.png', 'elems_prov.png',
+        # Find all the elements graphs
+        elem_graph_paths = glob.glob(os.path.join(image_dir, "elems_count_*.png"))
+        elem_graphs = [os.path.basename(path) for path in elem_graph_paths]
+        graph_sections = { 'Element Graphs': elem_graphs + [ 'elems_prov.png',
                                             'elem_suffix_stats.png', 'elem_S.png',
                                             'elems_suffix.png'],
            'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],

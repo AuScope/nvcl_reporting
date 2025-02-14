@@ -185,13 +185,18 @@ def plot_elements(dfs_log2_all, plot_dir):
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, "elems_prov.png"))
         plt.close()
+        # Plot element by number of records
         ax = df_log2_el['element'].value_counts()
         if not ax.empty:
-            p = ax.plot(kind='bar', figsize=(40, 20), title='Elements')
-            p.set(xlabel='Element', ylabel="Number of data records")
-            plt.tight_layout()
-            plt.savefig(os.path.join(plot_dir, "elems_count.png"))
-            plt.close()
+            # Split into multiple element graphs 'x_axis_len' wide
+            x_axis_len = 20 
+            ax_chunks = [ax.iloc[i:i + x_axis_len] for i in range(0, len(ax), x_axis_len)]
+            for idx, ax in enumerate(ax_chunks):
+                p = ax.plot(kind='bar', figsize=(40, 20), title=f"Elements Graph #{idx+1}")
+                p.set(xlabel='Element', ylabel="Number of data records")
+                plt.tight_layout()
+                plt.savefig(os.path.join(plot_dir, f"elems_count_{idx}.png"))
+                plt.close()
 
         # Plot element suffixes sorted by element
         ax = df_log2_el.groupby(['element', 'suffix']).size().unstack()
