@@ -162,6 +162,7 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
                     out_w = IMAGE_SZ[0] * src_aspect / dest_aspect
                     out_h = IMAGE_SZ[1]
                 pdf.image(image_file, w=out_w, h=out_h)
+                pdf.ln()
         # One page per section
         pdf.add_page()
 

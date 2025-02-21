@@ -186,14 +186,16 @@ def plot_elements(dfs_log2_all, plot_dir):
         plt.savefig(os.path.join(plot_dir, "elems_prov.png"))
         plt.close()
         # Plot element by number of records
-        ax = df_log2_el['element'].value_counts()
-        if not ax.empty:
+        plot_df = df_log2_el['element'].value_counts()
+        if not plot_df.empty:
             # Split into multiple element graphs 'x_axis_len' wide
             x_axis_len = 20 
-            ax_chunks = [ax.iloc[i:i + x_axis_len] for i in range(0, len(ax), x_axis_len)]
-            for idx, ax in enumerate(ax_chunks):
-                p = ax.plot(kind='bar', figsize=(40, 20), title=f"Elements Graph #{idx+1}")
-                p.set(xlabel='Element', ylabel="Number of data records")
+            plot_df_chunks = [plot_df.iloc[i:i + x_axis_len] for i in range(0, len(plot_df), x_axis_len)]
+            for idx, df in enumerate(plot_df_chunks):
+                ax = df.plot(kind='bar', figsize=(40, 20), fontsize=36)
+                ax.set_title(f"Elements Graph #{idx+1}", fontsize=36)
+                ax.set_xlabel('Element', fontsize=36)
+                ax.set_ylabel("Number of data records", fontsize=36)
                 plt.tight_layout()
                 plt.savefig(os.path.join(plot_dir, f"elems_count_{idx}.png"))
                 plt.close()
