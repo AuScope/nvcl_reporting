@@ -180,6 +180,7 @@ def plot_elements(dfs_log2_all, plot_dir):
 
     # Plot element data by provider
     if not df_log2_el.empty:
+        FONT_SZ = 36
         ax = df_log2_el.drop_duplicates('nvcl_id')['provider'].value_counts().plot(kind='bar', rot=0, figsize=(10, 10), title="Element data by provider")
         ax.set(xlabel='provider', ylabel="Number of boreholes")
         plt.tight_layout()
@@ -188,23 +189,30 @@ def plot_elements(dfs_log2_all, plot_dir):
         # Plot element by number of records
         plot_df = df_log2_el['element'].value_counts()
         if not plot_df.empty:
-            # Split into multiple element graphs 'x_axis_len' wide
+            #def split_plots(plot_df, plot_type, title, xlabel, ylabel, xaxis_len, figsize, fontsize, file_prefix):
+            split_plots(plot_dir, plot_df, "bar", "Elements Graph", 'Element', "Number of data records",
+                        20, (40, 20), FONT_SZ, "elems_count")
+
+        """
             x_axis_len = 20 
             plot_df_chunks = [plot_df.iloc[i:i + x_axis_len] for i in range(0, len(plot_df), x_axis_len)]
             for idx, df in enumerate(plot_df_chunks):
-                ax = df.plot(kind='bar', figsize=(40, 20), fontsize=36)
-                ax.set_title(f"Elements Graph #{idx+1}", fontsize=36)
+                ax = df.plot(kind='bar', figsize=(40, 20), fontsize=FONT_SZ)
+                ax.set_title(f"Elements Graph #{idx+1}", fontsize=FONT_SZ)
                 ax.set_xlabel('Element', fontsize=36)
-                ax.set_ylabel("Number of data records", fontsize=36)
+                ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
                 plt.tight_layout()
                 plt.savefig(os.path.join(plot_dir, f"elems_count_{idx}.png"))
                 plt.close()
+        """
 
         # Plot element suffixes sorted by element
-        ax = df_log2_el.groupby(['element', 'suffix']).size().unstack()
-        if not ax.empty:
-            p = ax.plot(kind='barh', stacked=False, figsize=(30, 50), title="Element suffixes sorted by element")
-            p.set(xlabel='Element', ylabel="Number of data records")
+        plot_df = df_log2_el.groupby(['element', 'suffix']).size().unstack()
+        if not plot_df.empty:
+            ax = plot_df.plot(kind='barh', stacked=False, figsize=(30, 50))
+            ax.set_title("Element suffixes sorted by element", fontsize=FONT_SZ)
+            ax.set_xlabel('Element', fontsize=FONT_SZ)
+            ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, "elems_suffix.png"))
             plt.close()
@@ -226,6 +234,29 @@ def plot_elements(dfs_log2_all, plot_dir):
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, "elem_suffix_stats.png"))
             plt.close()
+
+def split_plots(plot_dir, plot_df, plot_kind, title, xlabel, ylabel, x_axis_len, figsize, fontsize, file_prefix):
+    """
+    :param plot_dir: plot file is stored into this directory
+    :param plot_df: DataFrame to be plotted
+    :param title: plot title
+    :param xlabel: x-axis label
+    :param ylabel: y-axis label
+    :param x_axis_len: split into multiple element graphs 'x_axis_len' wide
+    :param figsize: integer tuple plot size, units are in inches
+    :param fontsize: text font size
+    :param file_prefix: file name prefix string
+    """
+    plot_df_chunks = [plot_df.iloc[i:i + x_axis_len] for i in range(0, len(plot_df), x_axis_len)]
+    for idx, df in enumerate(plot_df_chunks):
+        ax = df.plot(kind=plot_kind, figsize=figsize, fontsize=fontsize)
+        ax.set_title(f"{title} #{idx+1}", fontsize=fontsize)
+        ax.set_xlabel(xlabel, fontsize=fontsize)
+        ax.set_ylabel(ylabel, fontsize=fontsize)
+        plt.tight_layout()
+        plt.savefig(os.path.join(plot_dir, f"{file_prefix}_{idx}.png"))
+        plt.close()
+
 
 def plot_spectrum_group(dfs, plot_dir, algoid2ver, prefix):
     """
