@@ -200,30 +200,24 @@ def plot_elements(dfs_log2_all, plot_dir):
             split_plots(plot_dir, plot_df, "bar", "Element suffixes sorted by element", 'Element', "Number of data records",
                         5, (40, 30), FONT_SZ, "elems_suffix")
 
-            """
-            ax = plot_df.plot(kind='barh', stacked=False, figsize=(30, 50))
-            ax.set_title("Element suffixes sorted by element", fontsize=FONT_SZ)
+        # Plot element suffixes for Sulfur
+        plot_df = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
+        if not plot_df.empty:
+            ax = plot_df.plot(kind='bar', stacked=False, rot=0, figsize=(35, 15), fontsize=FONT_SZ)
+            ax.set_title("Element suffixes for Sulfur", fontsize=FONT_SZ)
             ax.set_xlabel('Element', fontsize=FONT_SZ)
             ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
-            plt.tight_layout()
-            plt.savefig(os.path.join(plot_dir, "elems_suffix.png"))
-            plt.close()
-            """
-
-        # Plot element suffixes for Sulfur
-        ax = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
-        if not ax.empty:
-            p = ax.plot(kind='bar', stacked=False, rot=0, figsize=(35, 15), title="Element suffixes for Sulfur")
-            p.set(xlabel='Element', ylabel="Number of data records")
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, "elem_S.png"))
             plt.close()
 
         # Plot element suffixes
-        ax = df_log2_el['suffix'].value_counts()
-        if not ax.empty:
-            p = ax.plot(kind='barh', figsize=(30, 50), title="Element suffixes")
-            p.set(ylabel="Element suffix", xlabel="Number of data records")
+        plot_df = df_log2_el['suffix'].value_counts()
+        if not plot_df.empty:
+            ax = plot_df.plot(kind='barh', figsize=(90, 90), fontsize=100)
+            ax.set_title("Element suffixes", fontsize=100)
+            ax.set_ylabel("Element suffix", fontsize=100)
+            ax.set_xlabel("Number of data records", fontsize=100)
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, "elem_suffix_stats.png"))
             plt.close()
@@ -243,7 +237,6 @@ def split_plots(plot_dir, plot_df, plot_kind, title, xlabel, ylabel, x_axis_len,
     # Split into rows
     plot_df_chunks = [plot_df.iloc[i:i + x_axis_len] for i in range(0, len(plot_df), x_axis_len)]
     for idx, df in enumerate(plot_df_chunks):
-        print(f"{title=} #{idx+1} {type(df)=} {df=}")
         if type(plot_df) == pd.DataFrame:
             # Drop columns that have only NaN values
             df = df.dropna(axis=1, how='all')
