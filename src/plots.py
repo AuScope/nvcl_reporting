@@ -194,7 +194,7 @@ def plot_elements(dfs_log2_all, plot_dir):
             split_plots(plot_dir, plot_df, "bar", "Elements Graph", 'Element', "Number of data records",
                         20, (40, 20), FONT_SZ, "elems_count")
 
-        # Plot element suffixes sorted by element
+        # Plot element suffixes sorted by element as separate graphs
         plot_df = df_log2_el.groupby(['element', 'suffix']).size().unstack()
         if not plot_df.empty:
             split_plots(plot_dir, plot_df, "bar", "Element suffixes sorted by element", 'Element', "Number of data records",
@@ -211,35 +211,40 @@ def plot_elements(dfs_log2_all, plot_dir):
             plt.savefig(os.path.join(plot_dir, "elem_S.png"))
             plt.close()
 
-        # Plot element suffixes
+        # Plot element suffixes as separate graphs
         plot_df = df_log2_el['suffix'].value_counts()
         if not plot_df.empty:
-            ax = plot_df.plot(kind='barh', figsize=(90, 90), fontsize=100)
-            ax.set_title("Element suffixes", fontsize=100)
-            ax.set_ylabel("Element suffix", fontsize=100)
-            ax.set_xlabel("Number of data records", fontsize=100)
-            plt.tight_layout()
-            plt.savefig(os.path.join(plot_dir, "elem_suffix_stats.png"))
-            plt.close()
+            split_plots(plot_dir, plot_df, "barh", "Element Suffixes", "Number of data records", "Element suffix",
+                        20, (90, 90), 100, "elem_suffix_stats")
+        
 
-def split_plots(plot_dir, plot_df, plot_kind, title, xlabel, ylabel, x_axis_len, figsize, fontsize, file_prefix):
+def split_plots(plot_dir, plot_df, plot_kind, title, xlabel, ylabel, axis_len, figsize, fontsize, file_prefix):
     """
     :param plot_dir: plot file is stored into this directory
     :param plot_df: DataFrame or Series to be plotted
+    :param plot_kind: either "bar' (vertical bar graph) or 'barh' (horizontal bar graph)
     :param title: plot title
     :param xlabel: x-axis title label
     :param ylabel: y-axis title label
-    :param x_axis_len: split into multiple element graphs 'x_axis_len' wide
+    :param axis_len: split into multiple element graphs 'axis_len' wide ('bar') or high ('barh')
     :param figsize: integer tuple plot size, units are in inches
     :param fontsize: text font size
     :param file_prefix: file name prefix string
     """
     # Split into rows
-    plot_df_chunks = [plot_df.iloc[i:i + x_axis_len] for i in range(0, len(plot_df), x_axis_len)]
+    if plot_kind == 'bar' or type(plot_df) != pd.DataFrame:
+        plot_df_chunks = [plot_df.iloc[i:i + axis_len] for i in range(0, len(plot_df), axis_len)]
+    else :
+        # Split into columns only if it is a DataFrame
+        plot_df_chunks = [plot_df.iloc[:, i:i + axis_len] for i in range(0, plot_df.shape[1], axis_len)]
     for idx, df in enumerate(plot_df_chunks):
         if type(plot_df) == pd.DataFrame:
             # Drop columns that have only NaN values
             df = df.dropna(axis=1, how='all')
+            # Rename column labels '' to '<Empty>'
+            df = df.rename(columns={'': '<Empty>'}) 
+        # Rename any '' index labels to '<Empty>'
+        df = df.rename(index={'':'<Empty>'})
         ax = df.plot(kind=plot_kind, figsize=figsize, fontsize=fontsize)
         ax.set_title(f"{title} #{idx+1}", fontsize=fontsize)
         ax.set_xlabel(xlabel, fontsize=fontsize)
