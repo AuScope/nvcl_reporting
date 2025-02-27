@@ -59,6 +59,7 @@ def plot_borehole_number(dfs: dict, plot_dir: str, all_provs: np.array, all_coun
     :param title: plot title
     :param filename: plot filename
     """
+    FONT_SZ = 36
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(1, 1, 1)
     ax1 = ax.bar(all_provs, all_counts)
@@ -72,8 +73,12 @@ def plot_borehole_number(dfs: dict, plot_dir: str, all_provs: np.array, all_coun
     # Plot number of boreholes for geology by provider
     dfs_log1_geology = dfs['log1'][dfs['log1']['algorithm'].str.contains(r'^(?:Strat|Form|Lith)', case=False)]
     if not dfs_log1_geology.empty:
-        ax = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack().plot(kind='bar', rot=0, figsize=(30, 15), title="Number of boreholes for geology by provider")
-        ax.set(xlabel='Provider', ylabel="Number of boreholes")
+        plot_df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
+        ax = plot_df.plot(kind='bar', rot=0, figsize=(30, 15), fontsize=FONT_SZ)
+        ax.set_title("Number of boreholes for geology by provider", fontsize=FONT_SZ)
+        ax.set_xlabel('Provider', fontsize=FONT_SZ)
+        ax.set_ylabel("Number of boreholes", fontsize=FONT_SZ)
+        ax.legend(fontsize=FONT_SZ)
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, "log1_geology.png"))
         df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
