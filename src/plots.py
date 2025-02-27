@@ -247,6 +247,7 @@ def split_plots(plot_dir, plot_df, plot_kind, title, xlabel, ylabel, x_axis_len,
         # Make sure y-axis is integer, assuming DataFrames always contain simple counts
         if type(plot_df) == pd.DataFrame and plot_df.max().max() < 50.0:
             ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+        ax.legend(fontsize=fontsize)
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, f"{file_prefix}_{idx}.png"))
         plt.close()
