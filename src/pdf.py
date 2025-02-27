@@ -102,10 +102,10 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
     else:
         # Find all the elements graphs
         elem_graph_paths = glob.glob(os.path.join(image_dir, "elems_count_*.png"))
+        elems_suffix_paths = glob.glob(os.path.join(image_dir, "elems_suffix_*.png"))
         elem_graphs = [os.path.basename(path) for path in elem_graph_paths]
         graph_sections = { 'Element Graphs': elem_graphs + [ 'elems_prov.png',
-                                            'elem_suffix_stats.png', 'elem_S.png',
-                                            'elems_suffix.png'],
+                                            'elem_suffix_stats.png', 'elem_S.png'] + elems_suffix_paths,
            'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],
            'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
         }
