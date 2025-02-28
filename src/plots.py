@@ -91,6 +91,7 @@ class Plots:
         :param show_legend: if True will show a legend, set to False only simple counts are displayed
         :param kwargs: keyword args to pass to the Pandas plot() function
         """
+        print(f"simple_plot({title=})")
         ax = plot_df.plot(**plot_kwargs, fontsize=FONT_SZ)
         ax.set_title(title, fontsize=FONT_SZ)
         ax.set_xlabel(xlabel, fontsize=FONT_SZ)
@@ -406,7 +407,7 @@ class Plots:
             dfs_log1_nonstd['Algorithm Prefix'] = dfs_log1_nonstd['algorithm'].replace({'(grp_|min_)': ''}, regex=True).replace({r'_*\d+$': ''}, regex=True)
             plot_df = dfs_log1_nonstd.drop_duplicates('nvcl_id').groupby(['provider', "Algorithm Prefix"]).size().unstack()
             self.simple_plot(plot_df, "log1_nonstdalgos.png", plot_group, "Number of boreholes for non-standard algorithms by provider",
-                 'Provider', "Number of boreholes", True, kind='bar', rot=0, figsize=(20, 10))
+                 'Provider', "Number of boreholes", True, kind='bar', rot=0, figsize=(50, 40))
         else:
             print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
     
