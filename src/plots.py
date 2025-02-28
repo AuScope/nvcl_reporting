@@ -209,7 +209,7 @@ class Plots:
         plt.tight_layout()
         plt.show()
         plt.savefig(os.path.join(self.plot_dir, 'log1_wordcloud.png'))
-        self.register_plot("Word Clouds", filename)
+        self.register_plot("Word Clouds", 'log1_wordcloud.png')
 
 
     def plot_geophysics(self, dfs_log2_all: pd.DataFrame):
