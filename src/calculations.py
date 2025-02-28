@@ -16,8 +16,7 @@ from itertools import zip_longest
 from fiscalyear import fiscal_calendar, FiscalDate, FiscalYear, FiscalQuarter
 
 # Local imports
-from plots import (plot_borehole_percent, plot_borehole_number, plot_borehole_kilometres,
-                          plot_geophysics, plot_elements, plot_spectrum_group, plot_algorithms)
+from plots import Plots
 from pdf import write_report
 
 from report_table_data import ReportTableData
@@ -278,6 +277,7 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     # Remove old plots
     shutil.rmtree(plot_dir)
     os.mkdir(plot_dir)
+    p = Plots(plot_dir)
 
     report = ReportTableData()
     # Check 'df_dict' for empty dataframes
@@ -331,11 +331,11 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         report.add_table(list(empty_provs), list(empty_counts), "'empty' Counts by Provider")
 
         # Plot percentage of boreholes by provider and data present
-        plot_borehole_percent(plot_dir, nodata_counts, log1_counts, all_counts, log1_provs, nodata_provs, empty_provs)
+        p.plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_provs, nodata_provs, empty_provs)
 
     # Plot number of boreholes by provider
     report_date_str = report_date.strftime('%d/%m/%Y')
-    plot_borehole_number(df_dict, plot_dir, all_provs, all_counts, f"Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
+    p.plot_borehole_number(df_dict, all_provs, all_counts, f"Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
 
     # Table of number of boreholes by provider
     report.add_table(list(all_provs), list(all_counts), f"Number of boreholes by Provider up to {report_date_str}")
@@ -347,7 +347,7 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     report.add_table(list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
     
     # Plot borehole kilometres by provider
-    plot_borehole_kilometres(all_provs, nkilometres_totals, plot_dir, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
+    p.plot_borehole_kilometres(all_provs, nkilometres_totals, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
     # Calculate quarterly and financial year data
     y, q = calc_fyq(report_date, date_fieldname, df_dict, all_provs)
@@ -361,16 +361,16 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     q_end_date_pretty = q.end.strftime("%A %d %b %Y")
 
     # Plot yearly and quarterly comparisons for counts by provider
-    plot_borehole_number(df_dict, plot_dir, all_provs, y.cnt_list, title=f"Borehole counts for this FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
-    plot_borehole_number(df_dict, plot_dir, all_provs, q.cnt_list, title=f"Borehole counts for this quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
+    p.plot_borehole_number(df_dict, all_provs, y.cnt_list, title=f"Borehole counts for this FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
+    p.plot_borehole_number(df_dict, all_provs, q.cnt_list, title=f"Borehole counts for this quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
     report.add_table(list(all_provs), q.cnt_list, f"Borehole counts by Provider for this quarter ({q_start_date_str} - {q_end_date_str})")
     report.add_table(list(all_provs), y.cnt_list, f"Borehole counts by Provider for this FY ({y_start_date_str} - {y_end_date_str})")
 
     # Plot yearly and quarterly comparisons for kilometres by provider
-    plot_borehole_kilometres(all_provs, y.kms_list, plot_dir, title=f"Borehole kilometres for this FY ({y_start_date_str} - {y_end_date_str})", filename="borehole_kilometres_y.png")
-    plot_borehole_kilometres(all_provs, q.kms_list, plot_dir, title=f"Borehole kilometres for this quarter ({q_start_date_str} - {q_end_date_str})", filename="borehole_kilometres_q.png")
+    p.plot_borehole_kilometres(all_provs, y.kms_list, title=f"Borehole kilometres for this FY ({y_start_date_str} - {y_end_date_str})", filename="borehole_kilometres_y.png")
+    p.plot_borehole_kilometres(all_provs, q.kms_list, title=f"Borehole kilometres for this quarter ({q_start_date_str} - {q_end_date_str})", filename="borehole_kilometres_q.png")
  
     # Tabulate yearly and quarterly comparisons for kilometres by provider
     report.add_table(list(all_provs), q.kms_list, f"Borehole kilometres by Provider for this quarter ({q_start_date_str} - {q_end_date_str})")
@@ -404,10 +404,10 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         algoid2ver['0'] = '0'
 
         # Plot algorithms
-        plot_algorithms(df_dict, plot_dir, algoid2ver)
+        p.plot_algorithms(df_dict, algoid2ver)
 
         # Plot uTSAS graphs
-        plot_spectrum_group(df_dict, plot_dir, algoid2ver, prefix)
+        p.plot_spectrum_group(df_dict, algoid2ver, prefix)
 
         '''
         pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
@@ -417,10 +417,10 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         df = pd.DataFrame({'Grp': grp_counts, 'Min': min_counts}, index=index).plot.bar(rot=20)
         '''
         # Plot element graphs
-        plot_elements(dfs_log2_all, plot_dir)
+        p.plot_elements(dfs_log2_all)
 
         # Plot geophysics
-        plot_geophysics(dfs_log2_all, plot_dir)
+        p.plot_geophysics(dfs_log2_all)
 
     metadata = { "Authors": "Vincent Fazio & Shane Mule",
                  "Sources": "This report was compiled from NVCL datasets downloaded from the NVCL nodes managed\nby the geological surveys of QLD, NSW, Vic, Tas, NT, SA & WA", 
@@ -435,7 +435,7 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         report_filename = f"{date_str}-report-brief.pdf" if brief else f"{date_str}-report.pdf"
     else:
         report_filename = report_file
-    write_report(report_filename, plot_dir, report, metadata, brief)
+    write_report(report_filename, plot_dir, report, metadata, p, brief)
 
 
 def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:

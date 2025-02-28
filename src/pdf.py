@@ -5,6 +5,7 @@ from PIL import Image
 
 from constants import IMAGE_SZ, FONT, ROOT_PATH
 from report_table_data import ReportTableData
+from plots import Plots
 
 
 # PDF class used to customize page layout
@@ -84,7 +85,7 @@ def write_table(pdf: PDF, title: str, row_data: list):
         pdf.ln(2*text_height)
 
 
-def write_report(report_file, image_dir, report: ReportTableData, metadata, brief):
+def write_report(report_file: str, image_dir: str, report: ReportTableData, metadata: any, plots: Plots, brief: bool):
     """ Writes a PDF report to filsystem
 
     :param report_file: path and filename of PDF report
@@ -94,22 +95,28 @@ def write_report(report_file, image_dir, report: ReportTableData, metadata, brie
     :param brief: iff True will do a brief report
     """
 
-    # Define which graphs appear in which sections
-    if brief:
-        graph_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
-                             'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
-        }
-    else:
-        # Find all the elements graphs
-        elem_graph_paths = glob.glob(os.path.join(image_dir, "elems_count_*.png"))
-        elems_suffix_paths = glob.glob(os.path.join(image_dir, "elems_suffix_*.png"))
-        elem_suffix_stats_paths = glob.glob(os.path.join(image_dir, "elem_suffix_stats_*.png"))
-        elem_graphs = [os.path.basename(path) for path in elem_graph_paths]
-        graph_sections = { 'Element Graphs': elem_graphs + ['elems_prov.png'],
-                           'Element Suffix Graphs': elems_suffix_paths + elem_suffix_stats_paths + ['elem_S.png'],
-           'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],
-           'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png', 'log1_nonstdalgos.png' ]
-        }
+    #if brief:
+    #    graph_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
+    #                         'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
+    #    }
+    #else:
+    #    # Find all the elements graphs
+    #    elem_graph_paths = glob.glob(os.path.join(image_dir, "elems_count_*.png"))
+    #    elems_suffix_paths = glob.glob(os.path.join(image_dir, "elems_suffix_*.png"))
+    #    elem_suffix_stats_paths = glob.glob(os.path.join(image_dir, "elem_suffix_stats_*.png"))
+    #    elem_graphs = [os.path.basename(path) for path in elem_graph_paths]
+    #    graph_sections = { 'Element Graphs': elem_graphs + ['elems_prov.png'],
+    #                       'Element Suffix Graphs': elems_suffix_paths + elem_suffix_stats_paths + ['elem_S.png'],
+    #       'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],
+    #       'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png'],
+    #       'Spectrum Group': [ 'log1_dTSAT-IDs_prov.png',  'log1_uTSAS-IDs_prov.png', 'log1_uTSAV-IDs_prov.png',
+    #                           'log1_sTSAS-IDs_prov.png', 'log1_sTSAV-IDs_prov.png', 'log1_sjCLST-IDs_prov.png'],
+    #       'Algorithms': ['log1_algos.png', 'log1_algoIDs.png', 'log1_algoIDs_prov.png', 'log1_nonstdalgos.png']
+    #    }
+
+    # Find out which graphs appear in which sections
+    graph_sections = plots.get_plot_sections()
+    print(f"{graph_sections=}")
 
     # Write out title page
     if brief:
