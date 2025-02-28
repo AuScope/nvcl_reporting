@@ -27,7 +27,6 @@ DB_NAME = 'nvcl-test.db'
 if os.path.exists(DB_NAME):
     os.unlink(DB_NAME)
 db = SqliteDatabase(DB_NAME)
-TEST_RUN = True
 
 
 def import_pkl(infile: str, empty={}) -> any:
@@ -169,8 +168,6 @@ def load_data(pickle_dir: str, subdir: str):
                 if modified_dt < rec_modified_dt:
                     rec.modified_datetime = modified_dt.strftime(DATE_FMT)
                     rec.save()
-            if TEST_RUN and idx > 100:
-                break
         print("Finished inserting")
 
 
