@@ -356,6 +356,7 @@ def main(sys_argv):
         except ValueError as ve:
             print(f"Report date has incorrect format: {ve}")
             sys.exit(1)
+    print(f"Report date is {report_date.strftime('%a %d %B %Y')}")
 
     # Assigns a database, defaults to database defined in config
     if args.db is not None:
