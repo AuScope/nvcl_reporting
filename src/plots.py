@@ -223,13 +223,13 @@ class Plots:
         if not df_phys.empty:
             plot_df = df_phys.drop_duplicates('nvcl_id')['provider'].value_counts()
             self.simple_plot(plot_df, "geophys_prov.png", plot_group, "Geophysics data by provider",
-                      'provider', "Number of boreholes", True, kind='bar', rot=0, figsize=(10, 10))
+                      'provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(20, 20))
             plt.close('all')
 
             # Plot geophysics
             plot_df = df_phys['algorithm'].value_counts()
             self.simple_plot(plot_df, "geophys_count.png", plot_group, "Geophysics",
-                      "data", "Number of data records", True, kind='bar', figsize=(10, 10), rot=90)
+                      "data", "Number of data records", False, kind='bar', figsize=(20, 20), rot=90)
             plt.close('all')
 
 
@@ -254,24 +254,23 @@ class Plots:
         if not df_log2_el.empty:
             plot_df = df_log2_el.drop_duplicates('nvcl_id')['provider'].value_counts()
             self.simple_plot(plot_df, "elems_prov.png", "Elements", "Element data by provider",
-                      'provider', "Number of boreholes", True, kind='bar', rot=0, figsize=(10, 10))
+                      'provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(20, 20))
     
             # Plot element by number of records
             plot_df = df_log2_el['element'].value_counts()
             if not plot_df.empty:
                 self.split_plots(plot_df, "bar", "Elements Graph", 'Element', "Number of data records",
-                            20, (40, 20), FONT_SZ, "elems_count", "Elements")
+                            20, (40, 20), FONT_SZ, "elems_count", "Elements", False)
     
             # Plot element suffixes sorted by element as separate graphs
             plot_df = df_log2_el.groupby(['element', 'suffix']).size().unstack()
             if not plot_df.empty:
                 self.split_plots(plot_df, "bar", "Element suffixes sorted by element", 'Element',
-                                 "Number of data records", 5, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes")
+                                 "Number of data records", 5, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes", True)
     
             # Plot element suffixes for Sulfur
             plot_df = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
             if not plot_df.empty:
-                #def plot(plot_df, plot_dir, plot_file, title, xlabel, ylabel, **plot_kwargs):
                 self.simple_plot(plot_df, "elem_S.png", "Element Suffixes", "Element suffixes for Sulfur",
                           'Element', "Number of data records", True, kind='bar', stacked=False, rot=0, figsize=(35, 15))
                 plt.close()
@@ -280,11 +279,11 @@ class Plots:
             plot_df = df_log2_el['suffix'].value_counts()
             if not plot_df.empty:
                 self.split_plots(plot_df, "barh", "Element Suffixes", "Number of data records", "Element suffix",
-                            20, (90, 90), 100, "elem_suffix_stats", "Element Suffixes")
+                            20, (90, 90), 100, "elem_suffix_stats", "Element Suffixes", False)
         
 
     def split_plots(self, plot_df: pd.DataFrame, plot_kind: str , title: str, xlabel: str, ylabel: str, axis_len: int,
-                    figsize: (int, int), fontsize: int, file_prefix: str, plot_group: str):
+                    figsize: (int, int), fontsize: int, file_prefix: str, plot_group: str, show_legend: bool):
         """
         Save to file a series of plots from the one dataframe or series
 
@@ -298,6 +297,7 @@ class Plots:
         :param fontsize: text font size
         :param file_prefix: file name prefix string
         :param plot_group: name of grouping in the report
+        :param show_legend: display legend in graph, set to False for graphs with simple counts
         """
         # Split into rows
         if plot_kind == 'bar' or type(plot_df) != pd.DataFrame:
@@ -320,7 +320,8 @@ class Plots:
             # Make sure y-axis is integer, assuming DataFrames always contain simple counts
             if type(plot_df) == pd.DataFrame and plot_df.max().max() < 50.0:
                 ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-            ax.legend(fontsize=fontsize)
+            if show_legend:
+                ax.legend(fontsize=fontsize)
             plt.tight_layout()
             plot_file = f"{file_prefix}_{idx}.png"
             plt.savefig(os.path.join(self.plot_dir, plot_file))
@@ -414,19 +415,24 @@ class Plots:
                   "Provider", "Number of boreholes", False, kind='bar', stacked=False, figsize=(20, 10), rot=0)
 
         # Plot number of data records of standard algorithms by version
-        ax = df_algoID_stats[sort_cols(df_algoID_stats, prefix)].plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version")
-        ax.legend(loc="center left", bbox_to_anchor=BBX2A)
+        plot_df = df_algoID_stats[sort_cols(df_algoID_stats, prefix)]
+        ax = plot_df.plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, fontsize=FONT_SZ)
+        ax.set_title("Number of data records of standard algorithms by version", fontsize=FONT_SZ)
+        ax.legend(loc="center left", bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
         # ax.grid(True, which='major', linestyle='-')
         # ax.grid(True, which='minor', linestyle='--')
-        ax.set(ylabel="Number of data records")
+        ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
         plt.tight_layout()
         plt.savefig(os.path.join(self.plot_dir, "log1_algoIDs.png"))
         self.register_plot("Algorithms", "log1_algoIDs.png")
 
         # Plot number of data records of standard algorithms by version and provider
-        ax = dfs['log1'].groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title="Number of data records of standard algorithms by version and provider")
-        ax.legend(loc='center left', bbox_to_anchor=BBX2A)
-        ax.set(xlabel='Provider', ylabel="Number of data records")
+        plot_df = dfs['log1'].groupby(['provider', 'versions']).size().unstack()
+        ax = plot_df.plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, fontsize=FONT_SZ)
+        ax.set_title("Number of data records of standard algorithms by version and provider", fontsize=FONT_SZ)
+        ax.legend(loc='center left', bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
+        ax.set_xlabel('Provider', fontsize=FONT_SZ)
+        ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
         plt.tight_layout()
         plot_file = "log1_algoIDs_prov.png"
         plt.savefig(os.path.join(self.plot_dir, plot_file))
@@ -438,9 +444,12 @@ class Plots:
             cAlg = dfs['log1'][dfs['log1'].algorithm.str.endswith(alg)]
             # Catch error when no plot data available
             try:
-                ax = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack().plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, title=f"Number of data records of {alg} by version and provider")
-                ax.legend(loc="center left", bbox_to_anchor=BBX2A)
-                ax.set(xlabel='Provider', ylabel="Number of boreholes")
+                plot_df = cAlg.drop_duplicates('nvcl_id').groupby(['provider', 'versions']).size().unstack()
+                ax = plot_df.plot(kind='bar', stacked=False, figsize=(30, 10), rot=0)
+                ax.set_title(f"Number of data records of {alg} by version and provider", fontsize=FONT_SZ)
+                ax.legend(loc="center left", bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
+                ax.set_xlabel('Provider', fontsize=FONT_SZ)
+                ax.set_ylabel("Number of boreholes", fontsize=FONT_SZ)
                 plt.tight_layout()
                 plot_file = f"log1_{alg}-IDs_prov.png"
                 plt.savefig(os.path.join(self.plot_dir, plot_file))
