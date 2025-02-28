@@ -47,13 +47,27 @@ def dfcol_algoid2ver(df, algoid2ver):
     return df
 
 class Plots:
+    """ This class is used to generate plots and save them to file
+    """
+
 
     def __init__(self, plot_dir):
+        """ Constructor
+
+        :param plot_dir: filesystem directory used to store plot files
+        """
         self.plot_files = {}
         self.plot_dir = plot_dir
 
-    def get_plot_sections(self):
+
+    def get_plot_sections(self) -> dict:
+        """
+        Returns the structure of the plots in the report
+
+        :returns: a dict: value is plot file name, key is report group
+        """
         return self.plot_files
+
 
     def register_plot(self, group: str, filename: str):
         """ Register a plot
@@ -62,6 +76,7 @@ class Plots:
         :param file: plot filename
         """
         self.plot_files.setdefault(group, []).append(filename)
+
 
     def simple_plot(self, plot_df: pd.DataFrame, plot_file: str, plot_group: str, 
                     title: str, xlabel: str, ylabel: str, show_legend: bool, **plot_kwargs):
@@ -112,6 +127,7 @@ class Plots:
         plt.savefig(os.path.join(self.plot_dir, "borehole_percent.png"))
         self.register_plot("Boreholes", "borehole_percent.png")
 
+
     def plot_borehole_number(self, dfs: dict, all_provs: np.array, all_counts: np.array, title: str, filename: str):
         """ Save to file number of boreholes by provider plot
 
@@ -140,6 +156,7 @@ class Plots:
                       'Provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(30, 15))
             df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
             return df.to_numpy().tolist()
+
 
     def plot_borehole_kilometres(self, all_provs: np.array, all_counts: np.array, title: str, filename:str):
         """
@@ -214,7 +231,6 @@ class Plots:
             self.simple_plot(plot_df, "geophys_count.png", plot_group, "Geophysics",
                       "data", "Number of data records", True, kind='bar', figsize=(10, 10), rot=90)
             plt.close('all')
-
 
 
     def plot_elements(self, dfs_log2_all):
