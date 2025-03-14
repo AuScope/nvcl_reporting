@@ -153,10 +153,11 @@ class Plots:
         dfs_log1_geology = dfs['log1'][dfs['log1']['algorithm'].str.contains(r'^(?:Strat|Form|Lith)', case=False)]
         if not dfs_log1_geology.empty:
             plot_df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
-            self.simple_plot(plot_df, "log1_geology.png", "Boreholes", "Number of boreholes for geology by provider",
-                      'Provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(30, 15))
-            df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
-            return df.to_numpy().tolist()
+            self.split_plots(plot_df, "bar", "Number of boreholes for geology by provider", "Boreholes", "Provider", 1, (30, 15), 36, "log1_geology", "Boreholes", True)
+            # self.simple_plot(plot_df, "log1_geology.png", "Boreholes", "Number of boreholes for geology by provider",
+            #          'Provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(30, 15))
+            #df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
+            #return df.to_numpy().tolist()
 
 
     def plot_borehole_kilometres(self, all_provs: np.array, all_counts: np.array, title: str, filename:str):
@@ -267,7 +268,7 @@ class Plots:
             plot_df = df_log2_el.groupby(['element', 'suffix']).size().unstack()
             if not plot_df.empty:
                 self.split_plots(plot_df, "bar", "Element suffixes sorted by element", 'Element',
-                                 "Number of data records", 5, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes", True)
+                                 "Number of data records", 3, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes", True)
     
             # Plot element suffixes for Sulfur
             plot_df = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
