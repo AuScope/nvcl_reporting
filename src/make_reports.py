@@ -90,7 +90,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     try:
         # Run each provider in parallel, limit to max of 2 because of memory limitations
         # Limit to len(prov_list) to avoid hanging problems
-        with Pool(processes=max(2, len(prov_list))) as pool:
+        with Pool(processes=min(2, len(prov_list))) as pool:
             param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES) for prov in prov_list]
             print(f"Running in parallel with {len(param_list)} processes for {prov_list}")
             prov_df_list = pool.starmap(do_prov, param_list)
