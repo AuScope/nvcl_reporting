@@ -10,6 +10,8 @@ import matplotlib.ticker as ticker
 
 
 # Matplotlib legend positioning constant
+# Places legend outside graph on right hand side
+# 1 unit to the right and centred vertically
 BBX2A = (1.0, 0.5)
 
 # Font size for plots
@@ -97,8 +99,10 @@ class Plots:
         ax.set_xlabel(xlabel, fontsize=FONT_SZ)
         ax.set_ylabel(ylabel, fontsize=FONT_SZ)
         if show_legend:
-            ax.legend(fontsize=FONT_SZ)
-        plt.tight_layout()
+            ax.legend(fontsize=FONT_SZ, loc='center left', bbox_to_anchor=BBX2A)
+            plt.tight_layout(rect=[0, 0, 0.85, 1])
+        else:
+            plt.tight_layout()
         plt.savefig(os.path.join(self.plot_dir, plot_file))
         self.register_plot(plot_group, plot_file)
 
@@ -323,8 +327,10 @@ class Plots:
             if type(plot_df) == pd.DataFrame and plot_df.max().max() < 50.0:
                 ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
             if show_legend:
-                ax.legend(fontsize=fontsize)
-            plt.tight_layout()
+                ax.legend(loc='center left', bbox_to_anchor=BBX2A, fontsize=fontsize)
+                plt.tight_layout(rect=[0, 0, 0.85, 1])
+            else:
+                plt.tight_layout()
             plot_file = f"{file_prefix}_{idx}.png"
             plt.savefig(os.path.join(self.plot_dir, plot_file))
             plt.close()
@@ -424,7 +430,7 @@ class Plots:
         # ax.grid(True, which='major', linestyle='-')
         # ax.grid(True, which='minor', linestyle='--')
         ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
         plt.savefig(os.path.join(self.plot_dir, "log1_algoIDs.png"))
         self.register_plot("Algorithms", "log1_algoIDs.png")
 
@@ -435,7 +441,7 @@ class Plots:
         ax.legend(loc='center left', bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
         ax.set_xlabel('Provider', fontsize=FONT_SZ)
         ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
         plot_file = "log1_algoIDs_prov.png"
         plt.savefig(os.path.join(self.plot_dir, plot_file))
         plt.close('all')
@@ -452,7 +458,7 @@ class Plots:
                 ax.legend(loc="center left", bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
                 ax.set_xlabel('Provider', fontsize=FONT_SZ)
                 ax.set_ylabel("Number of boreholes", fontsize=FONT_SZ)
-                plt.tight_layout()
+                plt.tight_layout(rect=[0, 0, 0.85, 1])
                 plot_file = f"log1_{alg}-IDs_prov.png"
                 plt.savefig(os.path.join(self.plot_dir, plot_file))
                 self.register_plot("Algorithms", plot_file)
