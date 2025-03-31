@@ -95,25 +95,6 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
     :param brief: iff True will do a brief report
     """
 
-    #if brief:
-    #    graph_sections = { 'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'borehole_number_q.png', 'borehole_number_y.png',
-    #                         'borehole_kilometres_q.png', 'borehole_kilometres_y.png'  ]
-    #    }
-    #else:
-    #    # Find all the elements graphs
-    #    elem_graph_paths = glob.glob(os.path.join(image_dir, "elems_count_*.png"))
-    #    elems_suffix_paths = glob.glob(os.path.join(image_dir, "elems_suffix_*.png"))
-    #    elem_suffix_stats_paths = glob.glob(os.path.join(image_dir, "elem_suffix_stats_*.png"))
-    #    elem_graphs = [os.path.basename(path) for path in elem_graph_paths]
-    #    graph_sections = { 'Element Graphs': elem_graphs + ['elems_prov.png'],
-    #                       'Element Suffix Graphs': elems_suffix_paths + elem_suffix_stats_paths + ['elem_S.png'],
-    #       'Geophysics Graphs': [ 'geophys_count.png', 'geophys_prov.png' ],
-    #       'Borehole Graphs': [ 'borehole_number.png', 'borehole_kilometres.png', 'log1_geology.png'],
-    #       'Spectrum Group': [ 'log1_dTSAT-IDs_prov.png',  'log1_uTSAS-IDs_prov.png', 'log1_uTSAV-IDs_prov.png',
-    #                           'log1_sTSAS-IDs_prov.png', 'log1_sTSAV-IDs_prov.png', 'log1_sjCLST-IDs_prov.png'],
-    #       'Algorithms': ['log1_algos.png', 'log1_algoIDs.png', 'log1_algoIDs_prov.png', 'log1_nonstdalgos.png']
-    #    }
-
     # Find out which graphs appear in which sections
     graph_sections = plots.get_plot_sections()
     print(f"{graph_sections=}")
@@ -123,6 +104,7 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
         header_title="Brief NVCL Report"
     else:
         header_title="NVCL Report"
+
     # Create an A4 portrait PDF file
     pdf = PDF(orientation="P", unit="mm", format="A4", header_title=header_title)
     pdf.add_page()
@@ -144,7 +126,6 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
     for key, val in metadata.items():
         print(f"Writing {key}: {val}")
         pdf.multi_cell(w=0, h=pdf.font_size * 1.2, text=f"{key}: {val}\n", align="L")
-    
     pdf.add_page()
 
     # Lay out graphs: iterate over graph sections

@@ -128,7 +128,8 @@ class Plots:
         ax.bar(empty_provs, empty_rel, bottom=[i+j for i,j in zip(log1_rel, nodata_rel)], label="No data")
         plt.ylabel("Percentage of boreholes (%)", fontsize=FONT_SZ)
         plt.title("Percentage of boreholes by provider and data present")
-        plt.legend(loc="lower left")
+        plt.legend(loc="lower left", bbox_to_anchor=BBX2A)
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
         plt.savefig(os.path.join(self.plot_dir, "borehole_percent.png"))
         self.register_plot("Boreholes", "borehole_percent.png")
 
@@ -158,10 +159,6 @@ class Plots:
         if not dfs_log1_geology.empty:
             plot_df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
             self.split_plots(plot_df, "bar", "Number of boreholes for geology by provider", "Boreholes", "Provider", 1, (30, 15), 36, "log1_geology", "Boreholes", True)
-            # self.simple_plot(plot_df, "log1_geology.png", "Boreholes", "Number of boreholes for geology by provider",
-            #          'Provider', "Number of boreholes", False, kind='bar', rot=0, figsize=(30, 15))
-            #df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
-            #return df.to_numpy().tolist()
 
 
     def plot_borehole_kilometres(self, all_provs: np.array, all_counts: np.array, title: str, filename:str):
@@ -272,7 +269,7 @@ class Plots:
             plot_df = df_log2_el.groupby(['element', 'suffix']).size().unstack()
             if not plot_df.empty:
                 self.split_plots(plot_df, "bar", "Element suffixes sorted by element", 'Element',
-                                 "Number of data records", 3, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes", True)
+                                 "Number of data records", 1, (40, 30), FONT_SZ, "elems_suffix", "Element Suffixes", True)
     
             # Plot element suffixes for Sulfur
             plot_df = df_log2_el[df_log2_el['element'] == 'S'].groupby(['element', 'suffix']).size().unstack()
@@ -420,7 +417,7 @@ class Plots:
     
         # Plot number of boreholes by algorithm and provider
         self.simple_plot(df_algo_stats, "log1_algos.png", plot_group, "Number of boreholes by algorithm and provider",
-                  "Provider", "Number of boreholes", False, kind='bar', stacked=False, figsize=(20, 10), rot=0)
+                  "Provider", "Number of boreholes", True, kind='bar', stacked=False, figsize=(20, 10), rot=0)
 
         # Plot number of data records of standard algorithms by version
         plot_df = df_algoID_stats[sort_cols(df_algoID_stats, prefix)]
