@@ -415,17 +415,19 @@ class Plots:
         else:
             print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
     
+        #self.simple_plot(df_algo_stats, "log1_algos.png", plot_group, "Number of boreholes by algorithm and provider",
+        #          "Provider", "Number of boreholes", True, kind='bar', stacked=False, figsize=(20, 10), rot=0)
         # Plot number of boreholes by algorithm and provider
-        self.simple_plot(df_algo_stats, "log1_algos.png", plot_group, "Number of boreholes by algorithm and provider",
-                  "Provider", "Number of boreholes", True, kind='bar', stacked=False, figsize=(20, 10), rot=0)
+        if not df_algo_stats.empty:
+            self.split_plots(df_algo_stats, "bar", "Number of boreholes by algorithm and provider",
+                             "Provider", "Number of boreholes", 1, (20, 10), FONT_SZ, "log1_algos",
+                             plot_group, True)
 
         # Plot number of data records of standard algorithms by version
         plot_df = df_algoID_stats[sort_cols(df_algoID_stats, prefix)]
         ax = plot_df.plot(kind='bar', stacked=False, figsize=(30, 10), rot=0, fontsize=FONT_SZ)
         ax.set_title("Number of data records of standard algorithms by version", fontsize=FONT_SZ)
         ax.legend(loc="center left", bbox_to_anchor=BBX2A, fontsize=FONT_SZ)
-        # ax.grid(True, which='major', linestyle='-')
-        # ax.grid(True, which='minor', linestyle='--')
         ax.set_ylabel("Number of data records", fontsize=FONT_SZ)
         plt.tight_layout(rect=[0, 0, 0.85, 1])
         plt.savefig(os.path.join(self.plot_dir, "log1_algoIDs.png"))
