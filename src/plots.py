@@ -231,8 +231,8 @@ class Plots:
 
             # Plot geophysics
             plot_df = df_phys['algorithm'].value_counts()
-            self.simple_plot(plot_df, "geophys_count.png", plot_group, "Geophysics",
-                      "data", "Number of data records", False, kind='bar', figsize=(20, 20), rot=90)
+            self.split_plots(plot_df, "bar", "Geophysics Counts", 'Log 2 Geophysics Algorithms', "Number of data records",
+                            5, (20, 20), FONT_SZ, "geophys_count", "Geophysics", False)
             plt.close('all')
 
 
