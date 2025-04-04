@@ -308,6 +308,7 @@ class Plots:
         else :
             # Split into columns only if it is a DataFrame
             plot_df_chunks = [plot_df.iloc[:, i:i + axis_len] for i in range(0, plot_df.shape[1], axis_len)]
+        MAX_PLOTS = 5
         for idx, df in enumerate(plot_df_chunks):
             if type(plot_df) == pd.DataFrame:
                 # Drop columns that have only NaN values
@@ -332,6 +333,9 @@ class Plots:
             plt.savefig(os.path.join(self.plot_dir, plot_file))
             plt.close()
             self.register_plot(plot_group, plot_file)
+            # Exit if done enough plots
+            if idx > MAX_PLOTS:
+                break
 
 
     def plot_spectrum_group(self, dfs, algoid2ver, prefix):
