@@ -173,19 +173,22 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
     dfs['stats_byprov'] = algorithm_stats_byprov
 
 
-def fill_in(src_labels, dest, dest_labels):
+def standardise(src_labels: np.array, dest_vals: np.array, dest_labels: np.array):
     """
     Fills in the missing data points when a provider is missing data
+    Conserves the order of 'src_labels' array
 
-    :param src_labels: numpy array of all provider labels
-    :param dest: numpy array of count labels for all providers with nonzero counts
-    :param dest_labels: numpt array of provider labels, for all providers with nonzero counts
+    :param src_labels: source labels, 1-d numpy array of all provider labels
+    :param dest: 1-d numpy array of count labels for all providers with nonzero counts
+    :param dest_labels: 1-d numpy array of provider labels, for all providers with nonzero counts
+    :returns: 1-d numpy array of values with same ordering as source labels
     """
-    for idx in range(len(src_labels)):
-        if len(dest_labels) <= idx or src_labels[idx] != dest_labels[idx]:
-            dest_labels = np.insert(dest_labels, idx, src_labels[idx])
-            dest = np.insert(dest, idx, 0.0)
-    return dest, dest_labels
+    dest_dict = dict(zip(list(dest_labels), list(dest_vals)))
+    ret_vals = np.array(len(src_labels) * [0])
+    for idx, src_label in enumerate(src_labels):
+        if src_label in dest_dict:
+            ret_vals[idx] = dest_dict[src_label]
+    return ret_vals
 
 def get_fy_date_ranges(report_date: datetime.date) -> (datetime.date, datetime.date, datetime.date, datetime.date):
     """
@@ -286,70 +289,74 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         print(f"df_dict.keys()={df_dict.keys()}")
         print(f"df_dict={df_dict}")
         sys.exit(1)
+
+    # Concatentate all logs
     df_all_list = [df_dict[key] for key in ('log1', 'log2', 'empty', 'nodata') if not df_dict[key].empty]
     df_all = pd.concat(df_all_list)
+
+    # Concatenate 'log2' logs
     df_log2_list = [df for df in (df_dict['log2'], df_dict['empty'][df_dict['empty']['log_type'] == '2']) if not df.empty]
     dfs_log2_all = pd.concat(df_log2_list)
 
-    # Count boreholes up until the report_date
-    all_provs, all_counts = np.unique(df_all[(df_all[date_fieldname] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+    # Count boreholes for the entire available time period
+    all_provs, all_counts = np.unique(df_all.drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
 
     if not brief:
         # Count log1 data for all providers
         log1_provs, log1_counts = np.unique(df_dict['log1'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
-        # Insert zeros for any providers that are missing
-        if len(all_provs) > len(log1_provs):
-            log1_counts, log1_provs = fill_in(all_provs, log1_counts, log1_provs)
+        # Re-order and insert zeros for any providers that are missing
+        log1_counts = standardise(all_provs, log1_counts, log1_provs)
         # Make log1 table
-        report.add_table(list(log1_provs), list(log1_counts), "Log 1 Counts by Provider")
+        report.add_table(list(all_provs), list(log1_counts), "Log 1 Counts by Provider")
 
         # Count log2 data for all providers
         log2_provs, log2_counts = np.unique(df_dict['log2'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
-        # Insert zeros for any providers that are missing
-        if len(all_provs) > len(log2_provs):
-            log2_counts, log2_provs = fill_in(all_provs, log2_counts, log2_provs)
+        # Re-order and insert zeros for any providers that are missing
+        log2_counts = standardise(all_provs, log2_counts, log2_provs)
         # Make log2 table
-        report.add_table(list(log2_provs), list(log2_counts), "Log 2 Counts by Provider")
+        report.add_table(list(all_provs), list(log2_counts), "Log 2 Counts by Provider")
 
         # Count 'nodata' data for all providers
         nodata_provs, nodata_counts = np.unique(df_dict['nodata'].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
-        # Insert zeros for any provider that are missing
-        if len(all_provs) > len(nodata_provs):
-            nodata_counts, nodata_provs = fill_in(all_provs, nodata_counts, nodata_provs)
-
+        # Re-order and insert zeros for any providers that are missing
+        nodata_counts = standardise(all_provs, nodata_counts, nodata_provs)
         # Make nodata table
-        report.add_table(list(nodata_provs), list(nodata_counts), "'No data' Counts by Provider")
+        report.add_table(list(all_provs), list(nodata_counts), "'No data' Counts by Provider")
 
-        # Count 'empty' data for all provider 
+        # Count 'empty' log1 data for all providers
         df_empty_log1 = df_dict['empty'][df_dict['empty']['log_type'] == '1']
         empty_provs, empty_counts = np.unique(df_empty_log1.drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
-        # Insert zeros for any providers that are missing
-        if len(all_provs) > len(empty_provs):
-            empty_counts, empty_provs = fill_in(all_provs, empty_counts, empty_provs)
-
+        # Re-order and insert zeros for any providers that are missing
+        empty_counts = standardise(all_provs, empty_counts, empty_provs)
         # Make empty counts table
-        report.add_table(list(empty_provs), list(empty_counts), "'empty' Counts by Provider")
+        report.add_table(list(all_provs), list(empty_counts), "'empty' Log1 Counts by Provider")
 
         # Plot percentage of boreholes by provider and data present
-        p.plot_borehole_percent(nodata_counts, log1_counts, all_counts, log1_provs, nodata_provs, empty_provs)
+        p.plot_borehole_percent(nodata_counts, log1_counts, all_counts, all_provs)
 
-    # Plot number of boreholes by provider
+    # Count boreholes up until the report_date
+    all_provs_cutoff, all_counts_cutoff = np.unique(df_all[(df_all[date_fieldname] < report_date)].drop_duplicates(subset='nvcl_id')['provider'], return_counts=True)
+
+    # Re-order and insert zeros for any providers that are missing
+    all_counts_cutoff = standardise(all_provs, all_counts_cutoff, all_provs_cutoff)
+
+    # Plot number of boreholes by provider up to report_date
     report_date_str = report_date.strftime('%d/%m/%Y')
-    p.plot_borehole_number(df_dict, all_provs, all_counts, f"Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
+    p.plot_borehole_number(all_provs, all_counts_cutoff, f"Number of boreholes by Provider up to {report_date_str}", "borehole_number.png")
 
-    # Table of number of boreholes by provider
-    report.add_table(list(all_provs), list(all_counts), f"Number of boreholes by Provider up to {report_date_str}")
+    # Table of number of boreholes by provider up to report_date
+    report.add_table(list(all_provs), list(all_counts_cutoff), f"Number of boreholes by Provider up to {report_date_str}")
 
     # Calculate a list of total depths in kms, one value for each provider, up until the report date
     nkilometres_totals = [ calc_bh_depths(df_dict, prov, date_fieldname, end_date=report_date) for prov in all_provs ]
 
-    # Make number of kilometres by provider table
+    # Make number of kilometres by provider table up to report_date
     report.add_table(list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
     
-    # Plot borehole kilometres by provider
+    # Plot borehole kilometres by provider up to report_date
     p.plot_borehole_kilometres(all_provs, nkilometres_totals, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
 
-    # Calculate quarterly and financial year data
+    # Calculate quarterly and financial year data for all providers
     y, q = calc_fyq(report_date, date_fieldname, df_dict, all_provs)
 
     # Pretty printed date strings
@@ -361,8 +368,8 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     q_end_date_pretty = q.end.strftime("%A %d %b %Y")
 
     # Plot yearly and quarterly comparisons for counts by provider
-    p.plot_borehole_number(df_dict, all_provs, y.cnt_list, title=f"Borehole counts for this FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
-    p.plot_borehole_number(df_dict, all_provs, q.cnt_list, title=f"Borehole counts for this quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
+    p.plot_borehole_number(all_provs, y.cnt_list, title=f"Borehole counts for this FY  ({y_start_date_str} - {y_end_date_str})", filename="borehole_number_y.png")
+    p.plot_borehole_number(all_provs, q.cnt_list, title=f"Borehole counts for this quarter ({q_start_date_str} - {y_end_date_str})", filename="borehole_number_q.png")
 
     # Tabulate yearly and quarterly comparisons for counts by provider
     report.add_table(list(all_provs), q.cnt_list, f"Borehole counts by Provider for this quarter ({q_start_date_str} - {q_end_date_str})")
@@ -380,9 +387,10 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     # plot_wordclouds(dfs_log2_all)
 
     if not brief:
+        # Plot borehole geology for each provider
+        p.plot_borehole_geology(df_dict)
 
-        # Get algorithms from any available service
-        # Create a dict mapping from 
+        # Get algorithms from any available service (not used)
         algoid2ver = {}
         """for prov in PROV_LIST[2:]:
             param = param_builder(prov, max_boreholes=1)
@@ -400,6 +408,7 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
             if len(algoid2ver.keys()) > 0:
                 break
         """
+        # Create a dict mapping borrowed from API results
         algoid2ver={'7': '500', '20': '600', '26': '601', '82': '703', '96': '704', '101': '704', '25': '600', '31': '601', '87': '703', '9': '500', '22': '600', '28': '601', '84': '703', '98': '704', '10': '500', '23': '600', '29': '601', '85': '703', '99': '704', '11': '500', '24': '600', '30': '601', '86': '703', '100': '704', '21': '600', '27': '601', '83': '703', '97': '704', '8': '500', '40': '631', '32': '630', '1': '500', '12': '600', '48': '700', '74': '703', '88': '704', '108': '705', '41': '631', '33': '630', '2': '500', '13': '600', '49': '700', '75': '703', '89': '704', '109': '705', '42': '631', '34': '630', '3': '500', '14': '600', '50': '700', '76': '703', '90': '704', '110': '705', '43': '631', '35': '630', '4': '500', '15': '600', '51': '700', '77': '703', '91': '704', '111': '705', '44': '631', '36': '630', '5': '500', '16': '600', '52': '700', '78': '703', '92': '704', '112': '705', '45': '631', '37': '630', '17': '600', '53': '700', '79': '703', '93': '704', '113': '705', '46': '631', '38': '630', '18': '600', '54': '700', '80': '703', '94': '704', '114': '705', '47': '631', '39': '630', '19': '600', '55': '700', '81': '703', '95': '704', '115': '705', '6': '500', '116': '705', '117': '705', '56': '701', '62': '702', '68': '703', '142': '708', '134': '707', '102': '704', '118': '705', '126': '706', '133': '706', '149': '708', '141': '707', '125': '705', '58': '701', '64': '702', '70': '703', '144': '708', '136': '707', '104': '704', '120': '705', '128': '706', '59': '701', '65': '702', '71': '703', '145': '708', '137': '707', '105': '704', '121': '705', '129': '706', '60': '701', '66': '702', '72': '703', '146': '708', '138': '707', '106': '704', '122': '705', '130': '706', '61': '701', '67': '702', '73': '703', '147': '708', '139': '707', '107': '704', '123': '705', '131': '706', '63': '702', '69': '703', '143': '708', '135': '707', '103': '704', '119': '705', '127': '706', '57': '701', '148': '708', '140': '707', '124': '705', '132': '706'}
         algoid2ver['0'] = '0'
 
@@ -409,13 +418,6 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
         # Plot uTSAS graphs
         p.plot_spectrum_group(df_dict, algoid2ver, prefix)
 
-        '''
-        pd.DataFrame({'algo':grp_algos, 'counts':grp_counts}).plot.bar(x='algo',y='counts', rot=20)
-        [min_algos, min_counts] = np.unique(dfs['log1'][dfs['log1'].algorithm.str.startswith('Min')]['algorithm'], return_counts=True)
-        pd.DataFrame({'algo':min_algos, 'counts':min_counts}).plot.bar(x='algo',y='counts', rot=20)
-        index = [x.replace('Grp','') for x in grp_algos]
-        df = pd.DataFrame({'Grp': grp_counts, 'Min': min_counts}, index=index).plot.bar(rot=20)
-        '''
         # Plot element graphs
         p.plot_elements(dfs_log2_all)
 

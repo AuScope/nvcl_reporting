@@ -93,7 +93,6 @@ class Plots:
         :param show_legend: if True will show a legend, set to False only simple counts are displayed
         :param kwargs: keyword args to pass to the Pandas plot() function
         """
-        print(f"simple_plot({title=})")
         ax = plot_df.plot(**plot_kwargs, fontsize=FONT_SZ)
         ax.set_title(title, fontsize=FONT_SZ)
         ax.set_xlabel(xlabel, fontsize=FONT_SZ)
@@ -107,25 +106,33 @@ class Plots:
         self.register_plot(plot_group, plot_file)
 
 
-    def plot_borehole_percent(self, nodata_counts, log1_counts, all_counts, log1_provs, nodata_provs, empty_provs):
+    def plot_borehole_percent(self, nodata_counts: np.array, log1_counts: np.array, all_counts: np.array, provs: np.array):
         """ Save to file percentage of boreholes by provider and data present plot
 
         :param nodata_counts: nodata counts
         :param log1_counts: log1 counts
         :param all_counts: all counts
-        :param log1_provs: log1 counts by provider
-        :param nodata_provs: nodata counts by provider
-        :param empty_provs: empty counts by provider
+        :param provs: provider list
         """
         fig = plt.figure(figsize=(15, 10))
         ax = fig.add_subplot(1, 1, 1)
+
+        # Calculate log1 counts as a percentage of all counts
         log1_rel = [i / j * 100 for i, j in zip(log1_counts, all_counts)]
-        ax.bar(log1_provs, log1_rel, label='HyLogger data')
+        ax.bar(provs, log1_rel, label='HyLogger data')
+
+        # Calculate nodata counts as a percentage of all counts
         nodata_rel = [i / j * 100 for i, j in zip(nodata_counts, all_counts)]
-        ax.bar(nodata_provs, nodata_rel, bottom=log1_rel, label="No HyLogger data")
+        # Set bottom=log1_rel so it sits on top of log1 bars
+        ax.bar(provs, nodata_rel, bottom=log1_rel, label="No HyLogger data")
+
+        # Calculate empty counts as a percentage of all counts
         empty = all_counts-(log1_counts + nodata_counts)
         empty_rel = [i / j * 100 for i, j in zip(empty, all_counts)]
-        ax.bar(empty_provs, empty_rel, bottom=[i+j for i,j in zip(log1_rel, nodata_rel)], label="No data")
+        # Set bottom so it sits on top of log1 & nodata bars
+        ax.bar(provs, empty_rel, bottom=[i+j for i,j in zip(log1_rel, nodata_rel)], label="No data")
+
+        # Create bar chart
         plt.ylabel("Percentage of boreholes (%)", fontsize=FONT_SZ)
         plt.title("Percentage of boreholes by provider and data present")
         plt.legend(loc="lower left", bbox_to_anchor=BBX2A)
@@ -134,10 +141,9 @@ class Plots:
         self.register_plot("Boreholes", "borehole_percent.png")
 
 
-    def plot_borehole_number(self, dfs: dict, all_provs: np.array, all_counts: np.array, title: str, filename: str):
-        """ Save to file number of boreholes by provider plot
+    def plot_borehole_number(self, all_provs: np.array, all_counts: np.array, title: str, filename: str):
+        """ Save to file number of boreholes by provider barchart plot
 
-        :param dfs: dataframe dict, key is log type
         :param all_provs: array of provider strings
         :param all_counts: array of counts
         :param title: plot title
@@ -154,7 +160,12 @@ class Plots:
         plt.savefig(os.path.join(self.plot_dir, filename))
         self.register_plot("Boreholes", filename)
 
-        # Plot number of boreholes for geology by provider
+    def plot_borehole_geology(self, dfs: dict):
+        """ Plot number of boreholes for geology by provider
+
+        :param dfs: dataframe dict, key is log type
+        """
+       
         dfs_log1_geology = dfs['log1'][dfs['log1']['algorithm'].str.contains(r'^(?:Strat|Form|Lith)', case=False)]
         if not dfs_log1_geology.empty:
             plot_df = dfs_log1_geology.drop_duplicates('nvcl_id').groupby(['provider', 'algorithm']).size().unstack()
@@ -308,7 +319,7 @@ class Plots:
         else :
             # Split into columns only if it is a DataFrame
             plot_df_chunks = [plot_df.iloc[:, i:i + axis_len] for i in range(0, plot_df.shape[1], axis_len)]
-        MAX_PLOTS = 5
+        MAX_PLOTS = 8
         for idx, df in enumerate(plot_df_chunks):
             if type(plot_df) == pd.DataFrame:
                 # Drop columns that have only NaN values
@@ -419,8 +430,6 @@ class Plots:
         else:
             print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
     
-        #self.simple_plot(df_algo_stats, "log1_algos.png", plot_group, "Number of boreholes by algorithm and provider",
-        #          "Provider", "Number of boreholes", True, kind='bar', stacked=False, figsize=(20, 10), rot=0)
         # Plot number of boreholes by algorithm and provider
         if not df_algo_stats.empty:
             self.split_plots(df_algo_stats, "bar", "Number of boreholes by algorithm and provider",
