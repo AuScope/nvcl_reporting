@@ -3,17 +3,27 @@ import sys
 import datetime
 import math
 
+import numpy as np
+
 import pytest
 
 # Add in path to source scripts
 src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
-from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges
+from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges, standardise
 # Don't delete 'tsg_meta_df' 'tsg_meta_bigger_df', needed for fixtures to be injected
 from test_db import db_df, bigger_db_df, tsg_meta_df, tsg_meta_bigger_df
 from db.readwrite_db import import_db
 
+def test_standardise():
+    """ Test standardise() function
+    """
+    src_labels = np.array(['A', 'B', 'C', 'D', 'E', 'F'])
+    dest_vals = np.array([1, 2, 3, 4])
+    dest_labels = np.array(['F','A','D','E'])
+    std_vals = standardise(src_labels, dest_vals, dest_labels)
+    assert np.array_equal(std_vals, np.array([2, 0, 0, 3, 4, 1]))
 
 def test_calc_bh_depths_cnts(db_df):
     """ Testing depth calculation
