@@ -69,6 +69,14 @@ Run 1am Sunday morning each week
 00 01 * * SUN /usr/bin/bash -c "cd $HOME/gitlab/nvcl_reporting/scripts && ./run_reports.sh W > output.weekly 2>&1"
 ```
 
+### Generate TSG file metadata summary
+
+```
+pdm run src/tsg_harvest/harvest.py config.yaml
+```
+
+
+
 ### Connect to NVCL services, update data files, then create PDF reports 
 ```
 eval $(pdm venv activate)
