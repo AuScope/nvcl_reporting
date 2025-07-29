@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 import datetime
 import configparser
 import csv
@@ -60,7 +60,7 @@ def get_tsg_metadata(filepath: Path) -> dict:
         config.read(str(filepath))
     except UnicodeDecodeError:
         # Try cp1252
-        print(f"Cannot read {filepath} using 'utf-8' coding, now trying 'cp1252'")
+        print(f"Reading {filepath} as 'cp1252'")
         config.read(str(filepath), encoding='cp1252')
 
     # Look for scan date
@@ -114,38 +114,44 @@ def process_prov(prov: str, csvwriter):
                 fd.write(r.content)
 
         # Unzip TSG files
-        with ZipFile(zip_file) as z:
-            unzip_paths = []
-            # We don't know if this is a POSIX path or a Windows path
-            # So this will convert either kind to a POSIX path
-            for p in z.namelist():
-                pwp = PureWindowsPath(p)
-                pp = PurePath(pwp.as_posix())
-                unzip_paths.append(pp) 
+        try:
+            with ZipFile(zip_file) as z:
+                unzip_paths = []
+                # We don't know if this is a POSIX path or a Windows path
+                # So this will convert either kind to a POSIX path
+                for p in z.namelist():
+                    pwp = PureWindowsPath(p)
+                    pp = PurePath(pwp.as_posix())
+                    unzip_paths.append(pp) 
 
-            # Check if zip file has been unzipped, looking for TSG the file
-            path = Path(prov_dir)
-            tsg_path = [uzp for uzp in unzip_paths if str(uzp)[-8:] == '_tsg.tsg']
-            if len(tsg_path) > 0 and not path.joinpath(tsg_path[0]).exists():
-                print(f"Unzipping {zip_file}")
-                # This forces 'Zipfile' to create POSIX paths using the Windows paths in the ZIP file
-                os.path.altsep = '\\'
-                z.extractall(path=prov_dir)
+                # Check if zip file has been unzipped, looking for TSG the file
+                path = Path(prov_dir)
+                tsg_path = [uzp for uzp in unzip_paths if str(uzp)[-8:] == '_tsg.tsg']
+                if len(tsg_path) > 0 and not path.joinpath(tsg_path[0]).exists():
+                    print(f"Unzipping {zip_file}")
+                    # This forces 'Zipfile' to create POSIX paths using the Windows paths in the ZIP file
+                    os.path.altsep = '\\'
+                    z.extractall(path=prov_dir)
 
-            # Continue to next loop if there is no TSG file
-            if not path.joinpath(tsg_path[0]).exists():
-                print("ERROR - Cannot find TSG file in {zip_file}")
-                continue
+                # Continue to next loop if there is no TSG file
+                if not path.joinpath(tsg_path[0]).exists():
+                    print(f"ERROR: Cannot find TSG file in {zip_file}")
+                    continue
 
-            # Extract scan date and other metadata from TSG file
-            for unz_path in unzip_paths:
-                # Look for TSG metadata file
-                if str(unz_path)[-8:] == '_tsg.tsg':
-                    # Extract scan data & metadata
-                    field_dict = get_tsg_metadata(path.joinpath(unz_path))
-                    # Write a row: provider, filename, TSG modified date & TSG metadata fields
-                    csvwriter.writerow([prov, ds.name, tsg_mod_date] + list(field_dict.values()))
-                    break
+                # Extract scan date and other metadata from TSG file
+                for unz_path in unzip_paths:
+                    # Look for TSG metadata file
+                    if str(unz_path)[-8:] == '_tsg.tsg':
+                        # Extract scan data & metadata
+                        field_dict = get_tsg_metadata(path.joinpath(unz_path))
+                        # Write a row: provider, filename, TSG modified date & TSG metadata fields
+                        csvwriter.writerow([prov, ds.name, tsg_mod_date] + list(field_dict.values()))
+                        break
+        except BadZipFile as bzf:
+            print(f"ERROR: Cannot unzip {zip_file}: {bzf}")
+            # Remove file so that we will download it again next time in case it gets fixed
+            os.unlink(zip_file)
+
 
 
 if __name__ == "__main__":
