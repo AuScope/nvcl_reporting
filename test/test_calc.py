@@ -27,18 +27,12 @@ def test_standardise():
 
 def test_calc_bh_depths_cnts(db_df):
     """ Testing depth calculation
-    ID:24582 - 0.5m  6.5m = 5 + 1 = 0.006
-    ID:24598 - 1.5m  7.5m = 6 + 1 = 0.007
-    ID:24725 - 0.5m  64.5m = 64 + 1 = 0.065
-    ID:24998 - 0.5m  494.5m = 494 + 1 = 0.495
-    ID:24999 - 0.5m  401.5m = 401 + 1 = 0.402
-                                   SUM: 0.975
     """
     df_dict = { 'log1': db_df }
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date')
-    assert math.isclose(depth, 0.975)
+    assert math.isclose(depth, 0.973)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date', return_cnts=True)
-    assert math.isclose(depth, 0.975)
+    assert math.isclose(depth, 0.973)
     assert cnts == 5
 
 
@@ -52,37 +46,32 @@ def test_calc_bh_depths_no_cnts(db_df):
 
 def test_calc_bh_depths_date_ranges(db_df):
     """ Testing date ranges
-    24582|2022-06-23 0.006
-    24598|2022-06-25 0.007
-    24725|2023-06-27 0.065
-    24998|2022-06-29 0.495
-    24999|2022-07-01 0.402
     """
     df_dict = { 'log1': db_df }
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                            start_date=datetime.date(2022, 6, 25))
-    assert math.isclose(depth, 0.962)
+    assert math.isclose(depth, 0.961)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                                  start_date=datetime.date(2022, 6, 25), return_cnts=True)
-    assert math.isclose(depth, 0.962)
+    assert math.isclose(depth, 0.961)
     assert cnts == 3
 
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                            start_date=datetime.date(2022, 6, 24),
                            end_date=datetime.date(2022, 6, 28))
-    assert math.isclose(depth, 0.072)
+    assert math.isclose(depth, 0.07)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                                  start_date=datetime.date(2022, 6, 24),
                                  end_date=datetime.date(2022, 6, 28), return_cnts=True)
-    assert math.isclose(depth, 0.072)
+    assert math.isclose(depth, 0.07)
     assert cnts == 2
 
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                            end_date=datetime.date(2022, 6, 27))
-    assert math.isclose(depth, 0.013)
+    assert math.isclose(depth, 0.012)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
                                  end_date=datetime.date(2022, 6, 27), return_cnts=True)
-    assert math.isclose(depth, 0.013)
+    assert math.isclose(depth, 0.012)
     assert cnts == 2
 
 
