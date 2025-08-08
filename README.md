@@ -9,6 +9,8 @@ Creates a summary database of the NVCL core library from around Australia
 
 There are also some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
+**Needs 64 GB RAM**
+
 ### Setup
 
 1. If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
