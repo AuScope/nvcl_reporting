@@ -26,7 +26,7 @@ class TSGMeta:
                     nvcl_id = row[NVCL_ID]
                     scan_date = self.__str2date(row[HL_SCAN_DATE])
                     publish_date = self.__str2date(row[TSG_PUBLISH_DATE])
-                    # Is this NVCL id already in the list?
+                    # Is this NVCL id already in the dict?
                     if nvcl_id in nvcl_ids:
                         continue
                     nvcl_ids[nvcl_id] = True

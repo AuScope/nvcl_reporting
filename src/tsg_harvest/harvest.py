@@ -85,6 +85,7 @@ def get_tsg_metadata(filepath: Path) -> dict:
             field_dict[field] = ''
     return field_dict
 
+
 def process_prov(prov: str, csvwriter):
     """
     Extract data for one provider
@@ -153,6 +154,22 @@ def process_prov(prov: str, csvwriter):
             os.unlink(zip_file)
 
 
+def process_tsgs(output_file: str):
+    """
+    Extract metadata from TSGs given an output file
+
+    :param output_file: CSV file to put all the output
+    """
+    with open(config_file, 'w') as csv_file:
+        csvwriter = csv.writer(csv_file, delimiter='|', quotechar='|', doublequote=False,
+                                         quoting=csv.QUOTE_NONE)
+        # Write CSV header
+        csvwriter.writerow(['provider', 'file name', TSG_PUBLISH_DATE] + TSG_FIELDS)
+        # Loop over providers
+        for prov in PROVIDERS:
+            process_prov(prov, csvwriter)
+
+
 
 if __name__ == "__main__":
     # Get the config filename from the command line
@@ -163,12 +180,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     config = load_and_check_config(args.config_file)
+    process_tsgs(config['tsg_meta_file'])
 
-    with open(config['tsg_meta_file'], 'w') as csv_file:
-        csvwriter = csv.writer(csv_file, delimiter='|', quotechar='|', doublequote=False,
-                                         quoting=csv.QUOTE_NONE)
-        # Write CSV header
-        csvwriter.writerow(['provider', 'file name', TSG_PUBLISH_DATE] + TSG_FIELDS)
-        # Loop over providers
-        for prov in PROVIDERS:
-            process_prov(prov, csvwriter)
