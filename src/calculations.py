@@ -6,6 +6,7 @@ import shutil
 import os
 import sys
 from types import SimpleNamespace
+from decimal import Decimal, ROUND_HALF_UP
 
 # External imports
 import pandas as pd
@@ -18,6 +19,7 @@ from fiscalyear import fiscal_calendar, FiscalDate, FiscalYear, FiscalQuarter
 # Local imports
 from plots import Plots
 from pdf import write_report
+from constants import HEIGHT_RESOLUTION
 
 from report_table_data import ReportTableData
 
@@ -69,14 +71,35 @@ def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, date_fieldname: str, 
                 # Create a set of depth range tuples
                 depth_set.update(set(depths))
 
-        # Divide by 1000 to convert from metres to kilometres
-        depth_list = list(depth_set)
+        
+        depth_list = sorted(list(depth_set))
         if len(depth_list) > 0:
-            bh_kms[nvcl_id] = (1.0 + max(depth_list) - min(depth_list)) / 1000.0
+            # IMPORTANT: Resolution parameter must always be greater or equal to HEIGHT_RESOLUTION
+            resolved_list = resolve(depth_list, HEIGHT_RESOLUTION)
+            resolved_set = set(resolved_list)
+            num_pts = len(resolved_set)
+            scanned_len = HEIGHT_RESOLUTION * num_pts
+            
+            ## Divide by 1000 to convert from metres to kilometres
+            bh_kms[nvcl_id] = scanned_len / 1000.0
+            #bh_kms[nvcl_id] = (1.0 + max(depth_list) - min(depth_list)) / 1000.0
 
     if not return_cnts:
         return sum(bh_kms.values())
     return cnts, sum(bh_kms.values())
+
+
+def resolve(values: list[float], resolution: float) -> list[float]:
+    """
+    Categorises a list of numbers into a series of 'resolution' sized buckets
+    Uses 'Decimal' class to avoid rounding errors
+
+    :param values: list of floats
+    :param resolution: bucket width
+    :returns a list of value categories (floats)
+    """
+    resolution = Decimal(str(resolution))
+    return [float((Decimal(str(x)) / resolution).to_integral_value(rounding=ROUND_HALF_UP) * resolution) for x in values]
 
 
 def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):

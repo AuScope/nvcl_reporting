@@ -17,7 +17,7 @@ def load_and_check_config(config_file: str) -> dict:
     NB: These files' paths are relative to the config file
 
     :param config_file: config full path and filename
-    :returns: dict of config values
+    :returns: dict of config values or exits upon error
     """
     config_dir = Path(__file__).absolute().parents[1]
     # Open config file
