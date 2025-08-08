@@ -160,7 +160,7 @@ def process_tsgs(output_file: str):
 
     :param output_file: CSV file to put all the output
     """
-    with open(config_file, 'w') as csv_file:
+    with open(output_file, 'w') as csv_file:
         csvwriter = csv.writer(csv_file, delimiter='|', quotechar='|', doublequote=False,
                                          quoting=csv.QUOTE_NONE)
         # Write CSV header
