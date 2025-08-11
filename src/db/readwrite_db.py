@@ -21,7 +21,7 @@ from peewee import SqliteDatabase, Model
 from playhouse.reflection import generate_models
 
 
-from db.schema import Meas, DATE_FMT, DB_COLUMNS
+from db.schema import Stats, Meas, DATE_FMT, DB_COLUMNS
 
 # Dataframe columns = list of columns in database - 'report_category' + 'hl_scan_date' + 'publish_date'
 from db.schema import DF_COLUMNS
@@ -164,10 +164,10 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
     #
     # Using peewee to write out rows
     sdb = SqliteDatabase(db_file)
+    Meas._meta.database = sdb
     models = generate_models(sdb)
     # If new database, create new table
     if 'meas' not in models:
-        Meas._meta.database = sdb
         sdb.create_tables([Meas])
         models = generate_models(sdb)
     meas_mdl = models['meas']
@@ -194,9 +194,59 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
             tbl_handle.save()
         except peewee.IntegrityError as pie:
             # NB: Many rows with an 'empty' report_category will be duplicates
-            print("Duplicate row", pie)
+            print(f"Duplicate row error: {pie}")
             print("Tried to insert", row_df_dict)
         except peewee.InterfaceError as sie:
-            print("Bad param", sie)
+            print(f"Bad param error: {sie}")
             print("Tried to insert", row_df_dict)
             sys.exit(1)
+
+
+def export_kms(db_file: str, prov_list: list, y: SimpleNamespace, q: SimpleNamespace):
+    '''
+    Export kms tables to db
+
+    :param db_file: SQLITE database file name
+    :param y: tuple of SimpleNamespace() fields are:
+        start = start date
+        end = end date
+        kms_list = list of borehole kms in provider order
+        cnts_list = list of borehole counts in provider order
+    :param q: tuple of SimpleNamespace() fields are:
+        start = start date
+        end = end date
+        kms_list = list of borehole kms in provider order
+        cnts_list = list of borehole counts in provider order
+    '''
+    print(f"Opening: {db_file}")
+    # Using peewee to write out rows
+    sdb = SqliteDatabase(db_file)
+    Stats._meta.database = sdb
+    models = generate_models(sdb)
+    # If new database, create new table
+    if 'stats' not in models:
+        sdb.create_tables([Stats])
+    else:
+        # Remove rows from table
+        Stats.delete().execute()
+    rows = []
+    for idx, prov in enumerate(prov_list):
+        rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': y.start,
+                    'end_date': y.end, 'stat_val1': y.cnt_list[idx], 'stat_val2': y.kms_list[idx]})
+        rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': q.start,
+                    'end_date': q.end, 'stat_val1': q.cnt_list[idx], 'stat_val2': q.kms_list[idx]})
+        
+    try:
+        # Try bulk insert
+        print(f"Inserting {rows}")
+        with sdb.atomic():
+            Stats.insert_many(rows).execute()
+    except peewee.IntegrityError as pie:
+        print(f"Duplicate row error: {pie}")
+        print("Tried to insert", rows)
+        sys.exit(1)
+    except peewee.InterfaceError as sie:
+        print(f"Bad param error: {sie}")
+        print("Tried to insert", rows)
+        sys.exit(1)
+

@@ -271,7 +271,7 @@ def calc_fyq(report_date: datetime.date, date_fieldname: str,  df_dict: dict[str
     # Get start and end of previous financial year and quarter
     y.start, y.end, q.start, q.end = get_fy_date_ranges(report_date)
 
-    # Number of boreholes added and total amount of depths added from tne end of last FY relative to report_date
+    # Number of boreholes added and total amount of depths added from the end of last FY relative to report_date
     y_cnts, y_kms = get_cnts(df_dict, all_provs, date_fieldname, y.start, y.end)
 
     # Number of boreholes added and total amount of depths added from the end of the quarter realtive to report_date
@@ -288,7 +288,44 @@ def calc_fyq(report_date: datetime.date, date_fieldname: str,  df_dict: dict[str
     return y, q
 
 
-def assemble_report(report_file: str, report_date: datetime.date, date_fieldname: str, df_dict: dict[str:pd.DataFrame], plot_dir: str, prefix: str, brief: bool):
+def has_no_data(df_dict: dict[str:pd.DataFrame]) -> bool:
+    """
+    Check if 'df_dict' has no data
+
+    :param df_dict: source dataframe dict, key is log type
+    :returns: True if there are only empty dataframes, if any in 'df_dict'
+    """
+    return not any(key in df_dict and
+       ((type(df_dict[key]) is dict and df_dict[key] != {}) or
+        (isinstance(df_dict[key], pd.DataFrame) and not df_dict[key].empty)) for key in ('log1','log2','empty','nodata'))
+
+
+def calc_kms4db(report_date: datetime.date, date_fieldname: str, df_dict: dict[str:pd.DataFrame], all_provs: list):
+    """
+    :param report_date: base date from which reporting occurs
+    :param date_fieldname: name of date field to use in calculations
+    :param df_dict: source dataframe dict, key is log type
+    :returns: tuple of SimpleNamespace() fields are:
+        start = start date
+        end = end date
+        kms_list = list of borehole kms in provider order
+        cnts_list = list of borehole counts in provider order
+    """
+    # Check 'df_dict' for empty dataframes
+    if has_no_data(df_dict):
+        print("Datasets are empty, please create them before enabling plots")
+        print(f"df_dict.keys()={df_dict.keys()}")
+        print(f"df_dict={df_dict}")
+        sys.exit(1)
+
+    # Calculate quarterly and financial year data for all providers
+    y, q = calc_fyq(report_date, date_fieldname, df_dict, all_provs)
+
+    return y, q
+
+
+def assemble_report(report_file: str, report_date: datetime.date, date_fieldname: str, df_dict: dict[str:pd.DataFrame],
+                    plot_dir: str, prefix: str, brief: bool):
     """
     Generates a set of plot files and writes out PDF report
 
@@ -307,13 +344,13 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
 
     report = ReportTableData()
     # Check 'df_dict' for empty dataframes
-    if not any(key in df_dict and ((type(df_dict[key]) is dict and df_dict[key] != {}) or (isinstance(df_dict[key], pd.DataFrame) and not df_dict[key].empty)) for key in ('log1','log2','empty','nodata')):
+    if not has_no_data(df_dict):
         print("Datasets are empty, please create them before enabling plots")
         print(f"df_dict.keys()={df_dict.keys()}")
         print(f"df_dict={df_dict}")
         sys.exit(1)
 
-    # Concatentate all logs
+    # Concatenate all logs in df_dict
     df_all_list = [df_dict[key] for key in ('log1', 'log2', 'empty', 'nodata') if not df_dict[key].empty]
     df_all = pd.concat(df_all_list)
 
@@ -490,5 +527,6 @@ def create_stats(cdf: pd.DataFrame) -> pd.DataFrame:
         ca_stats = pd.concat([ca_stats, cID])
     # Add up duplicates
     ca_stats = ca_stats.groupby(ca_stats.index).sum()
-    
+
     return pd.DataFrame(ca_stats).transpose()
+

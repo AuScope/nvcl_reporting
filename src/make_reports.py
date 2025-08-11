@@ -29,9 +29,9 @@ from nvcl_kit.constants import has_VNIR, has_SWIR, has_TIR
 from multiprocessing import Pool
 
 # Local imports
-from db.readwrite_db import import_db, export_db, DF_COLUMNS
+from db.readwrite_db import import_db, export_db, export_kms, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
-from calculations import calc_stats, assemble_report
+from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import REPORT_DATE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row, load_and_check_config
@@ -43,6 +43,8 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
+
+DATE_FIELDNAME = 'publish_date'
 
 def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     """ Read database for any past data and poll NVCL services to see if there is any new data
@@ -57,8 +59,8 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 10
-        new_prov_list = ['VIC','TAS','WA','NSW','QLD','NT','SA']
+        MAX_BOREHOLES = 2
+        new_prov_list = ['NSW', 'WA'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
 
@@ -116,6 +118,19 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     for data_cat in DATA_CATS:
         print(f"\nSaving '{data_cat}' to {db_file}")
         export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
+
+
+def update_kms(prov_list: list, db_file: str, report_date: datetime.date, date_fieldname: str):
+    """
+    Update the kms tables
+
+    :param report_date: report is centred on this date
+    :param date_fieldname: name of field used to filter rows by date
+    :param prov_list: list of providers
+    :param db_file: filename of sqlite db
+    """
+    y, q = calc_kms4db(report_date, date_fieldname, g_dfs, prov_list)
+    export_kms(db_file, prov_list, y, q) 
 
 
 def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (datetime.date, datetime.date, datetime.date):
@@ -374,6 +389,7 @@ def main(sys_argv):
     # Open database, talk to services, update database
     if args.update:
         update_data(PROV_LIST, db, tsg_meta_df)
+        update_kms(PROV_LIST, db, report_date, DATE_FIELDNAME)
         data_loaded = True
 
     # Load database from designated database
@@ -392,7 +408,7 @@ def main(sys_argv):
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        assemble_report(args.output, report_date, 'publish_date', g_dfs, plot_dir, prefix, args.brief)
+        assemble_report(args.output, report_date, DATE_FIELDNAME, g_dfs, plot_dir, prefix, args.brief)
 
     print("Done.")
 

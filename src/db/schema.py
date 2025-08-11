@@ -96,6 +96,21 @@ class JSONField(Field):
         #    return []
 
 
+class Stats(Model):
+    """
+    Tables of statistics to display
+    """
+    stat_name = TextField()
+    provider = TextField()
+    start_date = DateField(formats=[DATE_FMT])
+    end_date = DateField(formats=[DATE_FMT])
+    stat_val1 = FloatField()
+    stat_val2 = FloatField()
+
+    class Meta:
+        primary_key = CompositeKey('stat_name', 'provider', 'start_date', 'end_date')
+
+
 class Meas(Model):
     """
     Database table structure
