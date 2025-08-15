@@ -352,6 +352,11 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
 
     # Concatenate all logs in df_dict
     df_all_list = [df_dict[key] for key in ('log1', 'log2', 'empty', 'nodata') if not df_dict[key].empty]
+    if len(df_all_list) == 0:
+        print("Datasets are empty, please create them before enabling plots")
+        print(f"df_dict.keys()={df_dict.keys()}")
+        print(f"df_dict={df_dict}")
+        sys.exit(1)
     df_all = pd.concat(df_all_list)
 
     # Concatenate 'log2' logs
