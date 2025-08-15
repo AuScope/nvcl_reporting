@@ -274,7 +274,7 @@ def calc_fyq(report_date: datetime.date, date_fieldname: str,  df_dict: dict[str
     # Number of boreholes added and total amount of depths added from the end of last FY relative to report_date
     y_cnts, y_kms = get_cnts(df_dict, all_provs, date_fieldname, y.start, y.end)
 
-    # Number of boreholes added and total amount of depths added from the end of the quarter realtive to report_date
+    # Number of boreholes added and total amount of depths added from the end of the quarter relative to report_date
     q_cnts, q_kms = get_cnts(df_dict, all_provs, date_fieldname, q.start, q.end)
 
     # List of providers' kms, in provider order
@@ -414,7 +414,7 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     report.add_table(list(all_provs), nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}")
     
     # Plot borehole kilometres by provider up to report_date
-    p.plot_borehole_kilometres(all_provs, nkilometres_totals, f"Number of borehole kilometres by provider up to {report_date_str}", "borehole_kilometres.png")
+    p.plot_borehole_kilometres(all_provs, nkilometres_totals, f"Number of borehole kilometres by Provider up to {report_date_str}", "borehole_kilometres.png")
 
     # Calculate quarterly and financial year data for all providers
     y, q = calc_fyq(report_date, date_fieldname, df_dict, all_provs)
