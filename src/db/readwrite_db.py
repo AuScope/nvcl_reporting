@@ -136,10 +136,12 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
             new_df[col] = src_df[col]
 
     # Merge columns from TSG files
-    merged_df = pd.merge(new_df, tsg_meta_df, left_on='nvcl_id', right_on='nvcl_id')
-    # Rename from 'tsg_meta_df' column names to report column names
-    merged_df = merged_df.rename(columns={'hl scan date': 'hl_scan_date', 'tsg publish date': 'publish_date'})
-    return merged_df
+    if not new_df.empty:
+        merged_df = pd.merge(new_df, tsg_meta_df, left_on='nvcl_id', right_on='nvcl_id')
+        # Rename from 'tsg_meta_df' column names to report column names
+        merged_df = merged_df.rename(columns={'hl scan date': 'hl_scan_date', 'tsg publish date': 'publish_date'})
+        return merged_df
+    return pd.DataFrame(columns=DF_COLUMNS)
 
 
 def conv_obj2str(arr: []) -> str:
