@@ -1,5 +1,6 @@
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
 [![lint and test](https://github.com/AuScope/nvcl_reporting/actions/workflows/nvcl_reporting.yml/badge.svg)](https://github.com/AuScope/nvcl_reporting/actions/workflows/nvcl_reporting.yml)
+[![Coverage Status](https://raw.githubusercontent.com/AuScope/nvcl_reporting/refs/heads/master/test/badge/coverage-badge.svg)]()
 
 
 # NVCL Reporting
