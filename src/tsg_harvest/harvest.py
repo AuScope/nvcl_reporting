@@ -86,7 +86,7 @@ def get_tsg_metadata(filepath: Path) -> dict:
     return field_dict
 
 
-def process_prov(prov: str, csvwriter):
+def process_prov(prov: str, csvwriter: csv.writer):
     """
     Extract data for one provider
 
@@ -167,7 +167,9 @@ def process_tsgs(output_file: str):
         csvwriter.writerow(['provider', 'file name', TSG_PUBLISH_DATE] + TSG_FIELDS)
         # Loop over providers
         for prov in PROVIDERS:
+            print(f"\n\n*** Processing {prov} ***\n")
             process_prov(prov, csvwriter)
+            csv_file.flush()
 
 
 
