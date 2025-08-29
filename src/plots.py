@@ -406,7 +406,7 @@ class Plots:
         :param algoid2ver: dictionary of algorithm id -> version id
         """
         plot_group = "Algorithms"
-        algos = np.unique(dfs['log1'][dfs['log1'].algorithm.str.contains('^Min\d |Grp\d ')]['algorithm'])
+        algos = np.unique(dfs['log1'][dfs['log1'].algorithm.str.contains(r'^Min\d |Grp\d ')]['algorithm'])
         suffixes = np.unique([x.split()[1] for x in algos])
         dfs['log1']['versions'] = dfs['log1'].apply(lambda row: algoid2ver.get(row['algorithm_id'], '0'), axis=1)
 
