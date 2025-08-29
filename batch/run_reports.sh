@@ -24,10 +24,6 @@ fi
 # Activate Python env
 eval $(pdm venv activate)
 
-# Run TSG harvest
-echo "Running TSG harvest"
-./src/tsg_harvest/harvest.py config.yaml
-
 #
 # Run reports
 #
@@ -37,7 +33,7 @@ echo "Annual run"
 FREQUENCY="Annual"
 REPORT_NAME=annual-nvcl-report.pdf
 \rm -f $REPORT_NAME
-./src/make_reports.py -uf -o $REPORT_NAME
+./src/make_reports.py -utf -o $REPORT_NAME
 
 elif [ "$1" = "Q" ]; then
 # Takes a while, only run at end of quarter (Mar 31 etc.)
@@ -45,7 +41,7 @@ echo "Quarterly run"
 FREQUENCY="Quarterly"
 REPORT_NAME=quarterly-nvcl-report.pdf
 \rm -f $REPORT_NAME
-./src/make_reports.py -uf -o $REPORT_NAME
+./src/make_reports.py -utf -o $REPORT_NAME
 
 elif [ "$1" = "W" ]; then
 # Run every week, accumulates boreholes created in the past week
@@ -53,7 +49,7 @@ echo "Weekly run"
 FREQUENCY="Weekly Brief"
 REPORT_NAME=brief-nvcl-report.pdf
 \rm -f $REPORT_NAME
-./src/make_reports.py -ub -o $REPORT_NAME
+./src/make_reports.py -utb -o $REPORT_NAME
 
 else
 # Print usage if no valid params
