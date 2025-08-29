@@ -71,26 +71,25 @@ Run 1am Sunday morning each week
 00 01 * * SUN /usr/bin/bash -c "cd $HOME/gitlab/nvcl_reporting/scripts && ./run_reports.sh W > output.weekly 2>&1"
 ```
 
-### Generate TSG file metadata summary
 
-```
-pdm run src/tsg_harvest/harvest.py config.yaml
-```
-
-
-
-### Connect to NVCL services, update data files, then create PDF reports 
+### Generate TSG file metadata summary, connect to NVCL services, update data files, then create PDF reports 
 ```
 eval $(pdm venv activate)
 
 cd src
 
 # Yearly or Quarterly report (run this once a year)
-./make_reports.py -uf
+./make_reports.py -utf
 
 # Brief weekly report (run this once a week)
-./make_reports.py -ub
+./make_reports.py -utb
 ```
+**NOTES:**
+1. Omit 't' command line flag to disable TSG file summary
+2. 'u' command line flag updates the current database
+3. 'f' command line flag generates a full report
+4. 'b' command line flag generates a brief report
+
 
 ### DB Format
 
