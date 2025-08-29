@@ -1,6 +1,5 @@
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
-[![pipeline status](https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting/badges/main/pipeline.svg)](https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting/-/commits/main) 
-[![coverage report](https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting/badges/main/coverage.svg)](https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting/-/commits/main)
+[![lint and test](https://github.com/AuScope/nvcl_reporting/actions/workflows/nvcl_reporting.yml/badge.svg)](https://github.com/AuScope/nvcl_reporting/actions/workflows/nvcl_reporting.yml)
 
 
 # NVCL Reporting
