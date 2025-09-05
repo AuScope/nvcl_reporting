@@ -188,7 +188,9 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
 
         # Check data type
-        assert isinstance(row_df_dict['modified_datetime'], date) 
+        if not isinstance(row_df_dict['modified_datetime'], date):
+            print(f"ERROR: 'modified_datetime' in wrong format: {row_df_dict['modified_datetime']} in: {row_df_dict}")
+            sys.exit(1)
 
         # Create new row in db
         try:
