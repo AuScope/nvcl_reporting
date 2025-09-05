@@ -115,6 +115,7 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
         src_df = pd.DataFrame(columns=DF_COLUMNS)
     assert type(src_df['modified_datetime']) is not pd.Timestamp
 
+
     # Create new frame for populating
     new_df = pd.DataFrame(columns=DF_COLUMNS)
     # NB: The DF_COLUMNS has two extra TSG sourced date columns that are not in the database schema
@@ -135,6 +136,7 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
         # Strings are left as is
         else:
             new_df[col] = src_df[col]
+
 
     # Merge in date columns from TSG files
     if not new_df.empty:
@@ -175,10 +177,10 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
         models = generate_models(sdb)
     meas_mdl = models['meas']
     # Loop over all rows in dataframe to be exported
-    for idx, row_arr in df.iterrows():
+    for idx, row_series in df.iterrows():
 
         # Assemble a dict from dataframe row in the dataframe
-        row_df_dict = dict(zip(DF_COLUMNS, row_arr))
+        row_df_dict = row_series.to_dict()
         # Insert missing report category
         row_df_dict['report_category'] = report_category
         # Convert Python data structures to strings
@@ -209,7 +211,7 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
             sys.exit(1)
 
 
-def export_kms(db_file: str, prov_list: list, y: SimpleNamespace, q: SimpleNamespace):
+def export_kms(db_file: str, prov_list: list, y_list: list[SimpleNamespace], q_list: list[SimpleNamespace]):
     '''
     Export kms tables to db
 
@@ -238,10 +240,12 @@ def export_kms(db_file: str, prov_list: list, y: SimpleNamespace, q: SimpleNames
         Stats.delete().execute()
     rows = []
     for idx, prov in enumerate(prov_list):
-        rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': y.start,
-                    'end_date': y.end, 'stat_val1': y.cnt_list[idx], 'stat_val2': y.kms_list[idx]})
-        rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': q.start,
-                    'end_date': q.end, 'stat_val1': q.cnt_list[idx], 'stat_val2': q.kms_list[idx]})
+        for y in y_list:
+            rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': y.start,
+                         'end_date': y.end, 'stat_val1': y.cnt_list[idx], 'stat_val2': y.kms_list[idx]})
+        for q in q_list:
+            rows.append({'stat_name': 'borehole_cnt_kms', 'provider': prov, 'start_date': q.start,
+                         'end_date': q.end, 'stat_val1': q.cnt_list[idx], 'stat_val2': q.kms_list[idx]})
         
     try:
         # Try bulk insert
