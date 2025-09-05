@@ -117,7 +117,8 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
 
     # Create new frame for populating
     new_df = pd.DataFrame(columns=DF_COLUMNS)
-    # Remove to avoid confusion, drop TSG sourced columns as they will be merged in
+    # NB: The DF_COLUMNS has two extra TSG sourced date columns that are not in the database schema
+    # Remove to avoid confusion, drop TSG sourced columns as they will be merged in later
     new_df = new_df.drop(columns=['publish_date', 'hl_scan_date'])
 
     # Convert imported DataFrame column by column to usable data types
@@ -135,7 +136,7 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
         else:
             new_df[col] = src_df[col]
 
-    # Merge columns from TSG files
+    # Merge in date columns from TSG files
     if not new_df.empty:
         merged_df = pd.merge(new_df, tsg_meta_df, left_on='nvcl_id', right_on='nvcl_id')
         # Rename from 'tsg_meta_df' column names to report column names
@@ -176,10 +177,8 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
     # Loop over all rows in dataframe to be exported
     for idx, row_arr in df.iterrows():
 
-        # Assemble a dict from dataframe row
-        # Skip the first column in DB_COLUMNS - it is 'report_category' which is not
-        # in the dataframe
-        row_df_dict = dict(zip(DB_COLUMNS[1:], row_arr))
+        # Assemble a dict from dataframe row in the dataframe
+        row_df_dict = dict(zip(DF_COLUMNS, row_arr))
         # Insert missing report category
         row_df_dict['report_category'] = report_category
         # Convert Python data structures to strings
@@ -187,10 +186,14 @@ def export_db(db_file: str, df: pd.DataFrame, report_category: str, tsg_meta_df:
         row_df_dict['minerals'] = conv_obj2str(row_df_dict['minerals'])
         row_df_dict['data'] = conv_obj2str(row_df_dict['data'])
 
-        # Check data type
+        # Check date type
         if not isinstance(row_df_dict['modified_datetime'], date):
             print(f"ERROR: 'modified_datetime' in wrong format: {row_df_dict['modified_datetime']} in: {row_df_dict}")
             sys.exit(1)
+
+        # Remove extra date columns sourced from TSG files
+        del row_df_dict['publish_date']
+        del row_df_dict['hl_scan_date']
 
         # Create new row in db
         try:
