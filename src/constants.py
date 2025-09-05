@@ -17,7 +17,7 @@ PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA', 'VIC', 'CSIRO']
 CONFIG_FILE = str(ROOT_PATH / "config.yaml")
 
 # Test run
-TEST_RUN = False
+TEST_RUN = True # False
 
 # Maximum number of boreholes to retrieve from each provider
 MAX_BOREHOLES = 999999
@@ -35,8 +35,13 @@ ANALYSIS_CLASS = ''     # All classes
 # Report time window is based on this date
 REPORT_DATE = datetime.datetime.now().date()
 
+# Report stats table generation goes back this many years
+REPORT_RANGE = 5
+
 # Plot image size
 IMAGE_SZ = [150, 100]
 
 # Report font
 FONT = 'helvetica'
+
+
