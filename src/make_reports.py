@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import argparse
 import datetime
+from dateutil.relativedelta import relativedelta
 import signal
 from types import SimpleNamespace
 
@@ -33,7 +34,7 @@ from db.readwrite_db import import_db, export_db, export_kms, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
-from constants import REPORT_DATE, DATA_CATS_NUMS
+from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row, load_and_check_config
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process_tsgs
 
@@ -59,8 +60,8 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 2
-        new_prov_list = ['NSW', 'WA'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
+        MAX_BOREHOLES = 10
+        new_prov_list = ['NSW', 'WA', 'TAS', 'QLD'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
 
@@ -129,8 +130,16 @@ def update_kms(prov_list: list, db_file: str, report_date: datetime.date, date_f
     :param prov_list: list of providers
     :param db_file: filename of sqlite db
     """
-    y, q = calc_kms4db(report_date, date_fieldname, g_dfs, prov_list)
-    export_kms(db_file, prov_list, y, q) 
+    y_list = []
+    q_list = []
+    # Go back REPORT_RANGE years
+    for year_diff in range(REPORT_RANGE):
+        rel_date = report_date - relativedelta(years=year_diff)
+        y, q = calc_kms4db(rel_date, date_fieldname, g_dfs, prov_list)
+        y_list.append(y)
+        q_list.append(q)
+    # Creates a stats table with kms and bh counts
+    export_kms(db_file, prov_list, y_list, q_list) 
 
 
 def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (datetime.date, datetime.date, datetime.date):
