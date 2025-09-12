@@ -92,7 +92,13 @@ cd src
 
 ### DB Format
 
-There is only one table "meas", it has the following fields:
+There are two tables:
+1. "meas" this has TSG metadata, borehole metadata and mineralogy 
+2. "stats" this contains statistics e.g. sum of borehole depths  
+
+#### "meas" table
+
+It has the following fields:
 
 1.	*report_category*  Report Category e.g. "log1", "log2" 
 2.	*provider* State or Territory e.g. "tas" "nsw" etc.
@@ -117,6 +123,18 @@ There is only one table "meas", it has the following fields:
 21.	*minerals* e.g. ["KAOLIN", "WHITE-MICA"]
 22.	*mincnts* Mineral total counts e.g. [1, 279]
 23.	*data* Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
+
+#### "stats" table
+
+It has the following fields:
+
+1. *stat_name* name of statistic
+2. *provider* State or Territory e.g. "tas" "nsw" etc.
+3. *start_date* statistic measurement start date
+4. *end_date* statistic measurement end date
+5. *stat_val1* statistic value 1 (float)
+6. *stat_val2* statistic value 2 (float)
+
 
 ### Testing
 
