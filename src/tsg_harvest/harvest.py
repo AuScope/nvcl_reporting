@@ -206,7 +206,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
             try:
                 dt = datetime.datetime.strptime(field_list[0], DATE_FMT)
             except ValueError as ve:
-                print(f"ERROR - Cannot parse scan date '{date_str}' from: {prov}, {zip_file}: {ve}")
+                print(f"ERROR - Cannot parse scan date '{field_list[0]}' from: {prov}, {zip_file}: {ve}")
                 continue
             tsg_dict[prov][zip_file] = [dt] + field_list[1:]
     return tsg_dict
