@@ -36,7 +36,7 @@ from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
 from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row, load_and_check_config
-from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process_tsgs
+from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -398,7 +398,7 @@ def main(sys_argv):
 
     # Run TSG harvest
     if args.tsg_harvest:
-        process_tsgs(config['tsg_meta_file'])
+        process(config)
 
     # Open database, talk to services, update database
     if args.update:
