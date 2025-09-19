@@ -1,3 +1,4 @@
+# Docker compose file used to manage Grafana for nvcl_reporting
 services:
   grafana:
     image: grafana/grafana-enterprise:12.3.0-17814087142-boringcrypto
@@ -14,9 +15,10 @@ volumes:
     driver_opts:
       type: none
       o: bind
+      # Path to nvcl_reporting sqlite db on the host machine
       device:  /diagtools/github/nvcl_reporting/DBs
+  # Volumes used to store the Grafana config and data
   grafana-config:
     external: true
   grafana-data:
     external: true
-  
