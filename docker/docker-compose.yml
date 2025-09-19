@@ -1,0 +1,22 @@
+services:
+  grafana:
+    image: grafana/grafana-enterprise:12.3.0-17814087142-boringcrypto
+    volumes:
+      - grafana-config:/etc/grafana
+      - grafana-data:/var/lib/grafana
+      - nvcl-db:/nvcl-db
+    ports:
+      - "3000:3000"
+
+volumes:
+  nvcl-db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device:  /diagtools/github/nvcl_reporting/DBs
+  grafana-config:
+    external: true
+  grafana-data:
+    external: true
+  
