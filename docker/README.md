@@ -3,7 +3,7 @@
 *NB:* Assumes docker and docker compose are installed
 
 
-## Create docker volumes
+### Create docker volumes
 
 The docker compose file requires two docker volumes to hold Grafana configuration and data
 
@@ -49,12 +49,12 @@ docker run --rm -it -v grafana-config:/config alpine /bin/ash
 run --rm -it -v grafana-data:/data alpine /bin/ash
 ```
 
-## Adding nvcl_reporting database to 'docker-compose.yml' file
+### Adding nvcl_reporting database to 'docker-compose.yml' file
 
 * Edit the 'device:' line, add path to the directory where the nvcl db created by 'nvcl_reporting' resides
 * It will be seen in '\nvcl-db' directory in Grafana UI and can be used by 'SQlite' plugin
 
-## Start and Stop Grafana docker compose service
+### Start and Stop Grafana docker compose service
 
 * Start grafana
 ```
@@ -68,3 +68,10 @@ cd docker
 docker compose down
 ```
 
+### Backup Grafana docker volumes
+
+* Script copies out volume contents into the local directory in the host filesystem as a .tar.gz file
+```
+cd docker
+./backup.sh
+```
