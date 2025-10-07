@@ -144,8 +144,8 @@ It has the following fields:
 ### Grafana
 
 * [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
-* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly)
-* They are kept [here](./grafana/resources)
+* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
+* They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
 
 ### Testing
 
