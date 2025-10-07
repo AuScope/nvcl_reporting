@@ -1,0 +1,252 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+    folder: general
+    name: a1335031-fede-44c4-9f13-2fa8751f5f26
+spec:
+    annotations:
+        list:
+            - builtIn: 1
+              datasource:
+                type: grafana
+                uid: -- Grafana --
+              enable: true
+              hide: true
+              iconColor: rgba(0, 211, 255, 1)
+              name: Annotations & Alerts
+              type: dashboard
+    editable: true
+    fiscalYearStartMonth: 0
+    graphTooltip: 0
+    links: []
+    panels:
+        - datasource:
+            type: frser-sqlite-datasource
+            uid: feyisdz5ybdoge
+          fieldConfig:
+            defaults:
+                color:
+                    mode: palette-classic
+                custom:
+                    axisBorderShow: false
+                    axisCenteredZero: false
+                    axisColorMode: text
+                    axisLabel: ""
+                    axisPlacement: auto
+                    fillOpacity: 80
+                    gradientMode: none
+                    hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                    lineWidth: 1
+                    scaleDistribution:
+                        type: linear
+                    thresholdsStyle:
+                        mode: "off"
+                mappings: []
+                thresholds:
+                    mode: absolute
+                    steps:
+                        - color: green
+                          value: 0
+                        - color: red
+                          value: 80
+            overrides: []
+          gridPos:
+            h: 8
+            w: 12
+            x: 0
+            "y": 0
+          id: 4
+          options:
+            barRadius: 0
+            barWidth: 0.97
+            fullHighlight: false
+            groupWidth: 0.7
+            legend:
+                calcs: []
+                displayMode: list
+                placement: bottom
+                showLegend: true
+            orientation: auto
+            showValue: auto
+            stacking: none
+            tooltip:
+                hideZeros: false
+                mode: single
+                sort: none
+            xTickLabelRotation: 0
+            xTickLabelSpacing: 0
+          pluginVersion: 12.3.0-17814087142
+          targets:
+            - datasource:
+                type: frser-sqlite-datasource
+                uid: feyisdz5ybdoge
+              queryText: "PRAGMA case_sensitive_like = ON;\nwith algbhs as (\n    select substr(algorithm, -6) as alg, borehole_id, provider from meas\n    where (alg like '% uTSAS' or alg like '% uTSAV' or alg like '% uTSAT' or\n    alg like '% dTSAS' or alg like '% dTSAV' or alg like '% dTSAT' or\n    alg like '% sTSAS' or alg like '% sTSAV' or alg like '% sTSAT') and provider = '$provider'\n    union\n    select substr(algorithm, -7) as alg, borehole_id, provider from meas\n    where (alg like '% sjCLST' or alg like '% ujCLST' or alg like '% djCLST') and provider = '$provider'\n)\nselect alg, count(distinct algbhs.borehole_id) as 'borehole count'\nfrom algbhs\ngroup by alg \norder by count(distinct algbhs.borehole_id) desc;"
+              queryType: table
+              rawQueryText: "PRAGMA case_sensitive_like = ON;\nwith algbhs as (\n    select substr(algorithm, -6) as alg, borehole_id, provider from meas\n    where (alg like '% uTSAS' or alg like '% uTSAV' or alg like '% uTSAT' or\n    alg like '% dTSAS' or alg like '% dTSAV' or alg like '% dTSAT' or\n    alg like '% sTSAS' or alg like '% sTSAV' or alg like '% sTSAT') and provider = '$provider'\n    union\n    select substr(algorithm, -7) as alg, borehole_id, provider from meas\n    where (alg like '% sjCLST' or alg like '% ujCLST' or alg like '% djCLST') and provider = '$provider'\n)\nselect alg, count(distinct algbhs.borehole_id) as 'borehole count'\nfrom algbhs\ngroup by alg \norder by count(distinct algbhs.borehole_id) desc;"
+              refId: A
+              timeColumns: []
+          title: Number of boreholes by algorithm and provider for $provider
+          type: barchart
+        - datasource:
+            type: frser-sqlite-datasource
+            uid: feyisdz5ybdoge
+          fieldConfig:
+            defaults:
+                color:
+                    mode: palette-classic
+                custom:
+                    axisBorderShow: false
+                    axisCenteredZero: false
+                    axisColorMode: text
+                    axisLabel: ""
+                    axisPlacement: auto
+                    fillOpacity: 80
+                    gradientMode: none
+                    hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                    lineWidth: 1
+                    scaleDistribution:
+                        type: linear
+                    thresholdsStyle:
+                        mode: "off"
+                mappings: []
+                thresholds:
+                    mode: absolute
+                    steps:
+                        - color: green
+                          value: 0
+                        - color: red
+                          value: 80
+            overrides: []
+          gridPos:
+            h: 8
+            w: 12
+            x: 0
+            "y": 8
+          id: 3
+          options:
+            barRadius: 0
+            barWidth: 0.97
+            fullHighlight: false
+            groupWidth: 0.7
+            legend:
+                calcs: []
+                displayMode: list
+                placement: bottom
+                showLegend: true
+            orientation: auto
+            showValue: auto
+            stacking: none
+            tooltip:
+                hideZeros: false
+                mode: single
+                sort: none
+            xTickLabelRotation: 0
+            xTickLabelSpacing: 0
+          pluginVersion: 12.3.0-17814087142
+          targets:
+            - datasource:
+                type: frser-sqlite-datasource
+                uid: feyisdz5ybdoge
+              queryText: select distinct provider, count(distinct borehole_id) as count from meas where algorithm like '%$algorithm' group by provider;
+              queryType: table
+              rawQueryText: select distinct provider, count(distinct borehole_id) as count from meas where algorithm like '%$algorithm' group by provider;
+              refId: A
+              timeColumns: []
+          title: $algorithm algorithm count by provider
+          type: barchart
+    preload: false
+    schemaVersion: 42
+    tags:
+        - dashboardlist
+    templating:
+        list:
+            - allowCustomValue: false
+              current:
+                text: SA
+                value: SA
+              description: ""
+              label: Provider
+              name: provider
+              options:
+                - selected: true
+                  text: SA
+                  value: SA
+                - selected: false
+                  text: TAS
+                  value: TAS
+                - selected: false
+                  text: NSW
+                  value: NSW
+                - selected: false
+                  text: VIC
+                  value: VIC
+                - selected: false
+                  text: QLD
+                  value: QLD
+                - selected: false
+                  text: NT
+                  value: NT
+                - selected: false
+                  text: WA
+                  value: WA
+                - selected: false
+                  text: CSIRO
+                  value: CSIRO
+              query: SA, TAS, NSW, VIC, QLD, NT, WA, CSIRO
+              type: custom
+            - allowCustomValue: false
+              current:
+                text: dTSAS
+                value: dTSAS
+              label: Algorithm
+              name: algorithm
+              options:
+                - selected: false
+                  text: sTSAT
+                  value: sTSAT
+                - selected: false
+                  text: sTSAS
+                  value: sTSAS
+                - selected: false
+                  text: sTSAV
+                  value: sTSAV
+                - selected: false
+                  text: dTSAT
+                  value: dTSAT
+                - selected: true
+                  text: dTSAS
+                  value: dTSAS
+                - selected: false
+                  text: dTSAV
+                  value: dTSAV
+                - selected: false
+                  text: uTSAT
+                  value: uTSAT
+                - selected: false
+                  text: uTSAS
+                  value: uTSAS
+                - selected: false
+                  text: uTSAV
+                  value: uTSAV
+                - selected: false
+                  text: sjCLST
+                  value: sjCLST
+                - selected: false
+                  text: ujCLST
+                  value: ujCLST
+              query: sTSAT,sTSAS,sTSAV,dTSAT,dTSAS,dTSAV,uTSAT,uTSAS,uTSAV,sjCLST,ujCLST
+              type: custom
+    time:
+        from: now-6h
+        to: now
+    timepicker:
+        hidden: true
+    timezone: browser
+    title: Algorithms
+    uid: a1335031-fede-44c4-9f13-2fa8751f5f26
