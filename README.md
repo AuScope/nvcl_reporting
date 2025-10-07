@@ -136,9 +136,19 @@ It has the following fields:
 6. *stat_val2* statistic value 2 (float)
 
 
+### Docker
+
+* Docker compose file is [here](./docker/docker-compose.yml)
+* Instructions are [here](./docker/README.md)
+
+### Grafana
+
+* [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
+* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly)
+* They are kept [here](./grafana/resources)
+
 ### Testing
 
 * Install [tox](https://tox.wiki)
-
 * Run 'tox' from repository root directory
 
