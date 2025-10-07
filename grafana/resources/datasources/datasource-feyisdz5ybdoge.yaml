@@ -1,0 +1,16 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Datasource
+metadata:
+    name: feyisdz5ybdoge
+spec:
+    access: proxy
+    jsonData:
+        attachLimit: 0
+        path: /nvcl-db/nvcl15-kms.db
+        pathPrefix: 'file:'
+        pdcInjected: false
+    name: frser-sqlite-nvcl15-kms
+    orgId: 1
+    type: frser-sqlite-datasource
+    typeLogoUrl: public/plugins/frser-sqlite-datasource/img/logo.svg
+    uid: feyisdz5ybdoge
