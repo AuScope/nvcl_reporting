@@ -185,17 +185,17 @@ def process_tsgs(tmp_dir: str, output_file: str, tsg_dict: dict[str, dict[str, l
     """
     # Loop over providers
     for prov in PROVIDERS:
-        print(f"\n\n*** Processing {prov} ***\n")
+        print(f"\n\n*** Processing TSG files from {prov} ***\n")
         # NB: No need to check for missing key in dict because it is defaultdict
         process_prov(tmp_dir, prov, tsg_dict[prov])
 
 
 def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
     """
-    Parses the current CSV file into a dict
+    Parses the current TSG CSV file into a dict
     returns a empty dict if it does not exist
 
-    :param csv_file: file path of CSV file to read
+    :param csv_file: file path of TSG CSV file to read
     :returns: dict, key1 is provider, key2 is TSG zip filename, val is remaining fields
     """
     tsg_dict = defaultdict(lambda: defaultdict(list))
@@ -215,6 +215,8 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
                     print(f"ERROR - Cannot parse scan date '{field_list[0]}' from: {prov}, {zip_file}: {ve}")
                     continue
                 tsg_dict[prov][zip_file] = [dt] + field_list[1:]
+    else:
+        print("Initial TSG CSV file {csv_file} does not exist.")
     return tsg_dict
 
 
