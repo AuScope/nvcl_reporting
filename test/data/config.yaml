@@ -1,3 +1,4 @@
 plot_dir: plots
 db: test/data/simple.db
 tsg_meta_file: test/data/metadata.csv
+tmp_dir: /tmp
