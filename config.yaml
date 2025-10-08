@@ -1,4 +1,4 @@
-# All paths must to relative to this file's directory
+# All paths must be relative to this file's directory
 plot_dir: plots
-db: DBs/nvcl10-full.db
+db: DBs/nvcl16-kms.db
 tsg_meta_file: DBs/metadata.csv

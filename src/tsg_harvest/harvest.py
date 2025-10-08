@@ -20,19 +20,24 @@ import requests
 
 from helpers import load_and_check_config
 
-# URL of NVCL TSG datasets
+# URL of NVCL TSG datasets at NCI
 THREDDS_CAT = 'https://thredds.nci.org.au/thredds/catalog/rs07/{prov}/catalog.xml'
 
 # NVCLDataServices providers
 PROVIDERS = ['NSW', 'Vic', 'Tas', 'Qld', 'CSIRO', 'SA', 'NT', 'WA']
 
+# Some of the column labels in output CSV file
 HL_SCAN_DATE = 'hl scan date' # Date of core scan by Hylogger
 TSG_PUBLISH_DATE = 'tsg publish date' # Last modified date of TSG file in THREDDS filesystem
 NVCL_ID = 'drillhole name'
 
-# CSV fields extracted from a TSG file
+# Folder large enough to hold an unzipped TSG file
+TMP_DIR = '/diagtools/nvcl_reporting/tmp'
+
+# CSV column labels that are extracted from a TSG file
 TSG_FIELDS = [HL_SCAN_DATE, 'domain id', 'imagelog id', 'proflog id', 'traylog id', 'seclog id', NVCL_ID, 'dataset name', 'lat lon', 'collar']
 
+# Generic date format used in TSG file
 DATE_FMT = '%Y-%m-%d %H:%M:%S'
 
 def parse_date(date_str: str) -> datetime:
@@ -110,7 +115,7 @@ def process_prov(prov: str, prov_tsg_dict: dict[str, list]):
 
         # Is there are more recent version of TSG ZIP file?
         if prov_tsg_dict.get(ds.name, [datetime.datetime.min])[0] < tsg_mod_datetime:
-            with tempfile.NamedTemporaryFile(mode='wb') as temp_fd:
+            with tempfile.NamedTemporaryFile(mode='wb', dir=TMP_DIR) as temp_fd:
                 print(f"Processing {ds.name}. Downloading {ds.download_url()}")
                 # Download TSG ZIP file
                 try:
