@@ -25,8 +25,9 @@ dependencies = [
     "numpy>=2.2.6",
     "threddsclient>=0.4.5",
     "requests>=2.31.0",
+    "python-dateutil"
 ]
-requires-python = "<3.12,>=3.10"
+requires-python = "<3.13,>=3.10"
 
 [build-system]
 requires = ["pdm-backend"]
