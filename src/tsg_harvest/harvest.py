@@ -193,26 +193,28 @@ def process_tsgs(tmp_dir: str, output_file: str, tsg_dict: dict[str, dict[str, l
 def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
     """
     Parses the current CSV file into a dict
+    returns a empty dict if it does not exist
 
     :param csv_file: file path of CSV file to read
     :returns: dict, key1 is provider, key2 is TSG zip filename, val is remaining fields
     """
-    with open(csv_file, 'r') as csv_fd:
-        csvreader = csv.reader(csv_fd, delimiter='|', quotechar='|', doublequote=False,
-                                         quoting=csv.QUOTE_NONE)
-        tsg_dict = defaultdict(lambda: defaultdict(list))
-        first_row = False
-        for prov, zip_file, *field_list in csvreader:
-            # Skip first row
-            if not first_row:
-                first_row = True
-                continue
-            try:
-                dt = datetime.datetime.strptime(field_list[0], DATE_FMT)
-            except ValueError as ve:
-                print(f"ERROR - Cannot parse scan date '{field_list[0]}' from: {prov}, {zip_file}: {ve}")
-                continue
-            tsg_dict[prov][zip_file] = [dt] + field_list[1:]
+    tsg_dict = defaultdict(lambda: defaultdict(list))
+    if os.path.exists(csv_file):
+        with open(csv_file, 'r') as csv_fd:
+            csvreader = csv.reader(csv_fd, delimiter='|', quotechar='|', doublequote=False,
+                                   quoting=csv.QUOTE_NONE)
+            first_row = False
+            for prov, zip_file, *field_list in csvreader:
+                # Skip first row
+                if not first_row:
+                    first_row = True
+                    continue
+                try:
+                    dt = datetime.datetime.strptime(field_list[0], DATE_FMT)
+                except ValueError as ve:
+                    print(f"ERROR - Cannot parse scan date '{field_list[0]}' from: {prov}, {zip_file}: {ve}")
+                    continue
+                tsg_dict[prov][zip_file] = [dt] + field_list[1:]
     return tsg_dict
 
 
