@@ -149,6 +149,8 @@ It has the following fields:
 
 ### Testing
 
-* Install [tox](https://tox.wiki)
-* Run 'tox' from repository root directory
+* Uses 'tox' for testing
+```
+pdm run tox
+```
 
