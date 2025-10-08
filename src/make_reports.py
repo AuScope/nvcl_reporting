@@ -367,8 +367,6 @@ def main(sys_argv):
     # Load configuration
     config = load_and_check_config(config_file)
     plot_dir = config['plot_dir']
-    tsg_meta = TSGMeta(config['tsg_meta_file'])
-    tsg_meta_df = tsg_meta.get_frame()
     now = datetime.datetime.now()
     print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
@@ -399,6 +397,8 @@ def main(sys_argv):
     # Run TSG harvest
     if args.tsg_harvest:
         process(config)
+    tsg_meta = TSGMeta(config['tsg_meta_file'])
+    tsg_meta_df = tsg_meta.get_frame()
 
     # Open database, talk to services, update database
     if args.update:
