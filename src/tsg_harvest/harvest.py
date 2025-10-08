@@ -31,9 +31,6 @@ HL_SCAN_DATE = 'hl scan date' # Date of core scan by Hylogger
 TSG_PUBLISH_DATE = 'tsg publish date' # Last modified date of TSG file in THREDDS filesystem
 NVCL_ID = 'drillhole name'
 
-# Folder large enough to hold an unzipped TSG file
-TMP_DIR = '/diagtools/nvcl_reporting/tmp'
-
 # CSV column labels that are extracted from a TSG file
 TSG_FIELDS = [HL_SCAN_DATE, 'domain id', 'imagelog id', 'proflog id', 'traylog id', 'seclog id', NVCL_ID, 'dataset name', 'lat lon', 'collar']
 
@@ -94,10 +91,11 @@ def get_tsg_metadata(filepath: Path) -> dict:
     return field_dict
 
 
-def process_prov(prov: str, prov_tsg_dict: dict[str, list]):
+def process_prov(tmp_dir: str, prov: str, prov_tsg_dict: dict[str, list]):
     """
     Extract data and process for one provider
 
+    :param tmp_dir: temporary directory for TSG file processing
     :param prov: provider name - see 'PROVIDERS' list
     :param csvwrite: instance of csvwriter class to output each data point
     :param prov_tsg_dict: TSG dict for prov, key is TSG zip filename, val is remaining fields
@@ -115,7 +113,7 @@ def process_prov(prov: str, prov_tsg_dict: dict[str, list]):
 
         # Is there are more recent version of TSG ZIP file?
         if prov_tsg_dict.get(ds.name, [datetime.datetime.min])[0] < tsg_mod_datetime:
-            with tempfile.NamedTemporaryFile(mode='wb', dir=TMP_DIR) as temp_fd:
+            with tempfile.NamedTemporaryFile(mode='wb', dir=tmp_dir) as temp_fd:
                 print(f"Processing {ds.name}. Downloading {ds.download_url()}")
                 # Download TSG ZIP file
                 try:
@@ -177,10 +175,11 @@ def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.
         print(f"ERROR: For {prov} & {ds.name}, cannot unzip {temp_zip_file}: {bzf}")
 
 
-def process_tsgs(output_file: str, tsg_dict: dict[str, dict[str, list]]):
+def process_tsgs(tmp_dir: str, output_file: str, tsg_dict: dict[str, dict[str, list]]):
     """
     Extract metadata from TSGs given an output file
 
+    :param tmp_dir: temporary directory for TSG file processing
     :param output_file: CSV file to put all the output
     :param tsg_dict: TSG dict, key1 is provider, key2 is TSG zip filename, val is remaining fields
     """
@@ -188,7 +187,7 @@ def process_tsgs(output_file: str, tsg_dict: dict[str, dict[str, list]]):
     for prov in PROVIDERS:
         print(f"\n\n*** Processing {prov} ***\n")
         # NB: No need to check for missing key in dict because it is defaultdict
-        process_prov(prov, tsg_dict[prov])
+        process_prov(tmp_dir, prov, tsg_dict[prov])
 
 
 def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
@@ -281,7 +280,7 @@ def process(config):
     tsg_dict = parse_csv(csv_file)
 
     # Amend TSG dict
-    process_tsgs(csv_file, tsg_dict)
+    process_tsgs(config['tmp_dir'], csv_file, tsg_dict)
 
     # Write out TSG dict to CSV file
     print("Write out new CSV file")

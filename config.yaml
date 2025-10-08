@@ -2,3 +2,4 @@
 plot_dir: plots
 db: DBs/nvcl16-kms.db
 tsg_meta_file: DBs/metadata.csv
+tmp_dir: /tmp

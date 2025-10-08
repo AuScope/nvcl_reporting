@@ -39,12 +39,13 @@ def load_and_check_config(config_file: str) -> dict:
         sys.exit(1)
 
     # Check keys
-    for key in ('db', 'plot_dir', 'tsg_meta_file'):
+    for key in ('db', 'plot_dir', 'tsg_meta_file', 'tmp_dir'):
         if key not in config:
             print(f"Config file {config_file} is missing a value for '{key}'")
             sys.exit(1)
-        # Prepend config directory to make an absolute path
-        config[key] = os.path.join(config_dir, config[key])
+        # Prepend config directory to make an absolute path if not 'tmp_dir'
+        if key != 'tmp_dir':
+            config[key] = os.path.join(config_dir, config[key])
         # Try to create plot directory
         if key in ('plot_dir') and not os.path.exists(config[key]):
             try:
