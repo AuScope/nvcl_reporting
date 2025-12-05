@@ -29,20 +29,20 @@ spec:
             - containerPort: 3000
               protocol: TCP
           volumeMounts:
-            - mountPath: /etc/grafana
-              name: grafana-config
-            - mountPath: /var/lib/grafana
-              name: grafana-data
-            - mountPath: /nvcl-db
-              name: nvcl-db
+            - name: grafana-config
+              mountPath: /etc/grafana
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: nvcl-db
+              mountPath: /nvcl-db
       restartPolicy: Always
       volumes:
-        - name: grafana-config
-          persistentVolumeClaim:
-            claimName: grafana-config
-        - name: grafana-data
-          persistentVolumeClaim:
-            claimName: grafana-data
-        - name: nvcl-db
-          persistentVolumeClaim:
-            claimName: nvcl-db
+         - name: grafana-config
+           persistentVolumeClaim:
+             claimName: grafana-config
+         - name: grafana-data
+           persistentVolumeClaim:
+             claimName: grafana-data
+         - name: nvcl-db
+           persistentVolumeClaim:
+             claimName: nvcl-db
