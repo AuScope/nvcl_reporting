@@ -23,7 +23,7 @@ spec:
         io.kompose.service: grafana
     spec:
       containers:
-        - image: grafana/grafana-enterprise:12.3.0-17814087142-boringcrypto
+        - image: grafana/grafana-enterprise:12.3-ubuntu
           name: grafana
           ports:
             - containerPort: 3000
@@ -35,14 +35,21 @@ spec:
               mountPath: /var/lib/grafana
             - name: nvcl-db
               mountPath: /nvcl-db
+          securityContext:
+            runAsUser: {{ values.nfs.security.userId }}
+            runAsGroup: {{ values.nfs.security.groupId }}
       restartPolicy: Always
       volumes:
-         - name: grafana-config
-           persistentVolumeClaim:
-             claimName: grafana-config
-         - name: grafana-data
-           persistentVolumeClaim:
-             claimName: grafana-data
-         - name: nvcl-db
-           persistentVolumeClaim:
-             claimName: nvcl-db
+        - name: grafana-config
+          nfs:
+            server: {{ values.nfs.vols.grafanaConfig.server }}
+            path: {{ values.nfs.vols.grafanaConfig.path }}
+        - name: grafana-data
+          nfs:
+            server: {{ values.nfs.vols.grafanaData.server }}
+            path: {{ values.nfs.vols.grafanaData.path }}
+        - name: nvcl-db
+          nfs:
+            server: {{ values.nfs.vols.nvclDb.server }}
+            path: {{ values.nfs.vols.nvclDb.path }}
+
