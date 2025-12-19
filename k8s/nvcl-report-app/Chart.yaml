@@ -1,6 +1,6 @@
 apiVersion: v2
-name: grafana-app
-description: A Helm chart for my application
+name: nvcl-report-app
+description: A Helm chart for NVCL Reporting application
 type: application
 version: 0.1.0        # Chart version
-appVersion: "1.0"     # Your app version
+appVersion: "1.0"     # NVCL Reporting Application version

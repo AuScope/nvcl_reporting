@@ -36,20 +36,20 @@ spec:
             - name: nvcl-db
               mountPath: /nvcl-db
           securityContext:
-            runAsUser: {{ values.nfs.security.userId }}
-            runAsGroup: {{ values.nfs.security.groupId }}
+            runAsUser: {{ .Values.nfs.security.userId }}
+            runAsGroup: {{ .Values.nfs.security.groupId }}
       restartPolicy: Always
       volumes:
         - name: grafana-config
           nfs:
-            server: {{ values.nfs.vols.grafanaConfig.server }}
-            path: {{ values.nfs.vols.grafanaConfig.path }}
+            server: {{ .Values.nfs.vols.grafanaConfig.server }}
+            path: {{ .Values.nfs.vols.grafanaConfig.path }}
         - name: grafana-data
           nfs:
-            server: {{ values.nfs.vols.grafanaData.server }}
-            path: {{ values.nfs.vols.grafanaData.path }}
+            server: {{ .Values.nfs.vols.grafanaData.server }}
+            path: {{ .Values.nfs.vols.grafanaData.path }}
         - name: nvcl-db
           nfs:
-            server: {{ values.nfs.vols.nvclDb.server }}
-            path: {{ values.nfs.vols.nvclDb.path }}
+            server: {{ .Values.nfs.vols.nvclDb.server }}
+            path: {{ .Values.nfs.vols.nvclDb.path }}
 
