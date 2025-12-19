@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certissuer }}
+  name: nvcl-report-ingress
+spec:
+  rules:
+  - host: {{ .Values.ingress.hostname }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: grafana
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - {{ .Values.ingress.hostname }}
+    secretName: {{ .Values.ingress.secretname }}
