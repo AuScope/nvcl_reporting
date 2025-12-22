@@ -4,11 +4,18 @@
 
 # NVCL Reporting
 
-Creates a summary database of the NVCL core library from around Australia
+A reporting website used to monitor the progress of NVCL drill core analysis.
+
+Features:
+
+* A [Grafana Enterprise](https://grafana.com/grafana/download?edition=enterprise) front end where reports can be freely designed and displayed
+* A weekly database update from the NVCL nodes around Australia and NCI's copy of te NVCL TSG files 
 
 There are also some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
-**Needs 64 GB RAM**
+## Development
+
+**NB: Needs 64 GB RAM**
 
 ### Setup
 
@@ -70,7 +77,6 @@ Run 1am Sunday morning each week
 00 01 * * SUN /usr/bin/bash -c "cd $HOME/gitlab/nvcl_reporting/scripts && ./run_reports.sh W > output.weekly 2>&1"
 ```
 
-
 ### Generate TSG file metadata summary, connect to NVCL services, update data files, then create PDF reports 
 ```
 eval $(pdm venv activate)
@@ -83,12 +89,19 @@ cd src
 # Brief weekly report (run this once a week)
 ./make_reports.py -utb
 ```
+
 **NOTES:**
 1. Omit 't' command line flag to disable TSG file summary
 2. 'u' command line flag updates the current database
 3. 'f' command line flag generates a full report
 4. 'b' command line flag generates a brief report
 
+### Testing
+
+* Uses 'tox' for testing
+```
+pdm run tox
+```
 
 ### DB Format
 
@@ -135,7 +148,6 @@ It has the following fields:
 5. *stat_val1* statistic value 1 (float)
 6. *stat_val2* statistic value 2 (float)
 
-
 ### Docker
 
 * Docker compose file is [here](./docker/docker-compose.yml)
@@ -146,11 +158,3 @@ It has the following fields:
 * [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
 * The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
 * They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
-
-### Testing
-
-* Uses 'tox' for testing
-```
-pdm run tox
-```
-
