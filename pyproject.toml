@@ -10,6 +10,7 @@ authors = [
 ]
 
 dependencies = [
+    "pyproj==3.7.2",
     "pandas",
     "matplotlib",
     "wordcloud",
@@ -27,7 +28,7 @@ dependencies = [
     "requests>=2.31.0",
     "python-dateutil"
 ]
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.13,>=3.11"
 
 [build-system]
 requires = ["pdm-backend"]
