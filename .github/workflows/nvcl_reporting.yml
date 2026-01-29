@@ -14,6 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.0
     - run: python -V
+    - run: pip install --upgrade pip
     - run: pip install pdm
     - run: pdm install
     - run: pdm build
