@@ -10,6 +10,7 @@ authors = [
 ]
 
 dependencies = [
+    "numpy>=2.2.6",
     "pyproj==3.7.2",
     "pandas",
     "matplotlib",
@@ -23,7 +24,6 @@ dependencies = [
     "cython",
     "peewee>=3.16.2",
     "fiscalyear>=0.4.0",
-    "numpy>=2.2.6",
     "threddsclient>=0.4.5",
     "requests>=2.31.0",
     "python-dateutil"
