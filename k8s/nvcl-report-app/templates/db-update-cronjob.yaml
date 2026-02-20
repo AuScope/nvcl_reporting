@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: run-db-update
+spec:
+  # Every Monday at 9am
+  schedule: "0 9 * * 1"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: runner
+            image: ubuntu:latest
+            command: ["/bin/sh", "/scripts/script.sh", "{{ .Values.nfs.security.userId }}"]
+            volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: nvcl-db
+              mountPath: /nvcl-db
+          volumes:
+          - name: scripts
+            configMap:
+              name: my-script
+              defaultMode: 0755
+          - name: nvcl-db
+            nfs:
+              server: {{ .Values.nfs.vols.nvclDb.server }}
+              path: {{ .Values.nfs.vols.nvclDb.path }}
