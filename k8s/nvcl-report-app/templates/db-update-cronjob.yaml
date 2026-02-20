@@ -14,6 +14,13 @@ spec:
           - name: runner
             image: ubuntu:latest
             command: ["/bin/sh", "/scripts/script.sh", "{{ .Values.nfs.security.userId }}"]
+            resources:
+              requests:
+                cpu: 6
+                memory: 64Gi
+              limits:
+                cpu: 6
+                memory: 64Gi
             volumeMounts:
             - name: scripts
               mountPath: /scripts
@@ -29,3 +36,5 @@ spec:
             nfs:
               server: {{ .Values.nfs.vols.nvclDb.server }}
               path: {{ .Values.nfs.vols.nvclDb.path }}
+          securityContext:
+            runAsUser: 0
