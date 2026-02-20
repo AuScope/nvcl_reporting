@@ -11,6 +11,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from types import SimpleNamespace
 from datetime import datetime, date
+from pathlib import Path
 import json
 import math
 
@@ -97,6 +98,10 @@ def import_db(db_file: str, report_datacat: str, tsg_meta_df: pd.DataFrame) -> p
     :param report_datacat: report category
     :returns: new pandas dataframe
     '''
+
+    # Do db parent paths exist? If not, then create them
+    db_csv = Path(db_file)
+    db_csv.parent.mkdir(parents=True, exist_ok=True)
 
     # Read category data from database
     try:

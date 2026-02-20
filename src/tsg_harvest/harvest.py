@@ -216,7 +216,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
                     continue
                 tsg_dict[prov][zip_file] = [dt] + field_list[1:]
     else:
-        print("Initial TSG CSV file {csv_file} does not exist.")
+        print(f"Initial TSG CSV file {csv_file} does not exist.")
     return tsg_dict
 
 
@@ -227,6 +227,9 @@ def write_csv(csv_file: str, tsg_dict: dict[str, dict[str, list]]):
     :param csv_file: filename of CSV file
     :param tsg_dict: dict to be written out
     """
+    # Do csv parent paths exist? If not, then create them
+    pl_csv = Path(csv_file)
+    pl_csv.parent.mkdir(parents=True, exist_ok=True)
 
     # Open file in overwrite mode
     with open(csv_file, 'w') as csv_fd:
