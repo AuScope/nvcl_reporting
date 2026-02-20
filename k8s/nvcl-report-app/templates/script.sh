@@ -25,7 +25,7 @@ cd nvcl_reporting
 #
 # Install pdm
 curl -sSL https://pdm-project.org/install.sh | bash
-export PATH="/root/.local/bin:$PATH"
+export PATH="/home/batch/.local/bin:$PATH"
 #
 # Install python packages
 pdm install
