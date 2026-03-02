@@ -338,9 +338,14 @@ def main(sys_argv):
     parser.add_argument('-c', '--config', action='store', help="Config file")
     parser.add_argument('-o', '--output', action='store', help="Report output file & path")
     parser.add_argument('-t', '--tsg_harvest', action='store_true', help="Run TSG harvest first")
+    parser.add_argument("--test_run", action='store_true')
 
     # Parse command line arguments
     args = parser.parse_args(sys_argv[1:])
+
+    # If test run required
+    if args.test_run:
+        TEST_RUN = True
 
     # Complain & exit if nothing selected
     if not (args.update or args.full or args.brief):
@@ -368,7 +373,7 @@ def main(sys_argv):
     config = load_and_check_config(config_file)
     plot_dir = config['plot_dir']
     now = datetime.datetime.now()
-    print("Running on", now.strftime("%A %d %B %Y %H:%M:%S"))
+    print("NVCL_REPORTING running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
 
     data_loaded = False
@@ -396,15 +401,19 @@ def main(sys_argv):
 
     # Run TSG harvest
     if args.tsg_harvest:
+        print("Running TSG harvest")
         process(config)
+        print("TSG harvest complete")
     tsg_meta = TSGMeta(config['tsg_meta_file'])
     tsg_meta_df = tsg_meta.get_frame()
 
     # Open database, talk to services, update database
     if args.update:
+        print("Updating database")
         update_data(PROV_LIST, db, tsg_meta_df)
         update_kms(PROV_LIST, db, report_date, DATE_FIELDNAME)
         data_loaded = True
+        print("Database update complete")
 
     # Load database from designated database
     if not data_loaded:
@@ -412,6 +421,7 @@ def main(sys_argv):
 
     # Create report
     if args.full or args.brief:
+        print("Creating reports")
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
         if not plot_path.exists():
@@ -424,7 +434,7 @@ def main(sys_argv):
         # Create plots and report
         assemble_report(args.output, report_date, DATE_FIELDNAME, g_dfs, plot_dir, prefix, args.brief)
 
-    print("Done.")
+    print("NVCL_REPORTING Done.")
 
 if __name__ == "__main__":
     main(sys.argv)
