@@ -53,6 +53,7 @@ def load_and_check_config(config_file: str) -> dict:
             except OSError as oe:
                 print(f"Cannot load create directory {config[key]}: {oe}")
                 sys.exit(1)
+    print("Config processed.")
     return config
 
 

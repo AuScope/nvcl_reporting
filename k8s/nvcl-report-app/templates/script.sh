@@ -9,10 +9,14 @@ apt install -y git curl
 # Install pyproj prerequisites
 apt install -y python3 python3-pip gcc g++ build-essential libproj-dev proj-data proj-bin libgeos-dev
 
-# Create new user
+echo "Creating 'batch' user"
+
+# Create new user called "batch" with UID that can access NFS
 groupadd -g $MYUID batch
 useradd -u $MYUID -m -s /bin/bash -g batch batch
 cd /home/batch
+
+echo "Creating batch script"
 
 ## Create script START
 cat << EOF2 > batch_install.sh
@@ -30,14 +34,9 @@ export PATH="/home/batch/.local/bin:$PATH"
 # Install python packages
 pdm install
 #
-# Create config file
-cat << EOF > config.yaml
-plot_dir: /nvcl-db/plots
-db: /nvcl-db/DBs/nvcl16-kms.db
-tsg_meta_file: /nvcl-db/DBs/metadata.csv
-tmp_dir: /tmp
-EOF
-# Run db updates
+# 
+touch /nvcl-db/testNFS.txt
+# Run db update
 cd src
 pdm run make_reports.py -utb
 EOF2
@@ -47,4 +46,5 @@ chmod +x batch_install.sh
 chown batch: batch_install.sh
 
 ## Execute script as 'batch' user to allow NFS access
+echo "Executing batch script"
 su batch -c ./batch_install.sh
