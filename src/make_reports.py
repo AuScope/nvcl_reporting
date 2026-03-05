@@ -44,7 +44,6 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
-global TEST_RUN
 TEST_RUN = False
 
 DATE_FIELDNAME = 'publish_date'
@@ -60,7 +59,6 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     """
 
     MAX_BOREHOLES = 9999
-    global TEST_RUN
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 10
@@ -347,8 +345,8 @@ def main(sys_argv):
     args = parser.parse_args(sys_argv[1:])
 
     # If test run required
-    global TEST_RUN
     if args.test_run:
+        global TEST_RUN
         TEST_RUN = True
     print(f"TEST_RUN is {TEST_RUN}")
 
