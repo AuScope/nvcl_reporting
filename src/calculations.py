@@ -313,7 +313,7 @@ def calc_kms4db(report_date: datetime.date, date_fieldname: str, df_dict: dict[s
     """
     # Check 'df_dict' for empty dataframes
     if has_no_data(df_dict):
-        print("Datasets are empty, please create them before enabling plots")
+        print("Cannot calculate kms. Datasets are empty")
         print(f"df_dict.keys()={df_dict.keys()}")
         print(f"df_dict={df_dict}")
         sys.exit(1)
@@ -344,8 +344,8 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
 
     report = ReportTableData()
     # Check 'df_dict' for empty dataframes
-    if not has_no_data(df_dict):
-        print("Datasets are empty, please create them before enabling plots")
+    if has_no_data(df_dict):
+        print("Cannot assemble report. Datasets are empty.")
         print(f"df_dict.keys()={df_dict.keys()}")
         print(f"df_dict={df_dict}")
         sys.exit(1)
