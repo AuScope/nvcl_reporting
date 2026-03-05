@@ -2,27 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os
 import pandas as pd
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
 import sqlite3
-from collections import OrderedDict
-from collections.abc import Iterable
 from types import SimpleNamespace
 from datetime import datetime, date
 from pathlib import Path
 import json
-import math
 
 import pandas
-import numpy as np
 import peewee
-from peewee import SqliteDatabase, Model
+from peewee import SqliteDatabase
 from playhouse.reflection import generate_models
 
 
-from db.schema import Stats, Meas, DATE_FMT, DB_COLUMNS
+from db.schema import Stats, Meas, DATE_FMT
 
 # Dataframe columns = list of columns in database - 'report_category' + 'hl_scan_date' + 'publish_date'
 from db.schema import DF_COLUMNS

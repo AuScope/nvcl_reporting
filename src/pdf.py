@@ -1,5 +1,4 @@
 import os
-import glob
 from fpdf import FPDF
 from PIL import Image
 

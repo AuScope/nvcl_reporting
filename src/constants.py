@@ -16,9 +16,6 @@ PROV_LIST = ['NSW', 'NT', 'TAS', 'QLD', 'SA', 'WA', 'VIC', 'CSIRO']
 # Configuration file
 CONFIG_FILE = str(ROOT_PATH / "config.yaml")
 
-# Test run
-TEST_RUN = False
-
 # Maximum number of boreholes to retrieve from each provider
 MAX_BOREHOLES = 999999
 

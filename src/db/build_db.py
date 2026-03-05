@@ -5,11 +5,7 @@ import sys
 import os
 from pathlib import Path
 import datetime
-from datetime import date
-import time
 import pickle
-import sqlite3
-import contextlib
 from collections.abc import Iterable
 from collections import OrderedDict
 import json
@@ -19,7 +15,7 @@ import math
 import pandas as pd
 pd.options.mode.chained_assignment = None
 
-from peewee import SqliteDatabase, Model, TextField, DateField, CompositeKey, IntegrityError
+from peewee import SqliteDatabase, IntegrityError
 
 from db.schema import DATE_FMT, Meas
 
