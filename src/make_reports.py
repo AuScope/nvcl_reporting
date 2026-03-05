@@ -33,7 +33,7 @@ from multiprocessing import Pool
 from db.readwrite_db import import_db, export_db, export_kms, DF_COLUMNS
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, assemble_report, calc_kms4db
-from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST, TEST_RUN
+from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST
 from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row, load_and_check_config
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
@@ -44,6 +44,8 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
+global TEST_RUN
+TEST_RUN = False
 
 DATE_FIELDNAME = 'publish_date'
 
@@ -58,6 +60,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     """
 
     MAX_BOREHOLES = 9999
+    global TEST_RUN
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 10
@@ -344,8 +347,11 @@ def main(sys_argv):
     args = parser.parse_args(sys_argv[1:])
 
     # If test run required
+    global TEST_RUN
     if args.test_run:
         TEST_RUN = True
+    print(f"TEST_RUN is {TEST_RUN}")
+
 
     # Complain & exit if nothing selected
     if not (args.update or args.full or args.brief):
