@@ -18,7 +18,7 @@ dependencies = [
     "periodictable",
     "seaborn",
     "xmltodict",
-    "nvcl-kit>=1.2.5",
+    "nvcl-kit>=1.2.14",
     "fpdf2",
     "pillow",
     "cython",

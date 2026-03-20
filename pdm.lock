@@ -5,7 +5,7 @@
 groups = ["default", "test"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:1a54eebad5540a9b16ad571973a16cd17bc5bfcaf8ecd500ea09450caf45ae2d"
+content_hash = "sha256:80f1d2e454a4e691b902348372b205b68ded0823d47fa96281387201d46000af"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.13"
@@ -449,7 +449,7 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.2.5"
+version = "1.2.14"
 requires_python = ">=3.9"
 summary = "Downloads Australian National Virtual Core Library (NVCL) datasets"
 dependencies = [
@@ -460,8 +460,8 @@ dependencies = [
     "shapely>=2.0.4",
 ]
 files = [
-    {file = "nvcl_kit-1.2.5-py3-none-any.whl", hash = "sha256:60c3b0121b291c1c76ef49358c2f6ce89feec71359840857650e93f35bc93d8a"},
-    {file = "nvcl_kit-1.2.5.tar.gz", hash = "sha256:368729c5094a3768b819a6e208f75cab24a92086dea3e12509fe6e273ab5e7d2"},
+    {file = "nvcl_kit-1.2.14-py3-none-any.whl", hash = "sha256:555e4cfdf976dcfb0afb09050c48018a6b045d3ab4932ca61120cc2a80587638"},
+    {file = "nvcl_kit-1.2.14.tar.gz", hash = "sha256:122825f015715fe17305f22ad6762105c7fd5450cce2b4746083bd9ab5951c15"},
 ]
 
 [[package]]
