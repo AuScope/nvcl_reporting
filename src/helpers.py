@@ -3,6 +3,7 @@ import os
 import datetime
 from pathlib import Path
 import yaml
+from urllib.parse import urlparse
 
 from pyproj.transformer import Transformer
 
@@ -90,11 +91,11 @@ def to_metres(x: float, y: float) -> (float, float):
     transformer = Transformer.from_crs(4326, 7842)
     return transformer.transform(y, x)
 
-def make_row(prov: str, borehole: str, scan_date: datetime.date, modified_date: datetime.date, publish_date: datetime.date):
+def make_row(prov: str, borehole: SimpleNamespace, scan_date: datetime.date, modified_date: datetime.date, publish_date: datetime.date):
     """ Returns a DF_Row() instance populated with borehole data abd dates provided
 
     :param prov: provider string
-    :param borehole: dict of borehole metadata
+    :param borehole: SimpleNamespace of borehole metadata (x,y, nvcl_id, name, boreholeLength_m)
     :param scan_date: HyLogger scan date
     :param modified_date: modified date according to NVCLServices API
     :param publish_date: date TSG file was published at NCI
@@ -108,7 +109,7 @@ def make_row(prov: str, borehole: str, scan_date: datetime.date, modified_date: 
         hl_scan_date=scan_date,
         easting=easting,
         northing=northing,
-        crs="EPSG:7842",
+        crs="EPSG:7842", # Assuming GDA 2020
         start_depth=0,
         end_depth=borehole.boreholeLength_m,
         has_vnir=False,
@@ -124,3 +125,15 @@ def make_row(prov: str, borehole: str, scan_date: datetime.date, modified_date: 
         minerals=[],
         mincnts=[],
         data=[])
+
+def get_last_url_part(url: str) -> str:
+    """
+    returns the last segment of a URL string
+
+    :param url: URL string
+    :returns: the final segment of a URL string
+    """
+    parsed_url = urlparse(url)
+    path = parsed_url.path
+    stripped_path = path.rstrip('/')
+    return stripped_path.rsplit('/', 1)[-1]

@@ -35,7 +35,8 @@ from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST
 from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
-from helpers import conv_mindata, make_row, load_and_check_config
+from helpers import conv_mindata, make_row
+from helpers import load_and_check_config, get_last_url_part
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
 
 # Dataset dictionary - stores current NVCL datasets
@@ -62,7 +63,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 10
-        new_prov_list = ['NSW', 'WA', 'TAS', 'QLD'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
+        new_prov_list = ['TAS'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
 
@@ -223,15 +224,51 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         print(f"Cannot build parameters for {prov}: {param}")
         return results
 
-    # Instantiate class and search for boreholes
-    #print(f"param={param}")
+    # Instantiate class and search for boreholes via WFS
     reader = NVCLReader(param)
     if not reader.wfs:
         print(f"ERROR! Cannot connect to {prov}")
         return results
 
+    # Get a list of borehole URIs from NVCLDataServices
+    nds_nvclid_list = [ (get_last_url_part(bhuri), bhuri) for bhuri in reader.get_bhuri_list() ]
+    nds_nvclid_list = nds_nvclid_list[:max_boreholes]
+
+    # Make a list of SimpleNamespace borehole objects from WFS
+    wfs_bh_list = reader.get_boreholes_list()
+
+    # Make a list of nvcl ids from WFS
+    wfs_nvclid_dict = { bh.nvcl_id.lower(): bh for bh in wfs_bh_list }
+
+    boreholes_list = []
+    printidx1 = 0
+    printidx2 = 0
+    # Loop over all NVCLDataServices boreholes
+    # Note that NVCL boreholes that are in WFS but not in NVCLDataServices are not included
+    for nvcl_id, bhuri in nds_nvclid_list:
+        nvcl_id_l = nvcl_id.lower()
+        # If there is a WFS object use that
+        if nvcl_id_l in wfs_nvclid_dict:
+            if printidx1 < 3:
+                print(f"Adding: {wfs_nvclid_dict[nvcl_id_l]=}\n")
+            printidx1 += 1
+            boreholes_list.append(wfs_nvclid_dict[nvcl_id_l])
+        else:
+            # Create a borehole object, most attributes are blank or zero
+            bh_obj = SimpleNamespace(x=0.0, y=0.0, z=0.0, nvcl_id=nvcl_id, href=bhuri, identifier=bhuri, name=nvcl_id)
+            # Loop over possible values (from GeoSciML BoreholeView v4.1) and 'tenement' + 'project'
+            for to_attr in ('description', 'purpose', 'status', 'drillingMethod', 'operator', 'driller', 'drillStartDate', 'drillEndDate', 'startPoint', 'inclinationType', 'boreholeMaterialCustodian', 'boreholeLength_m', 'elevation_m', 'elevation_srs', 'positionalAccuracy', 'source', 'parentBorehole_uri', 'metadata_uri', 'genericSymbolizer', 'tenement', 'project'):
+                setattr(bh_obj, to_attr, '')
+            if printidx2 < 3:
+                print(f"Adding: {bh_obj=}\n")
+            printidx2 += 1
+            boreholes_list.append(bh_obj)
+
+    print(f"WFS Added: {printidx1}     NDS Added: {printidx2}\n")
+    print(f"{prov} Borehole list total: {printidx1+printidx2}")
+
+
     # Search for NVCL boreholes
-    boreholes_list = reader.get_boreholes_list()
     nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
     print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
 
