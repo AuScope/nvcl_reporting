@@ -475,7 +475,7 @@ def main(sys_argv):
         # Create plots and report
         assemble_report(args.output, report_date, DATE_FIELDNAME, g_dfs, plot_dir, prefix, args.brief)
 
-    print("NVCL_REPORTING Done.")
+    print("NVCL_REPORTING Done @", now.strftime("%A %d %B %Y %H:%M:%S"))
 
 if __name__ == "__main__":
     main(sys.argv)
