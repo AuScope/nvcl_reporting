@@ -30,7 +30,10 @@ from nvcl_kit.constants import has_VNIR, has_SWIR, has_TIR
 from multiprocessing import Pool
 
 # Local imports
-from db.readwrite_db import import_db, export_db, export_kms, DF_COLUMNS
+from db.import_db import import_db
+from db.schema import DF_COLUMNS
+from db.export_db import export_db
+from db.export_kms import export_kms
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST
@@ -49,7 +52,7 @@ TEST_RUN = False
 
 DATE_FIELDNAME = 'publish_date'
 
-def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
+def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
@@ -62,7 +65,7 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 10
+        MAX_BOREHOLES = 3
         new_prov_list = ['TAS'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
         prov_list = new_prov_list
 
@@ -72,13 +75,13 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
     # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database file
-        print(f"Importing db {db_file}, {data_cat}")
-        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta_df)
+        print(f"Importing db {db_name}, {data_cat}")
+        g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
         if s1 != s2:
-            print(f"Cannot read database file {db_file}, wrong columns: {s1} != {s2}")
+            print(f"Cannot read database file {db_name}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
 
@@ -119,18 +122,19 @@ def update_data(prov_list: [], db_file: str, tsg_meta_df: pd.DataFrame):
 
     # Once finished, save out data to database
     for data_cat in DATA_CATS:
-        print(f"\nSaving '{data_cat}' to {db_file}")
-        export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
+        print(f"\nSaving '{data_cat}' to {db_name}")
+        export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
 
 
-def update_kms(prov_list: list, db_file: str, report_date: datetime.date, date_fieldname: str):
+def update_kms(prov_list: list, db_name: str, db_params: dict, report_date: datetime.date, date_fieldname: str):
     """
     Update the kms tables
 
     :param report_date: report is centred on this date
     :param date_fieldname: name of field used to filter rows by date
     :param prov_list: list of providers
-    :param db_file: filename of sqlite db
+    :param db_name: name of db
+    :param db_params: db connection parameters
     """
     y_list = []
     q_list = []
@@ -141,7 +145,7 @@ def update_kms(prov_list: list, db_file: str, report_date: datetime.date, date_f
         y_list.append(y)
         q_list.append(q)
     # Creates a stats table with kms and bh counts
-    export_kms(db_file, prov_list, y_list, q_list) 
+    export_kms(db_name, db_params, prov_list, y_list, q_list) 
 
 
 def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (datetime.date, datetime.date, datetime.date):
@@ -348,14 +352,15 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     return results
 
 
-def load_data(db_file: str, tsg_meta_df: pd.DataFrame):
+def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
     """ Load NVCL data from database file
 
-    :param db_file: directory path of database file
+    :param db_name: database name
+    :param db_params: database connection parameters
     """
-    print(f"Loading database {db_file}")
+    print(f"Loading database {db_name}")
     for idx, data_cat in enumerate(DATA_CATS):
-        g_dfs[data_cat] = import_db(db_file, data_cat, tsg_meta_df)
+        g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
         print(f"{idx+1} of {len(DATA_CATS)}: {data_cat} done")
     print("Loading database done.")
 
@@ -372,7 +377,6 @@ def main(sys_argv):
     parser.add_argument('-f', '--full', action='store_true', help="Create full report")
     parser.add_argument('-b', '--brief', action='store_true', help="Create brief report")
     parser.add_argument('-r', '--report_date', action='store', help="Create report based on this date, format: YYYY-MM-DD")
-    parser.add_argument('-d', '--db', action='store', help="Database filename")
     parser.add_argument('-c', '--config', action='store', help="Config file")
     parser.add_argument('-o', '--output', action='store', help="Report output file & path")
     parser.add_argument('-t', '--tsg_harvest', action='store_true', help="Run TSG harvest first")
@@ -380,6 +384,15 @@ def main(sys_argv):
 
     # Parse command line arguments
     args = parser.parse_args(sys_argv[1:])
+
+    db_name = 'appdb'
+    db_params = {
+            'host':'127.0.0.1',
+            'port':25432,
+            'user':'appuser',
+            'password':'change-me-please',
+            'sslmode': 'disable'
+    }
 
     # If test run required
     if args.test_run:
@@ -429,17 +442,6 @@ def main(sys_argv):
             sys.exit(1)
     print(f"Report date is {report_date.strftime('%a %d %B %Y')}")
 
-    # Assigns a database, defaults to database defined in config
-    if args.db is not None:
-        db = args.db
-    elif 'db' in config:
-        db = config['db']
-    else:
-        print("Database not defined in config file, nor on command line")
-        sys.exit(1)
-    if not os.path.exists(db):
-        print(f"{db} does not exist. Will attempt to create a new one...")
-
     # Run TSG harvest
     if args.tsg_harvest:
         print("Running TSG harvest")
@@ -451,14 +453,14 @@ def main(sys_argv):
     # Open database, talk to services, update database
     if args.update:
         print("Updating database")
-        update_data(PROV_LIST, db, tsg_meta_df)
-        update_kms(PROV_LIST, db, report_date, DATE_FIELDNAME)
+        update_data(PROV_LIST, db_name, db_params, tsg_meta_df)
+        update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME)
         data_loaded = True
         print("Database update complete")
 
     # Load database from designated database
     if not data_loaded:
-        load_data(db, tsg_meta_df)
+        load_data(db_name, db_params, tsg_meta_df)
 
     # Create report
     if args.full or args.brief:
@@ -469,7 +471,7 @@ def main(sys_argv):
             os.mkdir(plot_dir)
         # Calculate stats for graphs
         if args.full:
-            calc_stats(g_dfs, PROV_LIST, db)
+            calc_stats(g_dfs, PROV_LIST, db_name, db_params)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report

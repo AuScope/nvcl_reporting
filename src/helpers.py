@@ -40,7 +40,7 @@ def load_and_check_config(config_file: str) -> dict:
         sys.exit(1)
 
     # Check keys
-    for key in ('db', 'plot_dir', 'tsg_meta_file', 'tmp_dir'):
+    for key in ('plot_dir', 'tsg_meta_file', 'tmp_dir'):
         if key not in config:
             print(f"Config file {config_file} is missing a value for '{key}'")
             sys.exit(1)
@@ -52,7 +52,7 @@ def load_and_check_config(config_file: str) -> dict:
             try:
                 os.mkdir(config[key])
             except OSError as oe:
-                print(f"Cannot load create directory {config[key]}: {oe}")
+                print(f"Cannot create directory {config[key]}: {oe}")
                 sys.exit(1)
     print("Config processed.")
     return config
@@ -102,6 +102,10 @@ def make_row(prov: str, borehole: SimpleNamespace, scan_date: datetime.date, mod
     :returns: DF_Row() instance 
     """
     easting, northing = to_metres(borehole.x, borehole.y)
+    try:
+        end_depth = float(borehole.boreholeLength_m)
+    except ValueError:
+        end_depth = 0.0
     return DF_Row(provider=prov,
         borehole_id=borehole.nvcl_id,
         drill_hole_name=borehole.name,
@@ -111,7 +115,7 @@ def make_row(prov: str, borehole: SimpleNamespace, scan_date: datetime.date, mod
         northing=northing,
         crs="EPSG:7842", # Assuming GDA 2020
         start_depth=0,
-        end_depth=borehole.boreholeLength_m,
+        end_depth=end_depth,
         has_vnir=False,
         has_swir=False,
         has_tir=False,
