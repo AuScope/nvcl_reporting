@@ -385,14 +385,19 @@ def main(sys_argv):
     # Parse command line arguments
     args = parser.parse_args(sys_argv[1:])
 
-    db_name = 'appdb'
-    db_params = {
-            'host':'127.0.0.1',
-            'port':25432,
-            'user':'appuser',
-            'password':'change-me-please',
+    # Set DB connection parameters from environment
+    try:
+        db_name = os.environ["POSTGRES_DB"]
+        db_params = {
+            'host': os.environ.get("POSTGRES_HOST", 'postgres'),
+            'port': os.environ.get("POSTGRES_PORT", '5432'),
+            'user': os.environ['POSTGRES_USER'],
+            'password': os.environ['POSTGRES_PASSWORD'],
             'sslmode': 'disable'
-    }
+        }
+    except KeyError as ke:
+        print(f"ERROR - Postgres DB env var not set: {ke}")
+        sys.exit(1)
 
     # If test run required
     if args.test_run:
