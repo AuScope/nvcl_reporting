@@ -25,16 +25,21 @@ spec:
             - name: scripts
               mountPath: /scripts
               readOnly: true
-            - name: nvcl-db
-              mountPath: /nvcl-db
+            - name: nvcl-fs
+              mountPath: /nvcl-fs
+            - name: nvcl-disk
+              mountPath: /nvcl-disk
           volumes:
           - name: scripts
             configMap:
               name: my-script
               defaultMode: 0755
-          - name: nvcl-db
+          - name: nvcl-fs
             nfs:
               server: {{ .Values.nfs.vols.nvclDb.server }}
               path: {{ .Values.nfs.vols.nvclDb.path }}
+          - name: nvcl-disk
+            persistentVolumeClaim:
+              claimName: nvcl-pvc
           securityContext:
             runAsUser: 0
