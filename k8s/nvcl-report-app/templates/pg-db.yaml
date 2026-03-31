@@ -5,6 +5,8 @@ metadata:
   namespace: nvcl-projects
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: postgres
@@ -33,10 +35,10 @@ spec:
           resources:
             requests:
               cpu: 4
-              memory: 8Gi
+              memory: 16Gi
             limits:
               cpu: 4
-              memory: 8Gi
+              memory: 16Gi
       volumes:
         - name: data
           persistentVolumeClaim:
