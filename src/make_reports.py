@@ -386,11 +386,22 @@ def main(sys_argv):
     args = parser.parse_args(sys_argv[1:])
 
     # Set DB connection parameters from environment
+    # POSTGRES_PORT is sometimes set to 'tcp://123.123.123.123:5432'
+    port_str = os.environ.get("POSTGRES_PORT", '5432')
+    port = '5432'
+    if port_str[:4] == 'tcp:':
+        port_num = port_str.rsplit(':')[-1]
+        if port_num.isdigit():
+            port = port_num 
+    elif port_str.isdigit():
+        port = port_str
+    sys.exit(0)
+
     try:
         db_name = os.environ["POSTGRES_DB"]
         db_params = {
             'host': os.environ.get("POSTGRES_HOST", 'postgres'),
-            'port': os.environ.get("POSTGRES_PORT", '5432'),
+            'port': port,
             'user': os.environ['POSTGRES_USER'],
             'password': os.environ['POSTGRES_PASSWORD'],
             'sslmode': 'disable'
