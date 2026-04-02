@@ -408,8 +408,13 @@ def main(sys_argv):
     except KeyError as ke:
         print(f"ERROR - Postgres DB env var not set: {ke}")
         sys.exit(1)
-    print(f"{db_name=} {db_params=}")
-    sys.exit(0)
+
+    # Print db connection params
+    print(f"DB connection: {db_name=}")
+    print(f"   {db_params['host']=}")
+    print(f"   {db_params['port']=}")
+    print(f"   {db_params['user']=}")
+    print(f"   {db_params['sslmode']=}\n")
 
     # If test run required
     if args.test_run:
