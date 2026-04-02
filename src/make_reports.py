@@ -395,7 +395,6 @@ def main(sys_argv):
             port = port_num 
     elif port_str.isdigit():
         port = port_str
-    sys.exit(0)
 
     try:
         db_name = os.environ["POSTGRES_DB"]
