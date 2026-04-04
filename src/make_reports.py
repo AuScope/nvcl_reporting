@@ -58,7 +58,8 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         Upon keyboard interrupt save updates to database and exit
 
         :param prov_list: list of NVCL service providers
-        :param db_file: database filename
+        :param db_name: database name
+        :param db_params: database commection parameters
         :param tsg_meta_df: TSG metadata dataframe
     """
 
@@ -74,14 +75,14 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     known_id_df = pd.DataFrame()
     # Loop over data categories
     for data_cat in DATA_CATS:
-        # Import data frame from database file
+        # Import data frame from database
         print(f"Importing db {db_name}, {data_cat}")
         g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
         if s1 != s2:
-            print(f"Cannot read database file {db_name}, wrong columns: {s1} != {s2}")
+            print(f"Cannot read database {db_name}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
 
@@ -116,7 +117,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         #        f.write(current_id)
         ## Save out data & exit
         #for data_cat in DATA_CATS:
-        #    export_db(db_file, g_dfs[data_cat], data_cat, tsg_meta_df)
+        #    export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
 
@@ -353,7 +354,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
 
 def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
-    """ Load NVCL data from database file
+    """ Load NVCL data from database
 
     :param db_name: database name
     :param db_params: database connection parameters
