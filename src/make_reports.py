@@ -52,6 +52,7 @@ TEST_RUN = False
 
 DATE_FIELDNAME = 'publish_date'
 
+
 def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
@@ -66,8 +67,8 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 3
-        new_prov_list = ['TAS'] # ['VIC','TAS','WA','NSW','QLD','NT','SA']
+        MAX_BOREHOLES = 12
+        new_prov_list = ['TAS','WA','NSW','QLD','SA'] # 'NT', 'VIC'
         prov_list = new_prov_list
 
 
@@ -85,6 +86,8 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             print(f"Cannot read database {db_name}, wrong columns: {s1} != {s2}")
             sys.exit(1)
         known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
+    sys.stdout.flush()
+    
 
     # TODO: Reinstate later
     #if ABORT_FILE.is_file():
@@ -97,16 +100,28 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     print("Reading NVCL data services ...")
     # Read data from NVCL services
     try:
-        # Run each provider in parallel, limit to max of 2 because of memory limitations
-        # Limit to len(prov_list) to avoid hanging problems
-        with Pool(processes=min(2, len(prov_list))) as pool:
-            param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES) for prov in prov_list]
-            print(f"Running in parallel with {len(param_list)} processes for {prov_list}")
-            prov_df_list = pool.starmap(do_prov, param_list)
-            # Append new results from a provider to the global dataframe
-            for prov_df in prov_df_list:
+        MULTI = True
+        if MULTI:
+            # Run each provider in parallel, limit to max of 2 because of memory limitations
+            # Limit to len(prov_list) to avoid hanging problems
+            with Pool(processes=min(3, len(prov_list))) as pool:
+                param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params) for prov in prov_list]
+                print(f"Running in parallel with {len(param_list)} processes for {prov_list}")
+                result_list = pool.starmap(do_prov, param_list)
+                print(f"{result_list=}")
+                sys.stdout.flush()
+
+            # IMPORTANT: re-import because g_dfs has not been updated with new values
+            for data_cat in DATA_CATS:
+                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+                
+        else:
+            # Single-threaded
+            for prov in prov_list:
+                prov_df = do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES)
                 for data_cat in DATA_CATS:
                     g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_df[data_cat]], ignore_index=True)
+
 
     ## If user presses Ctrl-C then save out data to db & exit
     except KeyboardInterrupt:
@@ -120,11 +135,6 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         #    export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
         # SIGINT is Ctrl-C
         sys.exit(int(signal.SIGINT))
-
-    # Once finished, save out data to database
-    for data_cat in DATA_CATS:
-        print(f"\nSaving '{data_cat}' to {db_name}")
-        export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
 
 
 def update_kms(prov_list: list, db_name: str, db_params: dict, report_date: datetime.date, date_fieldname: str):
@@ -208,7 +218,7 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     return scan_date, modified_date, publish_date
 
 
-def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int):
+def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_name: str, db_params: dict):
     """ Ask a provider for NVCL data, runs in its own process
 
     :param prov: name of provider, e.g. 'NSW'
@@ -227,13 +237,13 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     param = param_builder(prov, max_boreholes=max_boreholes)
     if not param:
         print(f"Cannot build parameters for {prov}: {param}")
-        return results
+        return False
 
     # Instantiate class and search for boreholes via WFS
     reader = NVCLReader(param)
     if not reader.wfs:
         print(f"ERROR! Cannot connect to {prov}")
-        return results
+        return False
 
     # Get a list of borehole URIs from NVCLDataServices
     nds_nvclid_list = [ (get_last_url_part(bhuri), bhuri) for bhuri in reader.get_bhuri_list() ]
@@ -271,16 +281,18 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
     print(f"WFS Added: {printidx1}     NDS Added: {printidx2}\n")
     print(f"{prov} Borehole list total: {printidx1+printidx2}")
-
+        
 
     # Search for NVCL boreholes
     nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
     print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
+    sys.stdout.flush()
+    
 
     # Check for no NVCL ids & skip to next service
     if not nvcl_id_list:
         print(f"!!!! Could not download NVCL ids for {prov}")
-        return results
+        return False
 
     for idx, nvcl_id in enumerate(nvcl_id_list):
         print('-'*50)
@@ -312,9 +324,10 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             if SW_ignore_importedIDs and \
               ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
                 print(f"Log id {ld.log_id} already imported, next...")
+                sys.stdout.flush()
                 continue
             minerals = []
-            print(f"Importing log id {ld.log_id} from {nvcl_id} in {prov}")
+            #print(f"Importing log id {ld.log_id} from {nvcl_id} in {prov}")
 
             # Fetch dates 
             scan_date, modified_date, published_date = get_dates(ld, tsg_meta_df, nvcl_id)
@@ -350,7 +363,15 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
             # Add new data to the results dataframe
             results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
-    return results
+            sys.stdout.flush()
+
+    for data_cat in DATA_CATS:
+        g_dfs[data_cat] = pd.concat([g_dfs[data_cat], results[data_cat]], ignore_index=True)
+        print(f"\nSaving  '{prov}', '{data_cat}' to {db_name}")
+        sys.stdout.flush()
+        export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
+
+    return True
 
 
 def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
@@ -464,22 +485,28 @@ def main(sys_argv):
             print(f"Report date has incorrect format: {ve}")
             sys.exit(1)
     print(f"Report date is {report_date.strftime('%a %d %B %Y')}")
+    sys.stdout.flush()
 
     # Run TSG harvest
     if args.tsg_harvest:
         print("Running TSG harvest")
+        sys.stdout.flush()
         process(config)
         print("TSG harvest complete")
+        sys.stdout.flush()
+        
     tsg_meta = TSGMeta(config['tsg_meta_file'])
     tsg_meta_df = tsg_meta.get_frame()
 
     # Open database, talk to services, update database
     if args.update:
         print("Updating database")
+        sys.stdout.flush()
         update_data(PROV_LIST, db_name, db_params, tsg_meta_df)
         update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME)
         data_loaded = True
         print("Database update complete")
+        sys.stdout.flush()
 
     # Load database from designated database
     if not data_loaded:
@@ -488,6 +515,7 @@ def main(sys_argv):
     # Create report
     if args.full or args.brief:
         print("Creating reports")
+        sys.stdout.flush()
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
         if not plot_path.exists():
