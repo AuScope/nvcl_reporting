@@ -40,7 +40,7 @@ def load_and_check_config(config_file: str) -> dict:
         sys.exit(1)
 
     # Check keys
-    for key in ('plot_dir', 'tsg_meta_file', 'tmp_dir'):
+    for key in ('plot_dir', 'tsg_meta_file', 'tmp_dir', 'pickle_dir'):
         if key not in config:
             print(f"Config file {config_file} is missing a value for '{key}'")
             sys.exit(1)
@@ -48,7 +48,7 @@ def load_and_check_config(config_file: str) -> dict:
         if key != 'tmp_dir':
             config[key] = os.path.join(config_dir, config[key])
         # Try to create plot directory
-        if key in ('plot_dir') and not os.path.exists(config[key]):
+        if key in ('plot_dir', 'pickle_dir') and not os.path.exists(config[key]):
             try:
                 os.mkdir(config[key])
             except OSError as oe:

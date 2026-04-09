@@ -10,6 +10,7 @@ import datetime
 from dateutil.relativedelta import relativedelta
 import signal
 from types import SimpleNamespace
+import traceback
 
 # External imports
 import numpy as np
@@ -53,7 +54,7 @@ TEST_RUN = False
 DATE_FIELDNAME = 'publish_date'
 
 
-def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
+def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame, pickle_dir: str):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
         Upon keyboard interrupt save updates to database and exit
@@ -62,13 +63,14 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         :param db_name: database name
         :param db_params: database commection parameters
         :param tsg_meta_df: TSG metadata dataframe
+        :param piclke_dir: filesystem path to store pickle file of borehole data from provider
     """
 
     MAX_BOREHOLES = 9999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
-        MAX_BOREHOLES = 12
-        new_prov_list = ['TAS','WA','NSW','QLD','SA'] # 'NT', 'VIC'
+        MAX_BOREHOLES = 9999
+        new_prov_list = ['CSIRO'] # 'QLD', 'CSIRO', 'TAS', 'WA', 'NSW', 'SA', 'NT', 'VIC'
         prov_list = new_prov_list
 
 
@@ -105,7 +107,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             # Run each provider in parallel, limit to max of 2 because of memory limitations
             # Limit to len(prov_list) to avoid hanging problems
             with Pool(processes=min(3, len(prov_list))) as pool:
-                param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params) for prov in prov_list]
+                param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir) for prov in prov_list]
                 print(f"Running in parallel with {len(param_list)} processes for {prov_list}")
                 result_list = pool.starmap(do_prov, param_list)
                 print(f"{result_list=}")
@@ -118,7 +120,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         else:
             # Single-threaded
             for prov in prov_list:
-                prov_df = do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES)
+                prov_df = do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir)
                 for data_cat in DATA_CATS:
                     g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_df[data_cat]], ignore_index=True)
 
@@ -218,13 +220,14 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     return scan_date, modified_date, publish_date
 
 
-def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_name: str, db_params: dict):
+def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_name: str, db_params: dict, pickle_dir: str):
     """ Ask a provider for NVCL data, runs in its own process
 
     :param prov: name of provider, e.g. 'NSW'
     :param known_id_df: known NVCL ID dataframe
     :param tsg_meta_df: TSG metadata dataframe
-    :returns: pandas DataFrame with columns defined by DF_COLUMNS
+    :param piclke_dir: filesystem path to store pickle file of borehole data from provider
+    :returns: True/False
     """
     print('\n'+'>'*15+f"    {prov}    "+'<'*15)
 
@@ -367,9 +370,16 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
     for data_cat in DATA_CATS:
         g_dfs[data_cat] = pd.concat([g_dfs[data_cat], results[data_cat]], ignore_index=True)
+        print(f"\nSaving  '{prov}', '{data_cat}' to {data_cat}_{prov}.pkl")
+        g_dfs[data_cat].to_pickle(os.path.join(pickle_dir, f"{data_cat}_{prov}.pkl"))
         print(f"\nSaving  '{prov}', '{data_cat}' to {db_name}")
         sys.stdout.flush()
-        export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
+        try:
+            export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
+        except Exception as e:
+            print(f"Caught exception {e} exporting nvcl database rows")
+            traceback.print_exc()
+            sys.stdout.flush()
 
     return True
 
@@ -470,6 +480,7 @@ def main(sys_argv):
     # Load configuration
     config = load_and_check_config(config_file)
     plot_dir = config['plot_dir']
+    pickle_dir = config['pickle_dir']
     now = datetime.datetime.now()
     print("NVCL_REPORTING running on", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stdout.flush()
@@ -500,9 +511,13 @@ def main(sys_argv):
 
     # Open database, talk to services, update database
     if args.update:
+        # Create pickle dir if doesn't exist
+        pickle_path = Path(pickle_dir)
+        if not pickle_path.exists():
+            os.mkdir(pickle_dir)
         print("Updating database")
         sys.stdout.flush()
-        update_data(PROV_LIST, db_name, db_params, tsg_meta_df)
+        update_data(PROV_LIST, db_name, db_params, tsg_meta_df, pickle_dir)
         update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME)
         data_loaded = True
         print("Database update complete")
