@@ -1,3 +1,4 @@
 plot_dir: /nvcl-disk/plots
+pickle_dir: /nvcl-disk/pickle
 tsg_meta_file: /nvcl-disk/metadata.csv
 tmp_dir: /tmp
