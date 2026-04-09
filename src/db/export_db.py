@@ -33,20 +33,31 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
         print("No rows inserted")
         return
 
+
+    BATCH_SIZE = 1000
+
+    def batched(iterable, n):
+        for i in range(0, len(iterable), n):
+            print(f"Inserting rows - {i}:{i+n}.")
+            sys.stdout.flush()
+            yield iterable[i:i+n]
+
     with Session(engine) as session:
-        stmt = insert(Meas).values(rows)
-        
-        # Ignore duplicate keys
-        stmt = stmt.on_conflict_do_nothing(
-            index_elements=[
-                "report_category",
-                "provider",
-                "nvcl_id",
-                "log_id",
-                "algorithm",
-                "log_type",
-                "algorithm_id",
-            ]
-        )
-        session.execute(stmt)
-        session.commit()
+        for chunk in batched(rows, BATCH_SIZE):
+            stmt = (
+                insert(Meas)
+                .values(chunk)
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        "report_category",
+                        "provider",
+                        "nvcl_id",
+                        "log_id",
+                        "algorithm",
+                        "log_type",
+                        "algorithm_id",
+                    ]
+                )
+            )
+            session.execute(stmt)
+            session.commit()
