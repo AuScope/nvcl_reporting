@@ -70,7 +70,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 9999
-        new_prov_list = ['SA'. 'WA'] # 'QLD', 'CSIRO', 'TAS', 'NSW', 'NT', 'VIC'
+        new_prov_list = ['SA','WA'] # 'QLD', 'CSIRO', 'TAS', 'NSW', 'NT', 'VIC'
         prov_list = new_prov_list
 
 
