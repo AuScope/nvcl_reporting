@@ -1,4 +1,4 @@
-plot_dir: /nvcl-db/plots
-db: /nvcl-db/DBs/nvcl16-kms.db
-tsg_meta_file: /nvcl-db/DBs/metadata.csv
+plot_dir: /nvcl-disk/plots
+pickle_dir: /nvcl-disk/pickle
+tsg_meta_file: /nvcl-disk/metadata.csv
 tmp_dir: /tmp
