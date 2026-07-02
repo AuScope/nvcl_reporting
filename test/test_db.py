@@ -11,7 +11,8 @@ sys.path.insert(0, src_path)
 
 from db.tsg_metadata import TSGMeta
 
-from db.readwrite_db import import_db, export_db
+from db.import_db import import_db
+from db.export_db import export_db
 
 @pytest.fixture
 def tsg_meta_df():
