@@ -6,12 +6,14 @@ import datetime
 src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
+my_dir = os.path.dirname(os.path.abspath(__file__))
+
 from db.tsg_metadata import TSGMeta
 
 def test_tsg_meta():
     """ Testing TSGMeta class
     """
-    t = TSGMeta(os.path.join("data", "metadata.csv"))
+    t = TSGMeta(os.path.join(my_dir, "data", "metadata.csv"))
     frame = t.get_frame()
     assert frame.shape  == (5,3)
     assert list(frame.columns) == ['nvcl_id', 'hl scan date', 'tsg publish date']
