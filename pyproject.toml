@@ -41,5 +41,6 @@ build-backend = "pdm.backend"
 test = [
     "pytest>=8.3.2",
     "tox",
-    "pytest-postgres>=0.7.0",
+    "pytest-postgresql",
+    "psycopg[binary]"
 ]
