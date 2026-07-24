@@ -12,8 +12,6 @@ src_path = os.path.join(os.path.abspath(os.pardir), 'src')
 sys.path.insert(0, src_path)
 
 from calculations import calc_bh_depths, calc_fyq, get_fy_date_ranges, standardise
-# Don't delete 'tsg_meta_df' 'tsg_meta_bigger_df', needed for fixtures to be injected
-from test_db import db_df, bigger_db_df, tsg_meta_df, tsg_meta_bigger_df
 
 def test_standardise():
     """ Test standardise() function
