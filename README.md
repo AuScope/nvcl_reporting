@@ -9,7 +9,7 @@ A reporting website used to monitor the Australia-wide progress of NVCL drill co
 Features:
 
 * A [Grafana Enterprise](https://grafana.com/grafana/download?edition=enterprise) front end where reports can be freely designed and displayed
-* A weekly database update from the NVCL nodes around Australia and NCI's copy of te NVCL TSG files 
+* A weekly database update from the NVCL nodes around Australia and [NCI's](https://nci.org.au/) [AuScope NVCL Collection](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f1197_9784_2018_5983) 
 
 There are also some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
 
@@ -23,24 +23,46 @@ There are also some Python scripts to generate PDF reports and send emails about
 
 2. Clone repository
 ```
-git clone https://gitlab.com/csiro-geoanalytics/auscope/nvcl_reporting.git
+git clone https://github.com/AuScope/nvcl_reporting.git
 cd nvcl_reporting
 pdm install
 ```
 
-3. Set up email. Add a line of email addresses to a text file called '.email_addr' in the root directory
+## Docker
+
+* Docker compose file is [here](./docker/docker-compose.yml)
+* Instructions are [here](./docker/README.md)
+
+## Grafana
+
+* [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
+* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
+* They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
+
+## Testing
+
+* Uses 'tox' for testing e.g.
+```
+pdm run tox
+```
+
+## Old PDF Report Setup
+
+Sends regular PDF reports via email
+
+1. Set up email. Add a line of email addresses to a text file called '.email_addr' in the root directory
   - First line has the "To:" addresses
   - Use a space to separate multiple email addresses
 ```
 vi .email_addr
 ```
 
-4. Install [mutt](http://www.mutt.org) email client
+2. Install [mutt](http://www.mutt.org) email client
 ```
 sudo apt install mutt
 ```
 
-5. Configure sending address
+3. Configure sending address
 ```
 vi ~/.muttrc
 ```
@@ -96,20 +118,14 @@ cd src
 3. 'f' command line flag generates a full report
 4. 'b' command line flag generates a brief report
 
-### Testing
 
-* Uses 'tox' for testing
-```
-pdm run tox
-```
-
-### DB Format
+## DB Format
 
 There are two tables:
 1. "meas" this has TSG metadata, borehole metadata and mineralogy 
 2. "stats" this contains statistics e.g. sum of borehole depths  
 
-#### "meas" table
+### "meas" table
 
 It has the following fields:
 
@@ -137,9 +153,9 @@ It has the following fields:
 22.	*mincnts* Mineral total counts e.g. [1, 279]
 23.	*data* Mineral counts at each depth e.g. [[0.5, {"className": "", "classCount": 36, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [1.5, {"className": "", "classCount": 35, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [2.5, {"className": "", "classCount": 45, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], [3.5, {"className": "", "classCount": 58, "classText": "WHITE-MICA", "colour": [1.0, 1.0, 0.0, 1.0]}], ...
 
-#### "stats" table
+### "stats" table
 
-It has the following fields:
+A general purpose statistics table. It has the following fields:
 
 1. *stat_name* name of statistic
 2. *provider* State or Territory e.g. "tas" "nsw" etc.
@@ -147,14 +163,3 @@ It has the following fields:
 4. *end_date* statistic measurement end date
 5. *stat_val1* statistic value 1 (float)
 6. *stat_val2* statistic value 2 (float)
-
-### Docker
-
-* Docker compose file is [here](./docker/docker-compose.yml)
-* Instructions are [here](./docker/README.md)
-
-### Grafana
-
-* [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
-* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
-* They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
