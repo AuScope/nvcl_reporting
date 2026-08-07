@@ -12,13 +12,13 @@ jobs:
       image: python:3.12
     timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v4.1.0
+    - uses: actions/checkout@v7
     - run: python -V
     - run: pip install --upgrade pip
     - run: pip install pdm
     - run: pdm install
     - run: pdm build
-    - uses: actions/upload-artifact@v4.1.0
+    - uses: actions/upload-artifact@v7
       if: success()
       with:
         name: "${{ github.job }}"
@@ -49,8 +49,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
     timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: actions/download-artifact@v4.1.0
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
     - run: python -V
     - run: pip install pdm
     - run: pip install tox flake8
