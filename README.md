@@ -155,7 +155,9 @@ It has the following fields:
 
 ### "stats" table
 
-A general purpose statistics table. It has the following fields:
+A general purpose statistics table used to store periodical statistics e.g. annual borehole counts 
+
+It has the following fields:
 
 1. *stat_name* name of statistic
 2. *provider* State or Territory e.g. "tas" "nsw" etc.
@@ -163,3 +165,9 @@ A general purpose statistics table. It has the following fields:
 4. *end_date* statistic measurement end date
 5. *stat_val1* statistic value 1 (float)
 6. *stat_val2* statistic value 2 (float)
+
+## Publications
+
+Fazio, Vincent; Mule, Shane. NVCL Reporting Live System. In: AuScope NVCL Workshop 2026; 20 to end of 23 Apr 2026; Perth, Australia. csiro; 2026. 8pp. csiro:EP2026-2842. https://doi.org/10.5281/zenodo.20805232
+
+
