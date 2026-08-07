@@ -4,7 +4,7 @@
 
 # NVCL Reporting
 
-A reporting website used to monitor the progress of NVCL drill core analysis.
+A reporting website used to monitor the Australia-wide progress of NVCL drill core analysis.
 
 Features:
 
