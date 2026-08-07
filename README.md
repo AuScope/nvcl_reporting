@@ -11,13 +11,19 @@ Features:
 * A [Grafana Enterprise](https://grafana.com/grafana/download?edition=enterprise) front end where reports can be freely designed and displayed
 * A weekly database update from the NVCL nodes around Australia and [NCI's](https://nci.org.au/) [AuScope NVCL Collection](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f1197_9784_2018_5983) 
 
-There are also some Python scripts to generate PDF reports and send emails about the status of NVCL datasets and services
+There is also the option of deploying without a front-end UI and using Python scripts to generate PDF reports and send emails
+
+## Grafana
+
+* [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
+* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
+* They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
 
 ## Development
 
 **NB: Needs 64 GB RAM**
 
-### Setup
+### Initial Setup
 
 1. If you don't already have it, install [pdm](https://pdm.fming.dev/latest/)
 
@@ -28,16 +34,14 @@ cd nvcl_reporting
 pdm install
 ```
 
-## Docker
+### Kubernetes Setup
+
+* Helm Chart and templates are [here](./k8s/nvcl-report-app)
+
+### Docker Setup
 
 * Docker compose file is [here](./docker/docker-compose.yml)
 * Instructions are [here](./docker/README.md)
-
-## Grafana
-
-* [Grafana](https://github.com/grafana/grafana) is used to display the data as a series of tables and graphs.
-* The configuration for Grafana dashboards and data sources are exported to file using [grizzly](https://github.com/grafana/grizzly) and [grafanactl](https://grafana.github.io/grafanactl/)
-* They are kept [here](./grafana/grizzly_bkup) and [here](./grafana/grafanactl_bkup)
 
 ## Testing
 
@@ -46,7 +50,7 @@ pdm install
 pdm run tox
 ```
 
-## Old PDF Report Setup
+## Set up without Grafana front-end
 
 Sends regular PDF reports via email
 
