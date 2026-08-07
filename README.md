@@ -127,12 +127,12 @@ cd src
 ## DB Format
 
 There are two tables:
-1. "meas" this has TSG metadata, borehole metadata and mineralogy 
-2. "stats" this contains statistics e.g. sum of borehole depths  
+1. "meas" this has TSG metadata, NVCL borehole metadata and mineralogy 
+2. "stats" this contains time-series statistics e.g. sum of borehole depths each year
 
 ### "meas" table
 
-It has the following fields:
+Stores borehole data and metadata. It has the following fields:
 
 1.	*report_category*  Report Category e.g. "log1", "log2" 
 2.	*provider* State or Territory e.g. "tas" "nsw" etc.
@@ -160,7 +160,7 @@ It has the following fields:
 
 ### "stats" table
 
-A general purpose statistics table used to store periodical statistics e.g. annual borehole counts 
+A general purpose statistics table used to store time-series statistics e.g. annual borehole counts 
 
 It has the following fields:
 
