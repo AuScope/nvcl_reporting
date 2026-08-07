@@ -26,8 +26,20 @@ jobs:
   test:
     needs: build
     runs-on: ubuntu-latest
-    container:
-      image: python:3.12
+    timeout-minutes: 60
+    steps:
+    - uses: ikalnytskyi/action-setup-postgres@v8
+      with:
+        postgres-version: "17"
+      id: postgres
+    - run: psql ${{ steps.postgres.outputs.connection-uri }} -c "SELECT 1"
+    - run: psql service=${{ steps.postgres.outputs.service-name }} -c "SELECT 1"
+    - run: psql -c "SELECT 1"
+      env:
+        PGSERVICE: ${{ steps.postgres.outputs.service-name }}
+    #container:
+    #  image: python:3.12
+
     #services:
     #  postgres:
     #    image: postgres:17
@@ -47,8 +59,7 @@ jobs:
     #  POSTGRES_PASSWORD: postgres
     #  POSTGRES_DB: test_db
     #  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
-    timeout-minutes: 60
-    steps:
+    
     - uses: actions/checkout@v7
     - uses: actions/download-artifact@v8
     - name: Install rsync for test badge deploy action and postgres for db tests
@@ -59,15 +70,7 @@ jobs:
     - run: pip install tox flake8
     - run: pdm run flake8 ./src --count --select=E9,F63,F7,F82 --show-source --statistics
     - run: pdm run flake8 ./src --count --exit-zero --max-complexity=20 --max-line-length=127 --statistics
-    - uses: ikalnytskyi/action-setup-postgres@v8
-      with:
-        postgres-version: "17"
-      id: postgres
-    - run: psql ${{ steps.postgres.outputs.connection-uri }} -c "SELECT 1"
-    - run: psql service=${{ steps.postgres.outputs.service-name }} -c "SELECT 1"
-    - run: psql -c "SELECT 1"
-      env:
-        PGSERVICE: ${{ steps.postgres.outputs.service-name }}
+    
     - name: Run tests
       run: pdm run tox
       env:
