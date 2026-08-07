@@ -28,25 +28,25 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: python:3.12
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd "pg_isready -U postgres -d test_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: test_db
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
+    #services:
+    #  postgres:
+    #    image: postgres:17
+    #    env:
+    #      POSTGRES_USER: postgres
+    #      POSTGRES_PASSWORD: postgres
+    #      POSTGRES_DB: test_db
+    #    options: >-
+    #      --health-cmd "pg_isready -U postgres -d test_db"
+    #      --health-interval 10s
+    #      --health-timeout 5s
+    #      --health-retries 5
+    #env:
+    #  POSTGRES_HOST: postgres
+    #  POSTGRES_PORT: 5432
+    #  POSTGRES_USER: postgres
+    #  POSTGRES_PASSWORD: postgres
+    #  POSTGRES_DB: test_db
+    #  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@v7
@@ -59,8 +59,19 @@ jobs:
     - run: pip install tox flake8
     - run: pdm run flake8 ./src --count --select=E9,F63,F7,F82 --show-source --statistics
     - run: pdm run flake8 ./src --count --exit-zero --max-complexity=20 --max-line-length=127 --statistics
+    - uses: ikalnytskyi/action-setup-postgres@v8
+      with:
+        postgres-version: "17"
+      id: postgres
+    - run: psql ${{ steps.postgres.outputs.connection-uri }} -c "SELECT 1"
+    - run: psql service=${{ steps.postgres.outputs.service-name }} -c "SELECT 1"
+    - run: psql -c "SELECT 1"
+      env:
+        PGSERVICE: ${{ steps.postgres.outputs.service-name }}
     - name: Run tests
-      run: sudo -u postgres pdm run tox
+      run: pdm run tox
+      env:
+        PGSERVICE: ${{ steps.postgres.outputs.service-name }}
     - name: Deploy test badge to main branch
       uses: JamesIves/github-pages-deploy-action@v4
       with:
