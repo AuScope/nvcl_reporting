@@ -53,7 +53,7 @@ jobs:
     - uses: actions/download-artifact@v8
     - name: Install rsync for test badge deploy action and postgres for db tests
       run: |
-        apt-get update && apt-get install -y rsync postgresql postgresql-client
+        apt-get update && apt-get install -y rsync postgresql postgresql-client lsb-release
     - run: python -V
     - run: pip install pdm
     - run: pip install tox flake8
