@@ -1,210 +1,196 @@
-'''
-This is the schema for the database
-'''
+"""
+SQLAlchemy ORM version of the Peewee schema.
+
+- Uses SQLAlchemy 2.0 style declarative mappings.
+- Keeps JSON stored as TEXT for compatibility with the Peewee version.
+- If you're on Postgres and want better querying, consider using JSONB columns instead.
+"""
+
+from __future__ import annotations
 
 import json
-import sys
 import math
+import sys
 from collections import OrderedDict
-from typing import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
+from typing import Any, Iterable, Optional
 
-from peewee import Field, Model, TextField, DateField, CompositeKey, BooleanField, DoubleField, FloatField
-
-# Database date format
-DATE_FMT = '%Y-%m-%d'
-
-# Dataframe columns
-DF_COLUMNS = ['provider', 'borehole_id', 'drill_hole_name', 'publish_date', 'hl_scan_date', 'easting', 'northing', 'crs', 'start_depth', 'end_depth', 'has_vnir', 'has_swir', 'has_tir', 'has_mir', 'nvcl_id', 'modified_datetime', 'log_id', 'algorithm', 'log_type', 'algorithm_id', 'minerals', 'mincnts', 'data']
+from sqlalchemy import Boolean, Date, Float, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
 
 
-class ScalarsField(Field):
-    field_type = 'Scalars'
+DATE_FMT = "%Y-%m-%d"
 
-    def db_value(self, data: any) -> str:
-        '''
-        Convert mineral types at each depth to JSON formatted string
-        i.e. ((depth, {key: val ...}, ...) ... ) or NaN
+DF_COLUMNS = [
+    "provider", "borehole_id", "drill_hole_name", "publish_date", "hl_scan_date",
+    "easting", "northing", "crs", "start_depth", "end_depth",
+    "has_vnir", "has_swir", "has_tir", "has_mir",
+    "nvcl_id", "modified_datetime", "log_id", "algorithm", "log_type", "algorithm_id",
+    "minerals", "mincnts", "data",
+]
 
-        :param data: mineral types at each depth
-        :returns: JSON formatted string
-        '''
+
+class Base(DeclarativeBase):
+    pass
+
+
+class JSONText(TypeDecorator):
+    """
+    Stores Python values as JSON in a TEXT column.
+    Rough equivalent to your Peewee JSONField.
+    """
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, values: Any, dialect) -> str:
+        # Equivalent of db_value()
+        if isinstance(values, Iterable) and not isinstance(values, (str, bytes, dict)):
+            return json.dumps(list(values))
+        if isinstance(values, float) and math.isnan(values):
+            return "[]"
+        return json.dumps(values)
+
+    def process_result_value(self, value: Optional[str], dialect) -> Any:
+        # Equivalent of python_value()
+        if value is None:
+            return None
+        return json.loads(value)
+
+
+class ScalarsText(TypeDecorator):
+    """
+    Stores mineral scalars as JSON in a TEXT column.
+    """
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, data: Any, dialect) -> str:
         data_list = []
+
+        if isinstance(data, str):
+            return data
         if isinstance(data, OrderedDict):
             for depth, obj in data.items():
-                # vars() converts Namespace -> dict
                 if isinstance(obj, SimpleNamespace):
                     data_list.append([depth, vars(obj)])
                 elif isinstance(obj, list) and len(obj) == 0:
                     continue
                 else:
-                    print(repr(obj), type(obj))
-                    print("ERROR Unknown obj type in 'data' var")
+                    print(f"ERROR Unknown obj type {type(obj)} in 'data' var: {obj}")
                     sys.exit(1)
-        elif data != {} and data != [] and not isinstance(data, list) and not (isinstance(data, float) and math.isnan(data)):
-            print(repr(data), type(data))
-            print("ERROR Unknown type in 'data' var")
+
+        elif data != {} and data != [] and not isinstance(data, list) and not (
+            isinstance(data, float) and math.isnan(data)):
+            print(f"ERROR Unknown type {type(data)} in 'data' var: {data}")
             sys.exit(1)
 
         return json.dumps(data_list)
 
-    def python_value(self, value: str) -> any:
-        ''' 
-        Converts from JSON string to Python object
-
-        :param value: JSON string
-        :returns: object or [] upon error
-        '''
-        #try:
-        return json.loads(value) # Convert JSON string to python obj
-        #except json.decoder.JSONDecodeError:
-        #    return []
+    def process_result_value(self, value: Optional[str], dialect) -> Any:
+        if value is None:
+            return None
+        return json.loads(value)
 
 
-
-class JSONField(Field):
-    field_type = 'JSON'
-
-    def db_value(self, values: any) -> str:
-        '''
-        Converts lists of values to JSON formatted string
-
-        :param values: list of valuex
-        :returns: JSON formatted string
-        '''
-        # Sometimes 'values' is not an iterable numpy array
-        if isinstance(values, Iterable):
-            value_out = json.dumps(list(values))
-        elif isinstance(values, float) and math.isnan(values):
-            value_out = '[]'
-        else:
-            value_out = json.dumps([values])
-        return value_out
-
-    def python_value(self, value: str) -> any:
-        ''' 
-        Converts from JSON string to Python object
-
-        :param value: JSON string
-        :returns: object or [] upon error
-        '''
-        #try:
-        return json.loads(value) # Convert JSON string to python obj
-        #except json.decoder.JSONDecodeError:
-        #    return []
-
-
-class Stats(Model):
+class Stats(Base):
     """
     Tables of statistics to display
+    Composite PK: (stat_name, provider, start_date, end_date)
     """
-    stat_name = TextField()
-    provider = TextField()
-    start_date = DateField(formats=[DATE_FMT])
-    end_date = DateField(formats=[DATE_FMT])
-    stat_val1 = FloatField()
-    stat_val2 = FloatField()
+    __tablename__ = "stats"
 
-    class Meta:
-        primary_key = CompositeKey('stat_name', 'provider', 'start_date', 'end_date')
+    stat_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+    start_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    end_date: Mapped[date] = mapped_column(Date, primary_key=True)
+
+    stat_val1: Mapped[float] = mapped_column(Float, nullable=False)
+    stat_val2: Mapped[float] = mapped_column(Float, nullable=False)
 
 
-class Meas(Model):
+class Meas(Base):
     """
     Database table structure
 
-    NB: 'report_category' field is not stored when converted to a DataFrame, instead kept as a dict key
+    Composite PK:
+      (report_category, provider, nvcl_id, log_id, algorithm, log_type, algorithm_id)
     """
-    report_category = TextField() # Can be any one of 'log1', 'log2', 'log6', 'empty' and 'nodata'
-    provider = TextField()
-    borehole_id = TextField()
-    drill_hole_name = TextField()
-    easting = DoubleField()
-    northing = DoubleField()
-    crs = TextField() # EPSG:7842
-    start_depth = FloatField()
-    end_depth = FloatField()
-    has_vnir = BooleanField()
-    has_swir = BooleanField()
-    has_tir = BooleanField()
-    has_mir = BooleanField()
-    nvcl_id = TextField()
-    modified_datetime = DateField(formats=[DATE_FMT]) # Unfortunately only some providers supply it
-    log_id = TextField()
-    algorithm = TextField()
-    log_type = TextField()
-    algorithm_id = TextField()
-    minerals = JSONField() # Unique minerals
-    mincnts = JSONField()  # Counts of unique minerals as an array
-    data = ScalarsField()     # Mineral scalars data 
+    __tablename__ = "meas"
 
-    class Meta:
-        primary_key = CompositeKey('report_category', 'provider', 'nvcl_id', 'log_id', 'algorithm', 'log_type', 'algorithm_id')
-        database = None
+    report_category: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+    nvcl_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    log_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    algorithm: Mapped[str] = mapped_column(Text, primary_key=True)
+    log_type: Mapped[str] = mapped_column(Text, primary_key=True)
+    algorithm_id: Mapped[str] = mapped_column(Text, primary_key=True)
 
-DB_COLUMNS = [field.name for field in Meas._meta.fields.values()]
+    borehole_id: Mapped[str] = mapped_column(Text, nullable=False)
+    drill_hole_name: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Peewee DoubleField -> SQLAlchemy Float (double precision in Postgres by default)
+    easting: Mapped[float] = mapped_column(Float, nullable=False)
+    northing: Mapped[float] = mapped_column(Float, nullable=False)
+
+    crs: Mapped[str] = mapped_column(Text, nullable=False)  # e.g. "EPSG:7842"
+
+    start_depth: Mapped[float] = mapped_column(Float, nullable=False)
+    end_depth: Mapped[float] = mapped_column(Float, nullable=False)
+
+    has_vnir: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    has_swir: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    has_tir: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    has_mir: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    # Note: your DF_COLUMNS includes has_mir, but Meas has has_mir in Peewee too.
+    # If you also have has_tir/has_mir/has_mir exactly, keep consistent.
+
+    modified_datetime: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    minerals: Mapped[Any] = mapped_column(JSONText, nullable=False)
+    mincnts: Mapped[Any] = mapped_column(JSONText, nullable=False)
+    data: Mapped[Any] = mapped_column(ScalarsText, nullable=False)
 
 
-# 'dataclass' annotation automatically provides __init__ & __repr__
+# Equivalent of: DB_COLUMNS = [field.name for field in Meas._meta.fields.values()]
+DB_COLUMNS = [c.name for c in Meas.__table__.columns]
+
+
 @dataclass
 class DF_Row:
-    """
-    Class for DataFrame rows
-    """
     provider: str
     borehole_id: str
     drill_hole_name: str
-    publish_date: datetime.date # Publish date of TSG file on NCI's website (not in database)
-    hl_scan_date: datetime.date # Hylogger scan date taken from TSG file (not in database)
+    publish_date: date
+    hl_scan_date: date
     easting: float
     northing: float
-    crs: str # CRS for northing & easting
+    crs: str
     start_depth: float
     end_depth: float
-    has_vnir: bool # has Very Near IR data
-    has_swir: bool # has Short Wave IR data
-    has_tir: bool # has Thermal IR data
-    has_mir: bool # has Mid IR data
+    has_vnir: bool
+    has_swir: bool
+    has_tir: bool
+    has_mir: bool
     nvcl_id: str
-    modified_datetime: datetime # Only some providers supply it, else retrieval date is used
+    modified_datetime: datetime
     log_id: str
     algorithm: str
     log_type: str
     algorithm_id: str
-    minerals: list # Unique minerals
-    mincnts: dict   # Counts of unique minerals as an array
-    data: SimpleNamespace # Mineral scalars data
+    minerals: list
+    mincnts: dict
+    data: SimpleNamespace
 
     def as_list(self):
-        """
-        Return the attribute values as a list
-        """
-        # TODO: Systematise, too many lists
-        ATTR_LIST = ["provider",
-    "borehole_id",
-    "drill_hole_name",
-    "publish_date",
-    "hl_scan_date",
-    "easting",
-    "northing",
-    "crs",
-    "start_depth",
-    "end_depth",
-    "has_vnir",
-    "has_swir",
-    "has_tir",
-    "has_mir",
-    "nvcl_id",
-    "modified_datetime",
-    "log_id",
-    "algorithm",
-    "log_type",
-    "algorithm_id",
-    "minerals",
-    "mincnts",
-    "data"]
-
-        return [getattr(self,attr) for attr in ATTR_LIST]
-
+        ATTR_LIST = [
+            "provider", "borehole_id", "drill_hole_name", "publish_date", "hl_scan_date",
+            "easting", "northing", "crs", "start_depth", "end_depth",
+            "has_vnir", "has_swir", "has_tir", "has_mir",
+            "nvcl_id", "modified_datetime", "log_id", "algorithm", "log_type", "algorithm_id",
+            "minerals", "mincnts", "data",
+        ]
+        return [getattr(self, attr) for attr in ATTR_LIST]

@@ -24,7 +24,7 @@ cat << EOF2 > batch_install.sh
 
 #
 # Clone repo
-git clone --depth 1 https://github.com/AuScope/nvcl_reporting.git
+git clone -b postgres-migrate --depth 1 https://github.com/AuScope/nvcl_reporting.git
 cd nvcl_reporting
 #
 # Install pdm
@@ -35,7 +35,7 @@ export PATH="/home/batch/.local/bin:$PATH"
 pdm install
 #
 # 
-touch /nvcl-db/testNFS.txt
+touch /nvcl-fs/testNFS.txt
 # Run db update
 cd src
 pdm run make_reports.py -utb
