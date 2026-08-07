@@ -27,10 +27,10 @@ def test_calc_bh_depths_cnts(db_df):
     """
     df_dict = { 'log1': db_df }
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date')
-    assert math.isclose(depth, 0.973)
+    assert math.isclose(depth, 0.222)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date', return_cnts=True)
-    assert math.isclose(depth, 0.973)
-    assert cnts == 5
+    assert math.isclose(depth, 0.222)
+    assert cnts == 1
 
 
 def test_calc_bh_depths_no_cnts(db_df):
@@ -46,30 +46,30 @@ def test_calc_bh_depths_date_ranges(db_df):
     """
     df_dict = { 'log1': db_df }
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                           start_date=datetime.date(2022, 6, 25))
-    assert math.isclose(depth, 0.961)
+                           start_date=datetime.date(2010, 6, 25))
+    assert math.isclose(depth, 0.222)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                                 start_date=datetime.date(2022, 6, 25), return_cnts=True)
-    assert math.isclose(depth, 0.961)
-    assert cnts == 3
+                                 start_date=datetime.date(2010, 6, 25), return_cnts=True)
+    assert math.isclose(depth, 0.222)
+    assert cnts == 1
 
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                           start_date=datetime.date(2022, 6, 24),
-                           end_date=datetime.date(2022, 6, 28))
-    assert math.isclose(depth, 0.07)
+                           start_date=datetime.date(2011, 6, 24),
+                           end_date=datetime.date(2012, 6, 28))
+    assert math.isclose(depth, 0.222)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                                 start_date=datetime.date(2022, 6, 24),
-                                 end_date=datetime.date(2022, 6, 28), return_cnts=True)
-    assert math.isclose(depth, 0.07)
-    assert cnts == 2
+                                 start_date=datetime.date(2011, 6, 24),
+                                 end_date=datetime.date(2012, 6, 28), return_cnts=True)
+    assert math.isclose(depth, 0.222)
+    assert cnts == 1
 
     depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                           end_date=datetime.date(2022, 6, 27))
-    assert math.isclose(depth, 0.012)
+                           end_date=datetime.date(2012, 6, 27))
+    assert math.isclose(depth, 0.222)
     cnts, depth = calc_bh_depths(df_dict, 'TAS', 'publish_date',
-                                 end_date=datetime.date(2022, 6, 27), return_cnts=True)
-    assert math.isclose(depth, 0.012)
-    assert cnts == 2
+                                 end_date=datetime.date(2012, 6, 27), return_cnts=True)
+    assert math.isclose(depth, 0.222)
+    assert cnts == 1
 
 
 def test_get_fy_date_ranges():
@@ -107,11 +107,11 @@ def test_calc_fyq(bigger_db_df):
     Test ranges and borehole counts of quarterly and yearly calculations
     """
     df_dict = { 'log1': bigger_db_df }
-    y, q = calc_fyq(datetime.date(2022, 5, 6), 'publish_date', df_dict, ['TAS', 'NT'])
-    assert y.start == datetime.date(2021, 7, 1)
-    assert y.end == datetime.date(2022, 6, 30)
-    assert q.start == datetime.date(2022, 4, 1)
-    assert q.end == datetime.date(2022, 6, 30)
-    # List of BH counts [ Tas counts, NT counts ]
-    assert y.cnt_list == [5, 18]
-    assert q.cnt_list == [4, 17]
+    y, q = calc_fyq(datetime.date(2023, 3, 6), 'publish_date', df_dict, ['NSW', 'TAS'])
+    assert y.start == datetime.date(2022, 7, 1)
+    assert y.end == datetime.date(2023, 6, 30)
+    assert q.start == datetime.date(2023, 1, 1)
+    assert q.end == datetime.date(2023, 3, 31)
+    # List of BH counts [ Tas counts, WA counts ]
+    assert y.cnt_list == [3, 2]
+    assert q.cnt_list == [3, 2]

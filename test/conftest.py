@@ -24,42 +24,49 @@ Use it to store fixtures that are shared by all tests
 
 my_dir = os.path.dirname(os.path.abspath(__file__))
 
-factory_read = factories.postgresql_proc(
+small_factory_read = factories.postgresql_proc(
     load=[
-        Path(my_dir, "data", "meas.sql")
+        Path(my_dir, "data", "small_inserts.sql")
     ]
 )
 
-postgresql_read = factories.postgresql("factory_read")
+bigger_factory_read = factories.postgresql_proc(
+    load=[
+        Path(my_dir, "data", "bigger_inserts.sql")
+    ]
+)
+
+small_postgresql_read = factories.postgresql("small_factory_read")
+bigger_postgresql_read = factories.postgresql("bigger_factory_read")
 
 @pytest.fixture
 def tsg_meta_df():
-    """ Provides a TSGMeta dataframe object
+    """ Provides a "small" TSGMeta dataframe object
     """
-    return TSGMeta(os.path.join(my_dir, "data", "metadata.csv")).get_frame()
+    return TSGMeta(os.path.join(my_dir, "data", "small_metadata.csv")).get_frame()
 
 @pytest.fixture
 def tsg_meta_bigger_df():
-    """ Provides a TSGMeta dataframe object
+    """ Provides a "bigger" TSGMeta dataframe object
     """
-    return TSGMeta(os.path.join(my_dir, "data", "metadata_bigger.csv")).get_frame()
+    return TSGMeta(os.path.join(my_dir, "data", "bigger_metadata.csv")).get_frame()
 
 @pytest.fixture
-def bigger_db_df(tsg_meta_bigger_df, postgresql_read):
-    """ Provides a bigger dataframe object
+def bigger_db_df(tsg_meta_bigger_df, bigger_postgresql_read):
+    """ Provides a bigger dataframe object using the "bigger" inserts and metadata
     """
-    dbparams = { 'user': postgresql_read.info.user, 
-                 'host': postgresql_read.info.host, 
-                 'port': postgresql_read.info.port,
+    dbparams = { 'user': bigger_postgresql_read.info.user, 
+                 'host': bigger_postgresql_read.info.host, 
+                 'port': bigger_postgresql_read.info.port,
                  'password': 'password' }
-    return import_db(postgresql_read.info.dbname, dbparams, "log1", tsg_meta_bigger_df)
+    return import_db(bigger_postgresql_read.info.dbname, dbparams, "log1", tsg_meta_bigger_df)
 
 @pytest.fixture
-def db_df(tsg_meta_df, postgresql_read):
-    """ Provides a dataframe object
+def db_df(tsg_meta_df, small_postgresql_read):
+    """ Provides a dataframe object using the "small" inserts and metadata
     """
-    dbparams = { 'user': postgresql_read.info.user, 
-                 'host': postgresql_read.info.host, 
-                 'port': postgresql_read.info.port,
+    dbparams = { 'user': small_postgresql_read.info.user, 
+                 'host': small_postgresql_read.info.host, 
+                 'port': small_postgresql_read.info.port,
                  'password': 'password' }
-    return import_db(postgresql_read.info.dbname, dbparams, "log1", tsg_meta_df)
+    return import_db(small_postgresql_read.info.dbname, dbparams, "log1", tsg_meta_df)
