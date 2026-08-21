@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Script to backup grafana dashboards
+# Requires "jq", e.g. for Ubuntu use "sudo apt install -y jq" to install
 
 GRAFANA_URL="<grafana URL goes here>"
 TOKEN="<grafana API token goes here>"
