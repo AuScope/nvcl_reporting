@@ -200,6 +200,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
     """
     tsg_dict = defaultdict(lambda: defaultdict(list))
     if os.path.exists(csv_file):
+        print(f"Opening CSV file: {csv_file}")
         with open(csv_file, 'r') as csv_fd:
             csvreader = csv.reader(csv_fd, delimiter='|', quotechar='|', doublequote=False,
                                    quoting=csv.QUOTE_NONE)
