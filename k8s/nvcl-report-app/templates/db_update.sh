@@ -26,7 +26,7 @@ cat << EOF2 > batch_install.sh
 
 #
 # Clone repo
-git clone -b postgres-migrate --depth 1 https://github.com/AuScope/nvcl_reporting.git
+git clone -b main --depth 1 https://github.com/AuScope/nvcl_reporting.git
 cd nvcl_reporting
 #
 # Install pdm
