@@ -234,7 +234,7 @@ def write_csv(csv_file: str, tsg_dict: dict[str, dict[str, list]]):
 
     # Open file in overwrite mode
     with open(csv_file, 'w') as csv_fd:
-        csvwriter = csv.writer(csv_fd, delimiter='|', quotechar='|', doublequote=False,
+        csvwriter = csv.writer(csv_fd, delimiter='|', quotechar=None, doublequote=False,
                                          quoting=csv.QUOTE_NONE)
         # Write CSV header
         csvwriter.writerow(['provider', 'file name', TSG_PUBLISH_DATE] + TSG_FIELDS)
