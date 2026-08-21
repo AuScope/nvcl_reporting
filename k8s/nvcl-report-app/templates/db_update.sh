@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# This script is used to commence a database update
+# It creates another script and which runs in the pod with the correct permissions
+
 MYUID=$1
 #
 apt update -y
