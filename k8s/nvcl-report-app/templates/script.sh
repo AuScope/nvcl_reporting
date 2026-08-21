@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 MYUID=$1
-echo "MYUID=$MYUID"
 #
 apt update -y
 # Install git & curl
