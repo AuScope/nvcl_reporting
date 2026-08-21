@@ -25,7 +25,7 @@ NB: The K8s namespace in many files is "nvcl-projects". This can be altered as r
 
   1. "grafana-config"  - grafana config
   2. "grafana-data" - grafana data
-  3. "grafana-datasources" - a mounted secret containing postgres connection parameters 
+  3. "grafana-datasources" - a mounted secret containing postgres connection parameters (See Section 4)
 
 Grafana data and configuration are stored on NFS mounts
 
