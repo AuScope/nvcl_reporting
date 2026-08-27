@@ -1,4 +1,5 @@
 import sys
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from urllib.parse import quote_plus
@@ -9,6 +10,8 @@ from datetime import datetime
 import pandas as pd
 
 from db.schema import DF_COLUMNS, DATE_FMT
+
+logger = logging.getLogger(__name__)
 
 '''
 Various routines used for reading and writing to the SQLITE db
@@ -40,7 +43,7 @@ def conv_str2dt(dt_str: str) -> date:
         return datetime.strptime(dt_str, DATE_FMT).date()
     except ValueError:
         dt = datetime.now().date()
-        print("dt_str", repr(dt_str), "not a valid string")
+        logger.warning("dt_str %r not a valid string", dt_str)
         return dt
 
 
@@ -56,7 +59,7 @@ def conv_str2json(json_str) -> list:
     try:
         return json.loads(json_str)
     except json.decoder.JSONDecodeError as jde:
-        print(jde, "error decoding", repr(json_str))
+        logger.error("%s error decoding %r", jde, json_str)
         sys.exit(1)
 
 
@@ -65,7 +68,7 @@ def conv_obj2str(arr: []) -> str:
     try:
         return json.dumps(arr)
     except json.decoder.JSONDecodeError as jde:
-        print(f"{jde}: error decoding {arr}")
+        logger.error("%s: error decoding %r", jde, arr)
         sys.exit(9)
 
 

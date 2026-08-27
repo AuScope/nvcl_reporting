@@ -1,10 +1,13 @@
 import os
+import logging
 from fpdf import FPDF
 from PIL import Image
 
 from constants import IMAGE_SZ, FONT, ROOT_PATH
 from report_table_data import ReportTableData
 from plots import Plots
+
+logger = logging.getLogger(__name__)
 
 
 # PDF class used to customize page layout
@@ -23,7 +26,7 @@ class PDF(FPDF):
         if os.path.isfile(img_path):
             self.image(img_path, 10, 8, 33)
         else:
-            print(f"WARNING: AuScope logo {img_path} cannot be found, will be missing from report")
+            logger.warning("AuScope logo %s cannot be found, will be missing from report", img_path)
 
         # Set font to helvetica bold 15
         self.set_font(FONT, 'B', 15)
@@ -96,7 +99,7 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
 
     # Find out which graphs appear in which sections
     graph_sections = plots.get_plot_sections()
-    print(f"{graph_sections=}")
+    logger.debug("graph_sections=%r", graph_sections)
 
     # Write out title page
     if brief:
@@ -123,7 +126,7 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
     pdf.multi_cell(w=0, h=pdf.font_size * 1.5, text="Information\n")
     pdf.set_font('Times', '', 12)
     for key, val in metadata.items():
-        print(f"Writing {key}: {val}")
+        logger.debug("Writing %s: %s", key, val)
         pdf.multi_cell(w=0, h=pdf.font_size * 1.2, text=f"{key}: {val}\n", align="L")
     pdf.add_page()
 
@@ -135,7 +138,7 @@ def write_report(report_file: str, image_dir: str, report: ReportTableData, meta
         for image in image_list: 
             image_file = os.path.join(image_dir, image)
             if not os.path.exists(image_file):
-                print(f"WARNING: {image_file} cannot be found, will be missing from report")
+                logger.warning("%s cannot be found, will be missing from report", image_file)
                 continue
             with Image.open(image_file) as img:
                 # Resize image without changing aspect ratio

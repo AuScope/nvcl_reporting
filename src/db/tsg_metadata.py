@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import csv
+import logging
 import os
 import sys
 import datetime
@@ -8,6 +9,8 @@ import pandas as pd
 
 # Import CSV fields from source
 from tsg_harvest.harvest import HL_SCAN_DATE, TSG_PUBLISH_DATE, NVCL_ID
+
+logger = logging.getLogger(__name__)
 
 """
 This class reads Hylogger metadata from a CSV file
@@ -35,7 +38,7 @@ class TSGMeta:
                     self.table.setdefault(HL_SCAN_DATE, []).append(scan_date)
                     self.table.setdefault(TSG_PUBLISH_DATE, []).append(publish_date)
         else:
-            print(f"ERROR - Cannot find TSG metadata file: {csv_filename}")
+            logger.error("Cannot find TSG metadata file: %s", csv_filename)
             sys.exit(1)
 
     def __str2date(self, date_str) -> datetime.date:

@@ -3,6 +3,7 @@
 
 import sys
 import os
+import logging
 from pathlib import Path
 import datetime
 import pickle
@@ -19,6 +20,8 @@ from peewee import SqliteDatabase, IntegrityError
 
 from db.schema import DATE_FMT, Meas
 
+logger = logging.getLogger(__name__)
+
 DB_NAME = 'nvcl-test.db'
 if os.path.exists(DB_NAME):
     os.unlink(DB_NAME)
@@ -33,9 +36,9 @@ def import_pkl(infile: str, empty={}) -> any:
     :param empty: optional returns this if pickle file not found
     :returns: pickle file data or 'empty' or {} if empty not defined
     """
-    print(f"Importing {infile} ...")
+    logger.info("Importing %s ...", infile)
     if not os.path.exists(infile):
-        print(f"{infile} not found, assuming it is empty")
+        logger.info("%s not found, assuming it is empty", infile)
         return empty
     try:
         data = pd.read_pickle(infile)
@@ -44,10 +47,10 @@ def import_pkl(infile: str, empty={}) -> any:
             with open(infile, 'rb') as handle:
                 data = pickle.load(handle)
         except pickle.UnpicklingError as pe:
-            print(f"Could not load pickle {infile}: {pe}")
+            logger.error("Could not load pickle %s: %s", infile, pe)
             sys.exit(1)
     except Exception as exc:
-        print(f"Error reading pickle file {infile}: {exc}")
+        logger.error("Error reading pickle file %s: %s", infile, exc)
         sys.exit(1)
     return data
 
@@ -87,12 +90,12 @@ def convert2json(modified_dt: datetime, minerals: [], mincnts: [], data: any) ->
             elif isinstance(obj, list) and len(obj) == 0:
                 continue
             else:
-                print(repr(obj), type(obj))
-                print("ERROR unknown obj type in 'data' var")
+                logger.error("%r %s", repr(obj), type(obj))
+                logger.error("ERROR unknown obj type in 'data' var")
                 sys.exit(1)
     elif data != {} and data != [] and not (isinstance(data, float) and math.isnan(data)):
-        print(repr(data), type(data))
-        print("ERROR unknown type in 'data' var")
+        logger.error("%r %s", repr(data), type(data))
+        logger.error("ERROR unknown type in 'data' var")
         sys.exit(1)
 
     data_out = json.dumps(data_list)
@@ -130,18 +133,18 @@ def load_data(pickle_dir: str, subdir: str):
     dir_path = Path(pickle_dir)
     for pickle_file in [pf for pf in dir_path.iterdir() if pf.is_file()]:
         df = import_pkl(pickle_file)
-        print(f"{pickle_file}:")
-        print(repr(df))
-        print(df[['state', 'nvcl_id', 'log_id', 'algorithm']].head(10))
+        logger.info("%s:", pickle_file)
+        logger.debug("%r", df)
+        logger.debug("%r", df[['state', 'nvcl_id', 'log_id', 'algorithm']].head(10))
         # Read file timestamp, to be used as modified_datetime
         # Modified date is not stored in the pickle files, so have to use the oldest file timestamp
         # from all the pickle files as an approximation
         try:
             modified_dt = datetime.datetime.fromtimestamp(pickle_file.stat().st_mtime)
         except Exception:
-            print(f"Could not find date for {pickle_file}")
+            logger.warning("Could not find date for %s", pickle_file)
         else:
-            print(f"Modified date for pickle file is {modified_dt}")
+            logger.info("Modified date for pickle file is %s", modified_dt)
         # Loop over the rows in the pandas DataFrame, converting fields to strings or JSON
         for idx, row in df.iterrows():
             # NB: 'metres' is better labelled as 'mincnts'
@@ -164,8 +167,7 @@ def load_data(pickle_dir: str, subdir: str):
                 if modified_dt < rec_modified_dt:
                     rec.modified_datetime = modified_dt.strftime(DATE_FMT)
                     rec.save()
-        print("Finished inserting")
-
+        logger.info("Finished inserting")
 
 if __name__ == "__main__":
 
@@ -182,6 +184,6 @@ if __name__ == "__main__":
     # Open up NVCL data pickle files, extract modified dates and create a new sqlite db
     for subdir in ['data','other','emptyrecs','nodata']:
         pkl_subdir = Path(pickle_dir) / Path(subdir)
-        print("Loading", pkl_subdir)
+        logger.info("Loading %s", pkl_subdir)
         load_data(pkl_subdir, subdir)
-    print("Done.")
+    logger.info("Done.")

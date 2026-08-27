@@ -2,6 +2,7 @@
 # Python imports
 import re
 import datetime
+import logging
 import shutil
 import os
 import sys
@@ -22,6 +23,8 @@ from pdf import write_report
 from constants import HEIGHT_RESOLUTION
 
 from report_table_data import ReportTableData
+
+logger = logging.getLogger(__name__)
 
 
 def calc_bh_depths(dfs: dict[str:pd.DataFrame], prov: str, date_fieldname: str,  start_date: datetime.date = None,
@@ -112,7 +115,7 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
     """
     df_allstats = pd.DataFrame()
     # Munge data
-    print(f"Calculating initial statistics ... ")
+    logger.info("Calculating initial statistics ... ")
     # Loop around for each provider
     for prov in prov_list:
         # Get all rows for a provider
@@ -166,7 +169,7 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
 
     algorithm_stats_all = {}
     algorithms = np.unique(dfs['log1']['algorithm'])
-    print("Calculating algorithm based statistics ...")
+    logger.info("Calculating algorithm based statistics ...")
     # Loop over algorithms
     for algorithm in algorithms:
         # Pull out all rows with a certain algorithm
@@ -175,7 +178,7 @@ def calc_stats(dfs: dict[str:pd.DataFrame], prov_list: list, prefix: str):
 
     # Calculate algorithm by provider statistics
     algorithm_stats_byprov = {}
-    print("Calculating algorithm by provider based statistics ...")
+    logger.info("Calculating algorithm by provider based statistics ...")
     # Loop over algorithms
     for algorithm in algorithms:
         algorithm_stats_byprov[algorithm] = {}
@@ -313,9 +316,9 @@ def calc_kms4db(report_date: datetime.date, date_fieldname: str, df_dict: dict[s
     """
     # Check 'df_dict' for empty dataframes
     if has_no_data(df_dict):
-        print("Cannot calculate kms. Datasets are empty")
-        print(f"df_dict.keys()={df_dict.keys()}")
-        print(f"df_dict={df_dict}")
+        logger.error("Cannot calculate kms. Datasets are empty")
+        logger.error("df_dict.keys()=%r", df_dict.keys())
+        logger.error("df_dict=%r", df_dict)
         sys.exit(1)
 
     # Calculate quarterly and financial year data for all providers
@@ -345,17 +348,17 @@ def assemble_report(report_file: str, report_date: datetime.date, date_fieldname
     report = ReportTableData()
     # Check 'df_dict' for empty dataframes
     if has_no_data(df_dict):
-        print("Cannot assemble report. Datasets are empty.")
-        print(f"df_dict.keys()={df_dict.keys()}")
-        print(f"df_dict={df_dict}")
+        logger.error("Cannot assemble report. Datasets are empty.")
+        logger.error("df_dict.keys()=%r", df_dict.keys())
+        logger.error("df_dict=%r", df_dict)
         sys.exit(1)
 
     # Concatenate all logs in df_dict
     df_all_list = [df_dict[key] for key in ('log1', 'log2', 'empty', 'nodata') if not df_dict[key].empty]
     if len(df_all_list) == 0:
-        print("Datasets are empty, please create them before enabling plots")
-        print(f"df_dict.keys()={df_dict.keys()}")
-        print(f"df_dict={df_dict}")
+        logger.error("Datasets are empty, please create them before enabling plots")
+        logger.error("df_dict.keys()=%r", df_dict.keys())
+        logger.error("df_dict=%r", df_dict)
         sys.exit(1)
     df_all = pd.concat(df_all_list)
 

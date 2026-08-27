@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 import datetime
 from pathlib import Path
 import yaml
@@ -10,6 +11,8 @@ from pyproj.transformer import Transformer
 from db.schema import DF_Row
 from collections import OrderedDict
 from types import SimpleNamespace
+
+logger = logging.getLogger(__name__)
 
 def load_and_check_config(config_file: str) -> dict:
     """ Loads config file
@@ -28,21 +31,21 @@ def load_and_check_config(config_file: str) -> dict:
             try:
                 config = yaml.safe_load(fd)
             except yaml.YAMLError as ye:
-                print(f"Error in configuration file: {ye}")
+                logger.error("Error in configuration file: %s", ye)
                 sys.exit(1)
     except OSError as oe:
-        print(f"Cannot load config file {config_file}: {oe}")
+        logger.error("Cannot load config file %s: %s", config_file, oe)
         sys.exit(1)
 
     # If nothing in file
     if config is None:
-        print(f"Cannot load config file {config_file}, it is empty")
+        logger.error("Cannot load config file %s, it is empty", config_file)
         sys.exit(1)
 
     # Check keys
     for key in ('plot_dir', 'tsg_meta_file', 'tmp_dir', 'pickle_dir'):
         if key not in config:
-            print(f"Config file {config_file} is missing a value for '{key}'")
+            logger.error("Config file %s is missing a value for '%s'", config_file, key)
             sys.exit(1)
         # Prepend config directory to make an absolute path if not 'tmp_dir'
         if key != 'tmp_dir':
@@ -52,9 +55,9 @@ def load_and_check_config(config_file: str) -> dict:
             try:
                 os.mkdir(config[key])
             except OSError as oe:
-                print(f"Cannot create directory {config[key]}: {oe}")
+                logger.error("Cannot create directory %s: %s", config[key], oe)
                 sys.exit(1)
-    print("Config processed.")
+    logger.info("Config processed.")
     return config
 
 
@@ -72,11 +75,11 @@ def conv_mindata(mindata: OrderedDict) -> list:
             elif isinstance(obj, list) and len(obj) == 0:
                 continue
             else:
-                print(repr(obj), type(obj))
-                print("ERROR unknown obj type in 'data' var")
+                logger.error("%r %s", repr(obj), type(obj))
+                logger.error("ERROR unknown obj type in 'data' var")
                 sys.exit(1)
     else:
-        print(f"ERROR {mindata} is not an ordered list")
+        logger.error("ERROR %r is not an ordered list", mindata)
         sys.exit(8)
     return data_list
 

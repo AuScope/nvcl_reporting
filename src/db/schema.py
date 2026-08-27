@@ -9,6 +9,7 @@ SQLAlchemy ORM version of the Peewee schema.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import sys
 from collections import OrderedDict
@@ -20,6 +21,8 @@ from typing import Any, Iterable, Optional
 from sqlalchemy import Boolean, Date, Float, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
+
+logger = logging.getLogger(__name__)
 
 
 DATE_FMT = "%Y-%m-%d"
@@ -79,12 +82,12 @@ class ScalarsText(TypeDecorator):
                 elif isinstance(obj, list) and len(obj) == 0:
                     continue
                 else:
-                    print(f"ERROR Unknown obj type {type(obj)} in 'data' var: {obj}")
+                    logger.error("ERROR Unknown obj type %s in 'data' var: %r", type(obj), obj)
                     sys.exit(1)
 
         elif data != {} and data != [] and not isinstance(data, list) and not (
             isinstance(data, float) and math.isnan(data)):
-            print(f"ERROR Unknown type {type(data)} in 'data' var: {data}")
+            logger.error("ERROR Unknown type %s in 'data' var: %r", type(data), data)
             sys.exit(1)
 
         return json.dumps(data_list)

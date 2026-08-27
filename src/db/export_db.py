@@ -1,4 +1,5 @@
 import sys
+import logging
 import pandas as pd
 from datetime import date
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from sqlalchemy.dialects import postgresql
 
 from db.dbhelpers import make_engine, conv_obj2str
 from db.schema import Meas
+
+logger = logging.getLogger(__name__)
 
 def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: str, tsg_meta_df: pd.DataFrame):
     engine = make_engine(db_name, db_params)
@@ -22,7 +25,7 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
         d["data"] = conv_obj2str(d["data"])
 
         if not isinstance(d["modified_datetime"], date):
-            print(f"ERROR: 'modified_datetime' in wrong format: {d['modified_datetime']} in: {d}")
+            logger.error("'modified_datetime' in wrong format: %r in: %r", d["modified_datetime"], d)
             sys.exit(1)
 
         d.pop("publish_date", None)
@@ -30,7 +33,7 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
         rows.append(d)
 
     if len(rows) == 0:
-        print("No rows inserted")
+        logger.info("No rows inserted")
         return
 
 
@@ -38,8 +41,8 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
 
     def batched(iterable, n):
         for i in range(0, len(iterable), n):
-            print(f"Inserting rows - {i}:{i+n}.")
-            sys.stdout.flush()
+            logger.info("Inserting rows - %d:%d.", i, i+n)
+            sys.stderr.flush()
             yield iterable[i:i+n]
 
     with Session(engine) as session:

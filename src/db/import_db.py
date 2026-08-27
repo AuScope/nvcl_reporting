@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import pandas
 import sqlalchemy
@@ -6,6 +7,8 @@ import psycopg2
 
 from db.dbhelpers import make_engine, conv_str2dt, conv_str2json, db_col_str
 from db.schema import Base, DF_COLUMNS
+
+logger = logging.getLogger(__name__)
 
 def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: pd.DataFrame) -> pd.DataFrame:
     engine = make_engine(db_name, db_params)
@@ -16,12 +19,12 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
         try:
             src_df = pd.read_sql(sql, conn, params={"cat": report_datacat})
         except sqlalchemy.exc.ProgrammingError as pe:
-            print(f"Cannot find data in database.")
+            logger.warning("Cannot find data in database.")
             src_df = pd.DataFrame(columns=DF_COLUMNS)
             # Create tables
             insp = inspect(engine)
             if "meas" not in insp.get_table_names():
-                print("Creating tables")
+                logger.info("Creating tables")
                 Base.metadata.create_all(engine)
 
 

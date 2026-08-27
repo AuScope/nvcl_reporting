@@ -1,4 +1,5 @@
 import sys
+import logging
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -6,8 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from db.dbhelpers import make_engine
 from db.schema import Stats
 
+logger = logging.getLogger(__name__)
+
 def export_kms(db_name: str, db_params: dict, prov_list: list, y_list, q_list):
-    print(f"Opening: {db_name}")
+    logger.info("Opening: %s", db_name)
     engine = make_engine(db_name, db_params)
 
     rows = []
@@ -38,11 +41,11 @@ def export_kms(db_name: str, db_params: dict, prov_list: list, y_list, q_list):
             session.commit()
         except IntegrityError as e:
             session.rollback()
-            print(f"Duplicate row error: {e}")
-            print("Tried to insert", rows)
+            logger.error("Duplicate row error: %s", e)
+            logger.error("Tried to insert %r", rows)
             sys.exit(1)
         except Exception as e:
             session.rollback()
-            print(f"Bad param error: {e}")
-            print("Tried to insert", rows)
+            logger.error("Bad param error: %s", e)
+            logger.error("Tried to insert %r", rows)
             sys.exit(1)

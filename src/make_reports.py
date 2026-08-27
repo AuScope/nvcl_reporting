@@ -4,13 +4,15 @@
 # Python imports
 import sys
 import os
+import logging
+import multiprocessing
+from multiprocessing import Pool
 from pathlib import Path
 import argparse
 import datetime
 from dateutil.relativedelta import relativedelta
 import signal
 from types import SimpleNamespace
-import traceback
 
 # External imports
 import numpy as np
@@ -28,7 +30,6 @@ fiscalyear.setup_fiscal_calendar(start_month=7)
 from nvcl_kit.reader import NVCLReader
 from nvcl_kit.param_builder import param_builder
 from nvcl_kit.constants import has_VNIR, has_SWIR, has_TIR
-from multiprocessing import Pool
 
 # Local imports
 from db.import_db import import_db
@@ -42,6 +43,14 @@ from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
 from helpers import conv_mindata, make_row
 from helpers import load_and_check_config, get_last_url_part
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
+
+# Module-level logger (main process).  Writes to stderr.
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s %(processName)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -79,16 +88,16 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database
-        print(f"Importing db {db_name}, {data_cat}")
+        logger.info("Importing db %s, %s", db_name, data_cat)
         g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
         # Check column values
         s1 = set(list(g_dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
         if s1 != s2:
-            print(f"Cannot read database {db_name}, wrong columns: {s1} != {s2}")
+            logger.error("Cannot read database %s, wrong columns: %s != %s", db_name, s1, s2)
             sys.exit(1)
         known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
-    sys.stdout.flush()
+    sys.stderr.flush()
     
 
     # TODO: Reinstate later
@@ -99,19 +108,20 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     #    # Delete the abort file
     #    ABORT_FILE.unlink()
 
-    print("Reading NVCL data services ...")
+    logger.info("Reading NVCL data services ...")
     # Read data from NVCL services
     try:
         MULTI = True
         if MULTI:
             # Run each provider in parallel, limit to max of 2 because of memory limitations
             # Limit to len(prov_list) to avoid hanging problems
-            with Pool(processes=min(3, len(prov_list))) as pool:
+            proc_num = min(3, len(prov_list))
+            with Pool(processes=proc_num) as pool:
                 param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir) for prov in prov_list]
-                print(f"Running in parallel with {len(param_list)} processes for {prov_list}")
+                logger.info("Running in parallel with %d processes for %s", proc_num, prov_list)
                 result_list = pool.starmap(do_prov, param_list)
-                print(f"{result_list=}")
-                sys.stdout.flush()
+                logger.info("result_list=%r", result_list)
+                sys.stderr.flush()
 
             # IMPORTANT: re-import because g_dfs has not been updated with new values
             for data_cat in DATA_CATS:
@@ -191,9 +201,10 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
         try:
             publish_date = row_df.iat[0, row_df.columns.get_loc(TSG_PUBLISH_DATE)]
         except (KeyError, IndexError) as e:
-            print(f"Caught exception: {e=}")
-            print(f"{TSG_PUBLISH_DATE=}")
-            print(f"{row_df=}")
+            _log = multiprocessing.get_logger()
+            _log.exception("Caught exception: %r", e)
+            _log.debug("TSG_PUBLISH_DATE=%r", TSG_PUBLISH_DATE)
+            _log.debug("row_df=%r", row_df)
             publish_date = None
 
         if publish_date is None:
@@ -203,9 +214,10 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
         try:
             scan_date = row_df.iat[0, row_df.columns.get_loc(HL_SCAN_DATE)]
         except (KeyError, IndexError) as e:
-            print(f"Caught exception: {e=}")
-            print(f"{HL_SCAN_DATE=}")
-            print(f"{row_df=}")
+            _log = multiprocessing.get_logger()
+            _log.exception("Caught exception: %r", e)
+            _log.debug("HL_SCAN_DATE=%r", HL_SCAN_DATE)
+            _log.debug("row_df=%r", row_df)
             scan_date = None
 
         if scan_date is None:
@@ -229,7 +241,8 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     :param piclke_dir: filesystem path to store pickle file of borehole data from provider
     :returns: True/False
     """
-    print('\n'+'>'*15+f"    {prov}    "+'<'*15)
+    _log = multiprocessing.get_logger()
+    _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
 
     # Create results - a dict of empty dataframes
     results = {}
@@ -239,13 +252,13 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     # Create parameters for NVCL services
     param = param_builder(prov, max_boreholes=max_boreholes)
     if not param:
-        print(f"Cannot build parameters for {prov}: {param}")
+        _log.error("Cannot build parameters for %s: %r", prov, param)
         return False
 
     # Instantiate class and search for boreholes via WFS
     reader = NVCLReader(param)
     if not reader.wfs:
-        print(f"ERROR! Cannot connect to {prov}")
+        _log.error("Cannot connect to %s", prov)
         return False
 
     # Get a list of borehole URIs from NVCLDataServices
@@ -268,7 +281,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         # If there is a WFS object use that
         if nvcl_id_l in wfs_nvclid_dict:
             if printidx1 < 3:
-                print(f"Adding: {wfs_nvclid_dict[nvcl_id_l]=}\n")
+                _log.debug("Adding: wfs_nvclid_dict[nvcl_id_l]=%r\n", wfs_nvclid_dict[nvcl_id_l])
             printidx1 += 1
             boreholes_list.append(wfs_nvclid_dict[nvcl_id_l])
         else:
@@ -278,43 +291,48 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             for to_attr in ('description', 'purpose', 'status', 'drillingMethod', 'operator', 'driller', 'drillStartDate', 'drillEndDate', 'startPoint', 'inclinationType', 'boreholeMaterialCustodian', 'boreholeLength_m', 'elevation_m', 'elevation_srs', 'positionalAccuracy', 'source', 'parentBorehole_uri', 'metadata_uri', 'genericSymbolizer', 'tenement', 'project'):
                 setattr(bh_obj, to_attr, '')
             if printidx2 < 3:
-                print(f"Adding: {bh_obj=}\n")
+                _log.debug("Adding: bh_obj=%r\n", bh_obj)
             printidx2 += 1
             boreholes_list.append(bh_obj)
 
-    print(f"WFS Added: {printidx1}     NDS Added: {printidx2}\n")
-    print(f"{prov} Borehole list total: {printidx1+printidx2}")
+    _log.info("WFS Added: %d     NDS Added: %d\n", printidx1, printidx2)
+    _log.info("%s Borehole list total: %d", prov, printidx1+printidx2)
         
 
     # Search for NVCL boreholes
     nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
-    print(f"{len(nvcl_id_list)} NVCL boreholes found for {prov}")
-    sys.stdout.flush()
+    _log.info("%d NVCL boreholes found for %s", len(nvcl_id_list), prov)
+    sys.stderr.flush()
     
 
     # Check for no NVCL ids & skip to next service
     if not nvcl_id_list:
-        print(f"!!!! Could not download NVCL ids for {prov}")
+        _log.warning("Could not download NVCL ids for %s", prov)
         return False
 
     for idx, nvcl_id in enumerate(nvcl_id_list):
-        print('-'*50)
-        print(f"{nvcl_id} - {prov} ({idx+1} of {len(nvcl_id_list)})")
-        print('-'*10)
+        _log.info('%s', '-'*50)
+        _log.info("%s - %s (%d of %d)", nvcl_id, prov, idx+1, len(nvcl_id_list))
+        _log.info('%s', '-'*10)
+        sys.stderr.flush()
+         
         # Is this a known NVCL id? Then ignore
         if (SW_ignore_importedIDs and len(known_id_df.query(f"nvcl_id == '{nvcl_id}' and provider == '{prov}'")) > 0):
-            print(f"{nvcl_id} in {prov} is already imported, next...")
+            _log.info("%s in %s is already imported, next...", nvcl_id, prov)
+            sys.stderr.flush()
             continue
 
         # Download previously unknown NVCL id dataset from service
-        print(f"Calling 'get_logs_data' for {nvcl_id} and {prov}")
+        _log.info("Calling 'get_logs_data' for %s and %s", nvcl_id, prov)
+        sys.stderr.flush()
         logs_data_list = reader.get_logs_data(nvcl_id)
         now_date = datetime.datetime.now().date()
         ###
         # If no NVCL data in this borehole, make a 'nodata' record
         ###
         if not logs_data_list:
-            print(f"No NVCL data for {nvcl_id}! Inserting as 'no_data'.")
+            _log.info("No NVCL data for %s! Inserting as 'no_data'.", nvcl_id)
+            sys.stderr.flush()
             new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min, datetime.date.min)
             #print("AS_LIST:", new_row.as_list())
             results['nodata'] = pd.concat([results['nodata'], pd.Series(new_row.as_list(), index=results['nodata'].columns).to_frame().T], ignore_index=True)
@@ -326,8 +344,8 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         for ld in logs_data_list:
             if SW_ignore_importedIDs and \
               ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
-                print(f"Log id {ld.log_id} already imported, next...")
-                sys.stdout.flush()
+                _log.info("Log id %s already imported, next...", ld.log_id)
+                sys.stderr.flush()
                 continue
             minerals = []
             #print(f"Importing log id {ld.log_id} from {nvcl_id} in {prov}")
@@ -366,21 +384,25 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
             # Add new data to the results dataframe
             results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
-            sys.stdout.flush()
+            sys.stderr.flush()
+
+    _log.info("Retrieving data from %s is DONE.", prov)
+    sys.stderr.flush()
 
     for data_cat in DATA_CATS:
         g_dfs[data_cat] = pd.concat([g_dfs[data_cat], results[data_cat]], ignore_index=True)
-        print(f"\nSaving  '{prov}', '{data_cat}' to {data_cat}_{prov}.pkl")
+        _log.info("Saving '%s', '%s' to %s_%s.pkl", prov, data_cat, data_cat, prov)
         g_dfs[data_cat].to_pickle(os.path.join(pickle_dir, f"{data_cat}_{prov}.pkl"))
-        print(f"\nSaving  '{prov}', '{data_cat}' to {db_name}")
-        sys.stdout.flush()
+        _log.info("Saving '%s', '%s' to %s", prov, data_cat, db_name)
+        sys.stderr.flush()
         try:
             export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
         except Exception as e:
-            print(f"Caught exception {e} exporting nvcl database rows")
-            traceback.print_exc()
-            sys.stdout.flush()
+            _log.exception("Caught exception %s exporting nvcl database rows", e)
+            sys.stderr.flush()
 
+    _log.info("Saving data to DB for %s completed. EXITING.", prov)
+    sys.stderr.flush()
     return True
 
 
@@ -390,11 +412,11 @@ def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
     :param db_name: database name
     :param db_params: database connection parameters
     """
-    print(f"Loading database {db_name}")
+    logger.info("Loading database %s", db_name)
     for idx, data_cat in enumerate(DATA_CATS):
         g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
-        print(f"{idx+1} of {len(DATA_CATS)}: {data_cat} done")
-    print("Loading database done.")
+        logger.info("%d of %d: %s done", idx+1, len(DATA_CATS), data_cat)
+    logger.info("Loading database done.")
 
 
 
@@ -438,38 +460,38 @@ def main(sys_argv):
             'sslmode': 'disable'
         }
     except KeyError as ke:
-        print(f"ERROR - Postgres DB env var not set: {ke}")
+        logger.error("Postgres DB env var not set: %s", ke)
         sys.exit(1)
 
-    # Print db connection params
-    print(f"DB connection: {db_name=}")
-    print(f"   {db_params['host']=}")
-    print(f"   {db_params['port']=}")
-    print(f"   {db_params['user']=}")
-    print(f"   {db_params['sslmode']=}\n")
+    # Log db connection params
+    logger.info("DB connection: db_name=%r", db_name)
+    logger.info("   host=%r", db_params['host'])
+    logger.info("   port=%r", db_params['port'])
+    logger.info("   user=%r", db_params['user'])
+    logger.info("   sslmode=%r\n", db_params['sslmode'])
 
     # If test run required
     if args.test_run:
         global TEST_RUN
         TEST_RUN = True
-    print(f"TEST_RUN is {TEST_RUN}")
+    logger.info("TEST_RUN is %s", TEST_RUN)
 
 
     # Complain & exit if nothing selected
     if not (args.update or args.full or args.brief):
-        print("No procedural command line options were selected. Please use '--update' and/or either '--full' or '--brief'")
+        logger.error("No procedural command line options were selected. Please use '--update' and/or either '--full' or '--brief'")
         parser.print_usage()
         sys.exit(1)
 
     # Complain if both full and brief reports were selected
     if args.full and args.brief:
-        print("Cannot select both full and brief report. Please select one or the other.")
+        logger.error("Cannot select both full and brief report. Please select one or the other.")
         parser.print_usage()
         sys.exit(1)
 
     # Complain if config file does not exist
     if args.config is not None and not os.path.isfile(args.config):
-        print(f"Cannot find config file {args.config}")
+        logger.error("Cannot find config file %s", args.config)
         parser.print_usage()
         sys.exit(1)
     if args.config is None:
@@ -482,8 +504,8 @@ def main(sys_argv):
     plot_dir = config['plot_dir']
     pickle_dir = config['pickle_dir']
     now = datetime.datetime.now()
-    print("NVCL_REPORTING running on", now.strftime("%A %d %B %Y %H:%M:%S"))
-    sys.stdout.flush()
+    logger.info("NVCL_REPORTING running on %s", now.strftime("%A %d %B %Y %H:%M:%S"))
+    sys.stderr.flush()
 
     data_loaded = False
 
@@ -493,18 +515,18 @@ def main(sys_argv):
         try:
             report_date = datetime.datetime.strptime(args.report_date, '%Y-%m-%d').date()
         except ValueError as ve:
-            print(f"Report date has incorrect format: {ve}")
+            logger.error("Report date has incorrect format: %s", ve)
             sys.exit(1)
-    print(f"Report date is {report_date.strftime('%a %d %B %Y')}")
-    sys.stdout.flush()
+    logger.info("Report date is %s", report_date.strftime('%a %d %B %Y'))
+    sys.stderr.flush()
 
     # Run TSG harvest
     if args.tsg_harvest:
-        print("Running TSG harvest")
-        sys.stdout.flush()
+        logger.info("Running TSG harvest")
+        sys.stderr.flush()
         process(config)
-        print("TSG harvest complete")
-        sys.stdout.flush()
+        logger.info("TSG harvest complete")
+        sys.stderr.flush()
         
     tsg_meta = TSGMeta(config['tsg_meta_file'])
     tsg_meta_df = tsg_meta.get_frame()
@@ -515,13 +537,13 @@ def main(sys_argv):
         pickle_path = Path(pickle_dir)
         if not pickle_path.exists():
             os.mkdir(pickle_dir)
-        print("Updating database")
-        sys.stdout.flush()
+        logger.info("Updating database")
+        sys.stderr.flush()
         update_data(PROV_LIST, db_name, db_params, tsg_meta_df, pickle_dir)
         update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME)
         data_loaded = True
-        print("Database update complete")
-        sys.stdout.flush()
+        logger.info("Database update complete")
+        sys.stderr.flush()
 
     # Load database from designated database
     if not data_loaded:
@@ -529,8 +551,8 @@ def main(sys_argv):
 
     # Create report
     if args.full or args.brief:
-        print("Creating reports")
-        sys.stdout.flush()
+        logger.info("Creating reports")
+        sys.stderr.flush()
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
         if not plot_path.exists():
@@ -544,7 +566,7 @@ def main(sys_argv):
         assemble_report(args.output, report_date, DATE_FIELDNAME, g_dfs, plot_dir, prefix, args.brief)
 
     now = datetime.datetime.now()
-    print("NVCL_REPORTING Done @", now.strftime("%A %d %B %Y %H:%M:%S"))
+    logger.info("NVCL_REPORTING Done @ %s", now.strftime("%A %d %B %Y %H:%M:%S"))
 
 if __name__ == "__main__":
     main(sys.argv)

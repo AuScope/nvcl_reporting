@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import logging
 import shutil
 from zipfile import ZipFile, BadZipFile
 import datetime
@@ -19,6 +20,8 @@ import requests
 
 
 from helpers import load_and_check_config
+
+logger = logging.getLogger(__name__)
 
 # URL of NVCL TSG datasets at NCI
 THREDDS_CAT = 'https://thredds.nci.org.au/thredds/catalog/rs07/{prov}/catalog.xml'
@@ -47,7 +50,7 @@ def parse_date(date_str: str) -> datetime:
     try:
         dt = datetime.datetime.strptime(date_str, DATE_FMT)
     except ValueError as ve:
-        print(f"Cannot parse scan date '{date_str}': {ve}")
+        logger.warning("Cannot parse scan date '%s': %s", date_str, ve)
         return datetime.datetime.max
     return dt
 
@@ -58,27 +61,27 @@ def get_tsg_metadata(filepath: Path) -> dict:
     :param filename: filename of TSG file
     :returns: datetime or datetime.max upon error
     """
-    print(f"Finding metadata in {filepath}")
+    logger.info("Finding metadata in %s", filepath)
     config = configparser.ConfigParser(allow_no_value=True, strict=False)
     try:
         # Try utf-8
         config.read(str(filepath))
     except UnicodeDecodeError:
         # Try cp1252
-        print(f"Reading {filepath} as 'cp1252'")
+        logger.info("Reading %s as 'cp1252'", filepath)
         config.read(str(filepath), encoding='cp1252')
 
     # Look for scan date
     try:
         date_str = config['dbextra']['scan date']
     except (configparser.Error, KeyError):
-        print(f"WARN - {filepath} does not have scan date")
+        logger.warning("%s does not have scan date", filepath)
         # Look for create date
         date_str = config['description']['Created']
-        print(f"Using created date {date_str} instead")
+        logger.info("Using created date %s instead", date_str)
 
     # Parse scan date
-    print(f"Found scan date {date_str}")
+    logger.info("Found scan date %s", date_str)
     field_dict =  {HL_SCAN_DATE: parse_date(date_str) }
 
     # Look for fields in TSG file
@@ -86,7 +89,7 @@ def get_tsg_metadata(filepath: Path) -> dict:
         try:
             field_dict[field] = config['dbextra'][field]
         except (configparser.Error, KeyError):
-            print(f"Error in TSG file: {filepath} does not have {field}")
+            logger.warning("Error in TSG file: %s does not have %s", filepath, field)
             field_dict[field] = ''
     return field_dict
 
@@ -100,7 +103,7 @@ def process_prov(tmp_dir: str, prov: str, prov_tsg_dict: dict[str, list]):
     :param csvwrite: instance of csvwriter class to output each data point
     :param prov_tsg_dict: TSG dict for prov, key is TSG zip filename, val is remaining fields
     """
-    print(f"Calling read_url({THREDDS_CAT.format(prov=prov)})")	
+    logger.info("Calling read_url(%s)", THREDDS_CAT.format(prov=prov))
     cat = threddsclient.read_url(THREDDS_CAT.format(prov=prov))
 
     for ds in cat.flat_datasets():
@@ -108,26 +111,27 @@ def process_prov(tmp_dir: str, prov: str, prov_tsg_dict: dict[str, list]):
         try:
             tsg_mod_datetime = datetime.datetime.strptime(ds.modified, "%Y-%m-%dT%H:%M:%SZ")
         except ValueError as ve:
-            print(f"ERROR - THREDDS provider {prov} file {ds.name} has modified date {ds.modified} is not a valid date: {ve}")
+            logger.error("THREDDS provider %s file %s has modified date %s which is not a valid date: %s",
+                         prov, ds.name, ds.modified, ve)
             continue
 
         # Is there are more recent version of TSG ZIP file?
         if prov_tsg_dict.get(ds.name, [datetime.datetime.min])[0] < tsg_mod_datetime:
             with tempfile.NamedTemporaryFile(mode='wb', dir=tmp_dir) as temp_fd:
-                print(f"Processing {ds.name}. Downloading {ds.download_url()}")
+                logger.info("Processing %s. Downloading %s", ds.name, ds.download_url())
                 # Download TSG ZIP file
                 try:
                     r = requests.get(ds.download_url())  
                     r.raise_for_status()
                     temp_fd.write(r.content)
                 except requests.exceptions.RequestException as re:
-                    print(f"ERROR - error downloading {ds.download_url()}: {re}")
+                    logger.error("Error downloading %s: %s", ds.download_url(), re)
                     continue
 
                 # Process zip file
                 process_tsg_zip(temp_fd.name, ds, tsg_mod_datetime, prov_tsg_dict, prov)
         else:
-            print(f"Skipping {ds.name} @ {tsg_mod_datetime}")
+            logger.info("Skipping %s @ %s", ds.name, tsg_mod_datetime)
 
 
 def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.datetime,
@@ -157,7 +161,7 @@ def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.
             # Extract everything in zip file into a temporary directory
             with tempfile.TemporaryDirectory() as temp_dir:
                 path = Path(temp_dir)
-                print(f"Unzipping {temp_zip_file}")
+                logger.info("Unzipping %s", temp_zip_file)
                 # This forces 'Zipfile' to create POSIX paths using the Windows paths in the ZIP file
                 os.path.altsep = '\\'
                 z.extractall(path=temp_dir)
@@ -172,7 +176,7 @@ def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.
                         prov_tsg_dict[ds.name] = [tsg_mod_datetime] + list(field_dict.values())
                         break
     except BadZipFile as bzf:
-        print(f"ERROR: For {prov} & {ds.name}, cannot unzip {temp_zip_file}: {bzf}")
+        logger.error("For %s & %s, cannot unzip %s: %s", prov, ds.name, temp_zip_file, bzf)
 
 
 def process_tsgs(tmp_dir: str, output_file: str, tsg_dict: dict[str, dict[str, list]]):
@@ -185,7 +189,7 @@ def process_tsgs(tmp_dir: str, output_file: str, tsg_dict: dict[str, dict[str, l
     """
     # Loop over providers
     for prov in PROVIDERS:
-        print(f"\n\n*** Processing TSG files from {prov} ***\n")
+        logger.info("*** Processing TSG files from %s ***", prov)
         # NB: No need to check for missing key in dict because it is defaultdict
         process_prov(tmp_dir, prov, tsg_dict[prov])
 
@@ -200,7 +204,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
     """
     tsg_dict = defaultdict(lambda: defaultdict(list))
     if os.path.exists(csv_file):
-        print(f"Opening CSV file: {csv_file}")
+        logger.info("Opening CSV file: %s", csv_file)
         with open(csv_file, 'r') as csv_fd:
             csvreader = csv.reader(csv_fd, delimiter='|', quotechar=None, doublequote=False,
                                    quoting=csv.QUOTE_NONE)
@@ -213,11 +217,11 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
                 try:
                     dt = datetime.datetime.strptime(field_list[0], DATE_FMT)
                 except ValueError as ve:
-                    print(f"ERROR - Cannot parse scan date '{field_list[0]}' from: {prov}, {zip_file}: {ve}")
+                    logger.error("Cannot parse scan date '%s' from: %s, %s: %s", field_list[0], prov, zip_file, ve)
                     continue
                 tsg_dict[prov][zip_file] = [dt] + field_list[1:]
     else:
-        print(f"Initial TSG CSV file {csv_file} does not exist.")
+        logger.info("Initial TSG CSV file %s does not exist.", csv_file)
     return tsg_dict
 
 
@@ -246,7 +250,7 @@ def write_csv(csv_file: str, tsg_dict: dict[str, dict[str, list]]):
                 try:
                     mod_datetime_str = field_list[0].strftime(DATE_FMT)
                 except (ValueError, TypeError) as vte:
-                    print(f"ERROR - Cannot format date {field_list[0]} for {prov}, {zip_file}")
+                    logger.error("Cannot format date %r for %s, %s", field_list[0], prov, zip_file)
                     continue
                 csvwriter.writerow([prov, zip_file] + list(field_list))
                 
@@ -279,19 +283,19 @@ def rotate_backups(base_filename: str, num_versions: int):
 def process(config):
 
     # Make a backup of CSV file
-    print("Backup current CSV file")
+    logger.info("Backup current CSV file")
     csv_file = config['tsg_meta_file']
     rotate_backups(csv_file, 10)
 
     # Read CSV file
-    print("Read current CSV file")
+    logger.info("Read current CSV file")
     tsg_dict = parse_csv(csv_file)
 
     # Amend TSG dict
     process_tsgs(config['tmp_dir'], csv_file, tsg_dict)
 
     # Write out TSG dict to CSV file
-    print("Write out new CSV file")
+    logger.info("Write out new CSV file")
     write_csv(csv_file, tsg_dict)
 
 

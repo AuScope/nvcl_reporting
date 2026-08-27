@@ -1,5 +1,6 @@
 import re
 import os
+import logging
 
 from wordcloud import WordCloud, STOPWORDS
 from periodictable import elements
@@ -16,6 +17,8 @@ BBX2A = (1.0, 0.5)
 
 # Font size for plots
 FONT_SZ = 36
+
+logger = logging.getLogger(__name__)
 
 """
 Functions used for plotting in reports
@@ -428,7 +431,7 @@ class Plots:
             self.simple_plot(plot_df, "log1_nonstdalgos.png", plot_group, "Number of boreholes for non-standard algorithms by provider",
                  'Provider', "Number of boreholes", True, kind='bar', rot=0, figsize=(50, 40))
         else:
-            print("WARNING: There is insufficient data to produce non-standard Log1 algorithm stats")
+            logger.warning("There is insufficient data to produce non-standard Log1 algorithm stats")
     
         # Plot number of boreholes by algorithm and provider
         if not df_algo_stats.empty:
@@ -475,5 +478,5 @@ class Plots:
                 plt.savefig(os.path.join(self.plot_dir, plot_file))
                 self.register_plot("Algorithms", plot_file)
             except TypeError as ve:
-                print(f"WARNING: Cannot plot algorithm {alg}: {ve}")
+                logger.warning("Cannot plot algorithm %s: %s", alg, ve)
         plt.close('all')
