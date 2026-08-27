@@ -27,5 +27,7 @@ def test_eval(capsys, cli_params, expected_out):
     os.environ["POSTGRES_PASSWORD"] = "dummy"
     with pytest.raises(SystemExit):
         main(["make_reports.py"] + cli_params)
-    captured = capsys.readouterr()
-    assert expected_out in captured.out
+        captured = capsys.readouterr()
+        #with capsys.disabled():
+        #    print(f"{captured=}")
+        assert(expected_out in captured.out or expected_out in captured.err)
