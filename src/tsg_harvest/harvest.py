@@ -61,14 +61,14 @@ def get_tsg_metadata(filepath: Path) -> dict:
     :param filename: filename of TSG file
     :returns: datetime or datetime.max upon error
     """
-    logger.info("Finding metadata in %s", filepath)
+    logger.debug("Finding metadata in %s", filepath)
     config = configparser.ConfigParser(allow_no_value=True, strict=False)
     try:
         # Try utf-8
         config.read(str(filepath))
     except UnicodeDecodeError:
         # Try cp1252
-        logger.info("Reading %s as 'cp1252'", filepath)
+        logger.debug("Reading %s as 'cp1252'", filepath)
         config.read(str(filepath), encoding='cp1252')
 
     # Look for scan date
@@ -78,10 +78,10 @@ def get_tsg_metadata(filepath: Path) -> dict:
         logger.warning("%s does not have scan date", filepath)
         # Look for create date
         date_str = config['description']['Created']
-        logger.info("Using created date %s instead", date_str)
+        logger.debug("Using created date %s instead", date_str)
 
     # Parse scan date
-    logger.info("Found scan date %s", date_str)
+    logger.debug("Found scan date %s", date_str)
     field_dict =  {HL_SCAN_DATE: parse_date(date_str) }
 
     # Look for fields in TSG file
@@ -103,7 +103,7 @@ def process_prov(tmp_dir: str, prov: str, prov_tsg_dict: dict[str, list]):
     :param csvwrite: instance of csvwriter class to output each data point
     :param prov_tsg_dict: TSG dict for prov, key is TSG zip filename, val is remaining fields
     """
-    logger.info("Calling read_url(%s)", THREDDS_CAT.format(prov=prov))
+    logger.debug("Calling read_url(%s)", THREDDS_CAT.format(prov=prov))
     cat = threddsclient.read_url(THREDDS_CAT.format(prov=prov))
 
     for ds in cat.flat_datasets():
@@ -131,7 +131,7 @@ def process_prov(tmp_dir: str, prov: str, prov_tsg_dict: dict[str, list]):
                 # Process zip file
                 process_tsg_zip(temp_fd.name, ds, tsg_mod_datetime, prov_tsg_dict, prov)
         else:
-            logger.info("Skipping %s @ %s", ds.name, tsg_mod_datetime)
+            logger.debug("Skipping %s @ %s", ds.name, tsg_mod_datetime)
 
 
 def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.datetime,
@@ -161,7 +161,7 @@ def process_tsg_zip(temp_zip_file: str, ds: Dataset, tsg_mod_datetime: datetime.
             # Extract everything in zip file into a temporary directory
             with tempfile.TemporaryDirectory() as temp_dir:
                 path = Path(temp_dir)
-                logger.info("Unzipping %s", temp_zip_file)
+                logger.debug("Unzipping %s", temp_zip_file)
                 # This forces 'Zipfile' to create POSIX paths using the Windows paths in the ZIP file
                 os.path.altsep = '\\'
                 z.extractall(path=temp_dir)
@@ -204,7 +204,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
     """
     tsg_dict = defaultdict(lambda: defaultdict(list))
     if os.path.exists(csv_file):
-        logger.info("Opening CSV file: %s", csv_file)
+        logger.debug("Opening CSV file: %s", csv_file)
         with open(csv_file, 'r') as csv_fd:
             csvreader = csv.reader(csv_fd, delimiter='|', quotechar=None, doublequote=False,
                                    quoting=csv.QUOTE_NONE)
@@ -221,7 +221,7 @@ def parse_csv(csv_file: str) -> dict[str, dict[str, list]]:
                     continue
                 tsg_dict[prov][zip_file] = [dt] + field_list[1:]
     else:
-        logger.info("Initial TSG CSV file %s does not exist.", csv_file)
+        logger.warning("Initial TSG CSV file %s does not exist.", csv_file)
     return tsg_dict
 
 
