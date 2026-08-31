@@ -7,6 +7,7 @@ import os
 import logging
 import multiprocessing
 from multiprocessing import Pool
+import multiprocessing_logging
 from pathlib import Path
 import argparse
 import datetime
@@ -51,7 +52,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(processName)s %(levelname)s %(message)s",
 )
+# Set up multiprocessing logging
+multiprocessing_logging.install_mp_handler()
 logger = logging.getLogger(__name__)
+
 
 # Dataset dictionary - stores current NVCL datasets
 g_dfs = {}
@@ -243,17 +247,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     :returns: True/False
     """
     _log = multiprocessing.get_logger()
-    ch = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    _log.setLevel(logging.INFO)
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
-    logging.basicConfig(
-        stream=sys.stderr,
-        level=logging.INFO,
-        format="%(asctime)s %(processName)s %(levelname)s %(message)s",
-    )
 
     # Create results - a dict of empty dataframes
     results = {}

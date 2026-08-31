@@ -5,7 +5,7 @@
 groups = ["default", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:837c85d65d76bc6cb5ded5d0a63ab3e3e91d1480f4a77e0796ef3309cbcd55a9"
+content_hash = "sha256:3e48944fc59d2e36d5196164cff5371bd013ceda8a54f57735eca41e98cf5d3b"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -698,6 +698,17 @@ dependencies = [
 files = [
     {file = "mirakuru-3.0.2-py3-none-any.whl", hash = "sha256:10e5dac4a8f26872c63e9cdfdc01b775aaa2beb3ced98abc497279d2dc525b8f"},
     {file = "mirakuru-3.0.2.tar.gz", hash = "sha256:21192186a8680ea7567ca68170261df3785768b12962dd19fe8cccab15ad3441"},
+]
+
+[[package]]
+name = "multiprocessing-logging"
+version = "0.4.0"
+requires_python = ">=2.7"
+summary = "Logger for multiprocessing applications"
+groups = ["default"]
+files = [
+    {file = "multiprocessing_logging-0.4.0-py3-none-any.whl", hash = "sha256:0d76dae0f187343d9009aec4cada11e7323ba8189869e11797ddeab3c90dc687"},
+    {file = "multiprocessing_logging-0.4.0.tar.gz", hash = "sha256:152d209f4d1fd7fed500e695c92848bd72016f3a54b98a80283d64abcc27e0bc"},
 ]
 
 [[package]]
