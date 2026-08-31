@@ -114,7 +114,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     try:
         MULTI = True
         if MULTI:
-            # Run each provider in parallel, limit to max of 2 because of memory limitations
+            # Run each provider in parallel, limit to max of 3 because of memory limitations
             # Limit to len(prov_list) to avoid hanging problems
             proc_num = min(3, len(prov_list))
             with Pool(processes=proc_num) as pool:
