@@ -243,6 +243,10 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     :returns: True/False
     """
     _log = multiprocessing.get_logger()
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
     _log.setLevel(logging.INFO)
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
 
