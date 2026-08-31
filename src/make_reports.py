@@ -249,6 +249,11 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     logger.addHandler(ch)
     _log.setLevel(logging.INFO)
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=logging.INFO,
+        format="%(asctime)s %(processName)s %(levelname)s %(message)s",
+    )
 
     # Create results - a dict of empty dataframes
     results = {}
