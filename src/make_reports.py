@@ -123,7 +123,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             proc_num = min(3, len(prov_list))
             with Pool(processes=proc_num) as pool:
                 param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir) for prov in prov_list]
-                logger.info("Running in parallel with %d processes for %s", proc_num, prov_list)
+                logger.info("Running in parallel with %d processes and parallel logging for %s", proc_num, prov_list)
                 result_list = pool.starmap(do_prov, param_list)
                 logger.info("result_list=%r", result_list)
                 sys.stderr.flush()
@@ -206,7 +206,7 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
         try:
             publish_date = row_df.iat[0, row_df.columns.get_loc(TSG_PUBLISH_DATE)]
         except (KeyError, IndexError) as e:
-            _log = multiprocessing.get_logger()
+            _log = logger # multiprocessing.get_logger()
             _log.exception("Caught exception: %r", e)
             _log.debug("TSG_PUBLISH_DATE=%r", TSG_PUBLISH_DATE)
             _log.debug("row_df=%r", row_df)
@@ -219,7 +219,7 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
         try:
             scan_date = row_df.iat[0, row_df.columns.get_loc(HL_SCAN_DATE)]
         except (KeyError, IndexError) as e:
-            _log = multiprocessing.get_logger()
+            _log = logger # multiprocessing.get_logger()
             _log.exception("Caught exception: %r", e)
             _log.debug("HL_SCAN_DATE=%r", HL_SCAN_DATE)
             _log.debug("row_df=%r", row_df)
@@ -246,7 +246,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     :param piclke_dir: filesystem path to store pickle file of borehole data from provider
     :returns: True/False
     """
-    _log = multiprocessing.get_logger()
+    _log = logger # multiprocessing.get_logger()
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
 
     # Create results - a dict of empty dataframes
