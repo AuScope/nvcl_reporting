@@ -39,10 +39,11 @@ from db.export_kms import export_kms
 from db.tsg_metadata import TSGMeta
 from calculations import calc_stats, assemble_report, calc_kms4db
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST
-from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS
+from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS, USE_NVCL_STORE
 from helpers import conv_mindata, make_row
 from helpers import load_and_check_config, get_last_url_part
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
+from tsg_harvest.nvcl_store import download_csv
 
 # Module-level logger (main process).  Writes to stderr.
 logging.basicConfig(
@@ -520,15 +521,18 @@ def main(sys_argv):
     logger.info("Report date is %s", report_date.strftime('%a %d %B %Y'))
     sys.stderr.flush()
 
-    # Run TSG harvest
+    # Run TSG harvest using either NCI's NVCL Collection or the NVCL store
     if args.tsg_harvest:
         logger.info("Running TSG harvest")
         sys.stderr.flush()
-        process(config)
+        if not USE_NVCL_STORE:
+            process(config)
+        else:
+            download_csv(None, Path(config['tsg_meta_file']))
         logger.info("TSG harvest complete")
         sys.stderr.flush()
         
-    tsg_meta = TSGMeta(config['tsg_meta_file'])
+    tsg_meta = TSGMeta(config['tsg_meta_file'], USE_NVCL_STORE)
     tsg_meta_df = tsg_meta.get_frame()
 
     # Open database, talk to services, update database

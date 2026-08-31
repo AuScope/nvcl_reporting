@@ -41,4 +41,5 @@ IMAGE_SZ = [150, 100]
 # Report font
 FONT = 'helvetica'
 
-
+# Use nvclstore instead of NCI's NVCL collection for TSG file metadata
+USE_NVCL_STORE = True

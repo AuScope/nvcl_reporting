@@ -13,7 +13,7 @@ from db.tsg_metadata import TSGMeta
 def test_tsg_meta():
     """ Testing TSGMeta class
     """
-    t = TSGMeta(os.path.join(my_dir, "data", "small_metadata.csv"))
+    t = TSGMeta(os.path.join(my_dir, "data", "small_metadata.csv"), False)
     frame = t.get_frame()
     assert frame.shape  == (5,3)
     assert list(frame.columns) == ['nvcl_id', 'hl scan date', 'tsg publish date']
