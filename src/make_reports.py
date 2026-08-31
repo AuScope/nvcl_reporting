@@ -243,6 +243,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     :returns: True/False
     """
     _log = multiprocessing.get_logger()
+    _log.setLevel(logging.INFO)
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
 
     # Create results - a dict of empty dataframes
