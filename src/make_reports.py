@@ -77,7 +77,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         :param db_name: database name
         :param db_params: database commection parameters
         :param tsg_meta_df: TSG metadata dataframe
-        :param piclke_dir: filesystem path to store pickle file of borehole data from provider
+        :param pickle_dir: filesystem path to store pickle file of borehole data from provider
     """
 
     MAX_BOREHOLES = 9999
