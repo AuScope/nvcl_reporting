@@ -5,7 +5,7 @@
 groups = ["default", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:3e48944fc59d2e36d5196164cff5371bd013ceda8a54f57735eca41e98cf5d3b"
+content_hash = "sha256:2182d26b6df111bad6434b23f68acb9632fa8e99bb5601250366b7d37b582d3c"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -147,6 +147,17 @@ groups = ["test"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
+]
+
+[[package]]
+name = "colorcet"
+version = "3.2.1"
+requires_python = ">=3.10"
+summary = "Collection of perceptually uniform colormaps"
+groups = ["default"]
+files = [
+    {file = "colorcet-3.2.1-py3-none-any.whl", hash = "sha256:3f6fde13cef2169222dd5fe2a2bf847c02d644470fdf167ed566f6421df470f7"},
+    {file = "colorcet-3.2.1.tar.gz", hash = "sha256:48d9a67e6e59dc5c0a965aa1b46fe5d59cdc95cc36a95949f29313f950ac59f7"},
 ]
 
 [[package]]
@@ -794,11 +805,13 @@ files = [
 
 [[package]]
 name = "nvcl-kit"
-version = "1.3.0"
+version = "1.3.4"
 requires_python = ">=3.9"
 summary = "Downloads Australian National Virtual Core Library (NVCL) datasets"
 groups = ["default"]
 dependencies = [
+    "colorcet>=3.1.0",
+    "matplotlib>=3.9.4",
     "pandas>=2.1.4",
     "pyproj>=3.5.0",
     "python-dateutil>=2.9.0.post0",
@@ -807,8 +820,8 @@ dependencies = [
     "shapely>=2.0.4",
 ]
 files = [
-    {file = "nvcl_kit-1.3.0-py3-none-any.whl", hash = "sha256:80314c6b9d39596c9815632f50986240bb5a5a89ebd4aa279b052d55f00e5e46"},
-    {file = "nvcl_kit-1.3.0.tar.gz", hash = "sha256:fe9edca0859210f0baef3c01f7a3206843e6a79018209ba553901f7ef34a86d9"},
+    {file = "nvcl_kit-1.3.4-py3-none-any.whl", hash = "sha256:cf2a842ba829b0f53751774bcddfc6d47030686e73ff77909ae850b542232bcb"},
+    {file = "nvcl_kit-1.3.4.tar.gz", hash = "sha256:7f34a938ce282431c12e375dde1946489a8123617f5a21cb4e81629c6928629a"},
 ]
 
 [[package]]
