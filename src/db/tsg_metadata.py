@@ -6,6 +6,8 @@ import os
 import sys
 import datetime
 import pandas as pd
+from urllib.parse import urlparse
+from pathlib import PurePosixPath
 
 # Import CSV fields from source
 from tsg_harvest.harvest import HL_SCAN_DATE, TSG_PUBLISH_DATE, NVCL_ID
@@ -39,10 +41,14 @@ class TSGMeta:
                     # These are the equivalents of NVCL_ID, HL_SCAN_DATE and TSG_PUBLISH_DATE in NVCL store
                     scan_date_header = 'Source last Modified'
                     publish_date_header = 'FileModifiedDate'
-                    nvcl_id_header = 'BoreholeName'
+                    nvcl_id_header = 'BoreholeURI'
                 # Read CSV file
                 for row in tsg_reader:
-                    nvcl_id = row[nvcl_id_header]
+                    if nvcl_id_header == 'BoreholeURI':
+                        # If it is a borehole URI, only use the last part of the path
+                        nvcl_id = PurePosixPath(urlparse(row[nvcl_id_header]).path).name
+                    else:
+                        nvcl_id = row[nvcl_id_header]
                     scan_date = self.__str2date(row[scan_date_header], nvclstore)
                     publish_date = self.__str2date(row[publish_date_header], nvclstore)
                     # Is this NVCL id already in the dict?

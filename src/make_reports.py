@@ -63,7 +63,7 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
-TEST_RUN = False
+TEST_RUN = True
 
 DATE_FIELDNAME = 'publish_date'
 
@@ -84,7 +84,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 9999
-        new_prov_list = ['WA'] # 'SA', 'QLD', 'CSIRO', 'TAS', 'NSW', 'NT', 'VIC'
+        new_prov_list = ['NT'] # 'SA', 'QLD', 'CSIRO', 'WA', 'NSW', 'TAS', 'VIC'
         prov_list = new_prov_list
 
 
@@ -269,12 +269,14 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     # Get a list of borehole URIs from NVCLDataServices
     nds_nvclid_list = [ (get_last_url_part(bhuri), bhuri) for bhuri in reader.get_bhuri_list() ]
     nds_nvclid_list = nds_nvclid_list[:max_boreholes]
+    _log.info(f"{nds_nvclid_list=}")
 
     # Make a list of SimpleNamespace borehole objects from WFS
     wfs_bh_list = reader.get_boreholes_list()
 
     # Make a list of nvcl ids from WFS
     wfs_nvclid_dict = { bh.nvcl_id.lower(): bh for bh in wfs_bh_list }
+    _log.info(f"{wfs_nvclid_list=}")
 
     boreholes_list = []
     printidx1 = 0
@@ -307,6 +309,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     # Search for NVCL boreholes
     nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
     _log.info("%d NVCL boreholes found for %s", len(nvcl_id_list), prov)
+    _log.info(f"{nvcl_id_list=}")
     sys.stderr.flush()
     
 
