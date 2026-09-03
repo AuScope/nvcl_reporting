@@ -63,7 +63,7 @@ g_dfs = {}
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
 
-TEST_RUN = True
+TEST_RUN = False
 
 DATE_FIELDNAME = 'publish_date'
 
@@ -269,15 +269,15 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     # Get a list of borehole URIs from NVCLDataServices
     nds_nvclid_list = [ (get_last_url_part(bhuri), bhuri) for bhuri in reader.get_bhuri_list() ]
     nds_nvclid_list = nds_nvclid_list[:max_boreholes]
-    _log.info(f"{nds_nvclid_list=}")
+    _log.debug(f"{nds_nvclid_list=}")
 
     # Make a list of SimpleNamespace borehole objects from WFS
     wfs_bh_list = reader.get_boreholes_list()
-    _log.info(f"get_boreholes_list() returned {wfs_bh_list}")
+    _log.debug(f"get_boreholes_list() returned {wfs_bh_list}")
 
     # Make a list of nvcl ids from WFS
     wfs_nvclid_dict = { bh.nvcl_id.lower(): bh for bh in wfs_bh_list }
-    _log.info(f"{wfs_nvclid_dict=}")
+    _log.debug(f"{wfs_nvclid_dict=}")
 
     boreholes_list = []
     printidx1 = 0
@@ -310,7 +310,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     # Search for NVCL boreholes
     nvcl_id_list = [ bh.nvcl_id for bh in boreholes_list ]
     _log.info("%d NVCL boreholes found for %s", len(nvcl_id_list), prov)
-    _log.info(f"{nvcl_id_list=}")
+    _log.debug(f"{nvcl_id_list=}")
     sys.stderr.flush()
     
 
@@ -335,7 +335,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         _log.info("Calling 'get_logs_data' for %s and %s", nvcl_id, prov)
         sys.stderr.flush()
         logs_data_list = reader.get_logs_data(nvcl_id)
-        _log.info(f"get_logs_data({nvcl_id}) returned {logs_data_list}")
+        _log.debug(f"get_logs_data({nvcl_id}) returned {logs_data_list}")
         now_date = datetime.datetime.now().date()
         ###
         # If no NVCL data in this borehole, make a 'nodata' record
@@ -381,7 +381,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
                 # TODO: Expand to other types
                 # If type 1 (others?) then get the mineral class data
                 bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
-                _log.info(f"get_borehole_data({ld.log_id} {HEIGHT_RESOLUTION} {ANALYSIS_CLASS}) returned {bh_data}")
+                _log.debug(f"get_borehole_data({ld.log_id} {HEIGHT_RESOLUTION} {ANALYSIS_CLASS}) returned {bh_data}")
                 if bh_data:
                     minerals, mincnts = np.unique([getattr(v, 'classText', 'Unknown') for v in bh_data.values()], return_counts=True)
                     new_row.minerals = minerals.tolist()
