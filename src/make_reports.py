@@ -53,7 +53,12 @@ logging.basicConfig(
     format="%(asctime)s %(processName)s %(levelname)s %(message)s",
 )
 # Set up multiprocessing logging
-multiprocessing_logging.install_mp_handler()
+try:
+    MULTI = True
+    multiprocessing_logging.install_mp_handler()
+except AssertionError as ve:
+    MULTI = False
+    print(f"WARNING - multiprocessing logging does not work on Windows, using single process: {ve}", flush=True)
 logger = logging.getLogger(__name__)
 
 
@@ -116,7 +121,6 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
     logger.info("Reading NVCL data services ...")
     # Read data from NVCL services
     try:
-        MULTI = True
         if MULTI:
             # Run each provider in parallel, limit to max of 3 because of memory limitations
             # Limit to len(prov_list) to avoid hanging problems
