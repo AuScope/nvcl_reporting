@@ -273,10 +273,11 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
 
     # Make a list of SimpleNamespace borehole objects from WFS
     wfs_bh_list = reader.get_boreholes_list()
+    _log.info(f"get_boreholes_list() returned {wfs_bh_list}")
 
     # Make a list of nvcl ids from WFS
     wfs_nvclid_dict = { bh.nvcl_id.lower(): bh for bh in wfs_bh_list }
-    _log.info(f"{wfs_nvclid_list=}")
+    _log.info(f"{wfs_nvclid_dict=}")
 
     boreholes_list = []
     printidx1 = 0
@@ -334,6 +335,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         _log.info("Calling 'get_logs_data' for %s and %s", nvcl_id, prov)
         sys.stderr.flush()
         logs_data_list = reader.get_logs_data(nvcl_id)
+        _log.info(f"get_logs_data({nvcl_id}) returned {logs_data_list}")
         now_date = datetime.datetime.now().date()
         ###
         # If no NVCL data in this borehole, make a 'nodata' record
@@ -379,6 +381,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
                 # TODO: Expand to other types
                 # If type 1 (others?) then get the mineral class data
                 bh_data = reader.get_borehole_data(ld.log_id, HEIGHT_RESOLUTION, ANALYSIS_CLASS)
+                _log.info(f"get_borehole_data({ld.log_id} {HEIGHT_RESOLUTION} {ANALYSIS_CLASS}) returned {bh_data}")
                 if bh_data:
                     minerals, mincnts = np.unique([getattr(v, 'classText', 'Unknown') for v in bh_data.values()], return_counts=True)
                     new_row.minerals = minerals.tolist()
