@@ -85,8 +85,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         :param pickle_dir: filesystem path to store pickle file of borehole data from provider
     """
 
-    # Temporary limit for testing
-    MAX_BOREHOLES = 20
+    MAX_BOREHOLES = 99999
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 9999
