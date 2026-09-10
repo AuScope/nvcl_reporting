@@ -85,7 +85,8 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         :param pickle_dir: filesystem path to store pickle file of borehole data from provider
     """
 
-    MAX_BOREHOLES = 9999
+    # Temporary limit for testing
+    MAX_BOREHOLES = 20
     if TEST_RUN:
         # Optional maximum number of boreholes to fetch, default is no limit
         MAX_BOREHOLES = 9999
@@ -132,9 +133,22 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
                 logger.info("result_list=%r", result_list)
                 sys.stderr.flush()
 
-            # IMPORTANT: re-import because g_dfs has not been updated with new values
+            # Merge all worker results into g_dfs in the main process
+            for prov_result in result_list:
+                if not prov_result:
+                    continue
+                for data_cat in DATA_CATS:
+                    g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_result[data_cat]], ignore_index=True)
+
+            # Write merged results to DB sequentially in the main process to avoid lock contention
             for data_cat in DATA_CATS:
-                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+                logger.info("Saving '%s' to %s", data_cat, db_name)
+                sys.stderr.flush()
+                try:
+                    export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
+                except Exception as e:
+                    logger.exception("Caught exception %s exporting nvcl database rows", e)
+                    sys.stderr.flush()
                 
         else:
             # Single-threaded
@@ -404,21 +418,16 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     _log.info("Retrieving data from %s is DONE.", prov)
     sys.stderr.flush()
 
+    # Save per-provider pickle files (each process writes its own file, safe to do in parallel)
     for data_cat in DATA_CATS:
-        g_dfs[data_cat] = pd.concat([g_dfs[data_cat], results[data_cat]], ignore_index=True)
         _log.info("Saving '%s', '%s' to %s_%s.pkl", prov, data_cat, data_cat, prov)
-        g_dfs[data_cat].to_pickle(os.path.join(pickle_dir, f"{data_cat}_{prov}.pkl"))
-        _log.info("Saving '%s', '%s' to %s", prov, data_cat, db_name)
+        results[data_cat].to_pickle(os.path.join(pickle_dir, f"{data_cat}_{prov}.pkl"))
         sys.stderr.flush()
-        try:
-            export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
-        except Exception as e:
-            _log.exception("Caught exception %s exporting nvcl database rows", e)
-            sys.stderr.flush()
 
-    _log.info("Saving data to DB for %s completed. EXITING.", prov)
+    # Return results to the main process; DB writes happen there to avoid concurrent lock contention
+    _log.info("do_prov for %s completed. Returning results.", prov)
     sys.stderr.flush()
-    return True
+    return results
 
 
 def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
