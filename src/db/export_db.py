@@ -47,7 +47,7 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
 
         def batched(iterable, n):
             for i in range(0, len(iterable), n):
-                logger.info("Inserting rows - %d:%d.", i, i+n)
+                logger.debug("Inserting rows - %d:%d.", i, i+n)
                 sys.stderr.flush()
                 yield iterable[i:i+n]
 

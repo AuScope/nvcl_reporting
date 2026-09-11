@@ -112,7 +112,7 @@ def db_writer(db_queue: Queue, db_name: str, db_params: dict, tsg_meta_df: pd.Da
                 break
 
             data_cat, row_data = msg
-            _log.info("db_writer: received row for '%s' (queue size approx %d, total so far %d)",
+            _log.debug("db_writer: received row for '%s' (queue size approx %d, total so far %d)",
                       data_cat, db_queue.qsize(), rows_written)
             sys.stderr.flush()
 
@@ -122,7 +122,7 @@ def db_writer(db_queue: Queue, db_name: str, db_params: dict, tsg_meta_df: pd.Da
                 export_db(db_name, db_params, row_df, data_cat, tsg_meta_df, engine=engine)
                 rows_written += 1
                 rows_by_cat[data_cat] = rows_by_cat.get(data_cat, 0) + 1
-                _log.info("db_writer: wrote row for '%s' (provider=%s, nvcl_id=%s). Running total: %d",
+                _log.debug("db_writer: wrote row for '%s' (provider=%s, nvcl_id=%s). Running total: %d",
                           data_cat,
                           row_data[DF_COLUMNS.index('provider')] if 'provider' in DF_COLUMNS else '?',
                           row_data[DF_COLUMNS.index('nvcl_id')] if 'nvcl_id' in DF_COLUMNS else '?',
@@ -476,7 +476,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min, datetime.date.min)
             db_queue.put(('nodata', new_row.as_list()))
             rows_queued['nodata'] = rows_queued.get('nodata', 0) + 1
-            _log.info("Queued 'nodata' row for %s (queued so far: %s)", nvcl_id, dict(rows_queued))
+            _log.debug("Queued 'nodata' row for %s (queued so far: %s)", nvcl_id, dict(rows_queued))
             sys.stderr.flush()
             continue
 
