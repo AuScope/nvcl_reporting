@@ -6,7 +6,7 @@ import sys
 import os
 import logging
 import multiprocessing
-from multiprocessing import Pool
+from multiprocessing import Pool, Process, Queue
 import multiprocessing_logging
 from pathlib import Path
 import argparse
@@ -73,6 +73,57 @@ TEST_RUN = False
 DATE_FIELDNAME = 'publish_date'
 
 
+def db_writer(db_queue: Queue, db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
+    """Dedicated DB writer process. Drains db_queue and writes each row to the database
+    one at a time. Exits when it receives the sentinel value None.
+
+    Each message on the queue is a (data_cat, row_data) tuple where:
+      - data_cat is a string key from DATA_CATS (e.g. 'log1', 'nodata', 'empty')
+      - row_data is a list of values matching DF_COLUMNS
+
+    :param db_queue: multiprocessing Queue fed by worker processes
+    :param db_name: database name
+    :param db_params: database connection parameters
+    :param tsg_meta_df: TSG metadata dataframe (needed by export_db)
+    """
+    _log = logging.getLogger(__name__)
+    _log.info("db_writer: started, waiting for rows")
+    sys.stderr.flush()
+
+    rows_written = 0
+    rows_by_cat = {cat: 0 for cat in DATA_CATS}
+
+    while True:
+        msg = db_queue.get()
+
+        # Sentinel: writer is done
+        if msg is None:
+            _log.info("db_writer: received sentinel. Total rows written: %d %s. Exiting.",
+                      rows_written, dict(rows_by_cat))
+            sys.stderr.flush()
+            break
+
+        data_cat, row_data = msg
+        _log.info("db_writer: received row for '%s' (queue size approx %d, total so far %d)",
+                  data_cat, db_queue.qsize(), rows_written)
+        sys.stderr.flush()
+
+        # Build a single-row dataframe and write it to the DB
+        try:
+            row_df = pd.DataFrame([row_data], columns=DF_COLUMNS)
+            export_db(db_name, db_params, row_df, data_cat, tsg_meta_df)
+            rows_written += 1
+            rows_by_cat[data_cat] = rows_by_cat.get(data_cat, 0) + 1
+            _log.info("db_writer: wrote row for '%s' (provider=%s, nvcl_id=%s). Running total: %d",
+                      data_cat,
+                      row_data[DF_COLUMNS.index('provider')] if 'provider' in DF_COLUMNS else '?',
+                      row_data[DF_COLUMNS.index('nvcl_id')] if 'nvcl_id' in DF_COLUMNS else '?',
+                      rows_written)
+        except Exception as e:
+            _log.exception("db_writer: failed to write row for '%s': %s", data_cat, e)
+        sys.stderr.flush()
+
+
 def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame, pickle_dir: str):
     """ Read database for any past data and poll NVCL services to see if there is any new data
         Save updates to database
@@ -125,36 +176,77 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             # Run each provider in parallel, limit to max of 3 because of memory limitations
             # Limit to len(prov_list) to avoid hanging problems
             proc_num = min(3, len(prov_list))
+
+            # Start dedicated DB writer process. All worker processes send rows to this
+            # queue and it writes them to the DB one at a time, avoiding lock contention.
+            db_queue = Queue()
+            writer_proc = Process(
+                target=db_writer,
+                args=(db_queue, db_name, db_params, tsg_meta_df),
+                name="db_writer",
+                daemon=True,
+            )
+            writer_proc.start()
+            logger.info("db_writer process started (pid %d)", writer_proc.pid)
+            sys.stderr.flush()
+
+            param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir) for prov in prov_list]
+            logger.info("Running in parallel with %d processes and parallel logging for %s", proc_num, prov_list)
+
             with Pool(processes=proc_num) as pool:
-                param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir) for prov in prov_list]
-                logger.info("Running in parallel with %d processes and parallel logging for %s", proc_num, prov_list)
-                result_list = pool.starmap(do_prov, param_list)
-                logger.info("result_list=%r", result_list)
+                async_result = pool.starmap_async(do_prov, param_list)
+                logger.info("Pool started, waiting for workers to complete ...")
+                sys.stderr.flush()
+                # Wait without a hard timeout; workers may be slow due to network polling.
+                # They write rows incrementally via the queue so partial progress is always saved.
+                result_list = async_result.get()
+                logger.info("All workers finished. result_list=%r", result_list)
                 sys.stderr.flush()
 
-            # Merge all worker results into g_dfs in the main process
-            for prov_result in result_list:
-                if not prov_result:
-                    continue
-                for data_cat in DATA_CATS:
-                    g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_result[data_cat]], ignore_index=True)
+            # Signal the writer to shut down and wait for it to flush remaining rows
+            logger.info("Sending sentinel to db_writer and waiting for it to finish ...")
+            sys.stderr.flush()
+            db_queue.put(None)
+            writer_proc.join()
+            logger.info("db_writer process finished (exit code %d)", writer_proc.exitcode)
+            sys.stderr.flush()
 
-            # Write merged results to DB sequentially in the main process to avoid lock contention
+            # Re-import so g_dfs reflects everything now in the DB (written incrementally by db_writer)
+            logger.info("Re-importing DB into g_dfs after incremental writes ...")
             for data_cat in DATA_CATS:
-                logger.info("Saving '%s' to %s", data_cat, db_name)
-                sys.stderr.flush()
-                try:
-                    export_db(db_name, db_params, g_dfs[data_cat], data_cat, tsg_meta_df)
-                except Exception as e:
-                    logger.exception("Caught exception %s exporting nvcl database rows", e)
-                    sys.stderr.flush()
+                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+                logger.info("Re-imported '%s': %d rows", data_cat, len(g_dfs[data_cat]))
+            sys.stderr.flush()
                 
         else:
-            # Single-threaded
+            # Single-threaded: use an in-process queue so db_writer handles writes the same way
+            db_queue = Queue()
+            writer_proc = Process(
+                target=db_writer,
+                args=(db_queue, db_name, db_params, tsg_meta_df),
+                name="db_writer",
+                daemon=True,
+            )
+            writer_proc.start()
+            logger.info("db_writer process started (pid %d) for single-threaded run", writer_proc.pid)
+            sys.stderr.flush()
+
             for prov in prov_list:
-                prov_df = do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_name, db_params, pickle_dir)
-                for data_cat in DATA_CATS:
-                    g_dfs[data_cat] = pd.concat([g_dfs[data_cat], prov_df[data_cat]], ignore_index=True)
+                do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir)
+
+            logger.info("All providers done. Sending sentinel to db_writer ...")
+            sys.stderr.flush()
+            db_queue.put(None)
+            writer_proc.join()
+            logger.info("db_writer process finished (exit code %d)", writer_proc.exitcode)
+            sys.stderr.flush()
+
+            # Re-import so g_dfs reflects everything now in the DB
+            logger.info("Re-importing DB into g_dfs after incremental writes ...")
+            for data_cat in DATA_CATS:
+                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+                logger.info("Re-imported '%s': %d rows", data_cat, len(g_dfs[data_cat]))
+            sys.stderr.flush()
 
 
     ## If user presses Ctrl-C then save out data to db & exit
@@ -254,22 +346,24 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     return scan_date, modified_date, publish_date
 
 
-def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_name: str, db_params: dict, pickle_dir: str):
-    """ Ask a provider for NVCL data, runs in its own process
+def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_queue: Queue, pickle_dir: str):
+    """ Ask a provider for NVCL data, runs in its own process. Rows are put onto
+    db_queue as soon as they are assembled so the db_writer process saves them
+    incrementally — partial progress is preserved even if this worker stalls.
 
     :param prov: name of provider, e.g. 'NSW'
     :param known_id_df: known NVCL ID dataframe
     :param tsg_meta_df: TSG metadata dataframe
-    :param piclke_dir: filesystem path to store pickle file of borehole data from provider
-    :returns: True/False
+    :param max_boreholes: maximum number of boreholes to fetch
+    :param db_queue: multiprocessing Queue shared with the db_writer process
+    :param pickle_dir: filesystem path to store pickle file of borehole data from provider
+    :returns: True on success, False on failure
     """
     _log = logger # multiprocessing.get_logger()
     _log.info('\n' + '>'*15 + '    %s    ' + '<'*15, prov)
 
-    # Create results - a dict of empty dataframes
-    results = {}
-    for data_cat in DATA_CATS:
-        results[data_cat] = pd.DataFrame(columns=DF_COLUMNS)
+    # rows_queued tracks per-category counts for end-of-provider summary logging
+    rows_queued = {cat: 0 for cat in DATA_CATS}
 
     # Create parameters for NVCL services
     param = param_builder(prov, max_boreholes=max_boreholes)
@@ -361,8 +455,10 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             _log.info("No NVCL data for %s! Inserting as 'no_data'.", nvcl_id)
             sys.stderr.flush()
             new_row = make_row(prov, boreholes_list[idx], datetime.date.min, datetime.date.min, datetime.date.min)
-            #print("AS_LIST:", new_row.as_list())
-            results['nodata'] = pd.concat([results['nodata'], pd.Series(new_row.as_list(), index=results['nodata'].columns).to_frame().T], ignore_index=True)
+            db_queue.put(('nodata', new_row.as_list()))
+            rows_queued['nodata'] = rows_queued.get('nodata', 0) + 1
+            _log.info("Queued 'nodata' row for %s (queued so far: %s)", nvcl_id, dict(rows_queued))
+            sys.stderr.flush()
             continue
 
         ###
@@ -410,23 +506,21 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             # Convert to list for insertion into data frame
             new_data = new_row.as_list()
 
-            # Add new data to the results dataframe
-            results[key] = pd.concat([results[key], pd.Series(new_data, index=results[key].columns).to_frame().T], ignore_index=True)
+            # Put the completed row onto the queue for the db_writer process to save
+            db_queue.put((key, new_data))
+            rows_queued[key] = rows_queued.get(key, 0) + 1
+            _log.info("Queued '%s' row for nvcl_id=%s log_id=%s (queued so far: %s)",
+                      key, nvcl_id, getattr(new_row, 'log_id', 'N/A'), dict(rows_queued))
             sys.stderr.flush()
 
-    _log.info("Retrieving data from %s is DONE.", prov)
+    _log.info("Retrieving data from %s is DONE. Total rows queued: %d %s",
+              prov, sum(rows_queued.values()), dict(rows_queued))
     sys.stderr.flush()
 
-    # Save per-provider pickle files (each process writes its own file, safe to do in parallel)
-    for data_cat in DATA_CATS:
-        _log.info("Saving '%s', '%s' to %s_%s.pkl", prov, data_cat, data_cat, prov)
-        results[data_cat].to_pickle(os.path.join(pickle_dir, f"{data_cat}_{prov}.pkl"))
-        sys.stderr.flush()
-
-    # Return results to the main process; DB writes happen there to avoid concurrent lock contention
-    _log.info("do_prov for %s completed. Returning results.", prov)
+    # Return True to signal success; all rows have already been queued for the db_writer
+    _log.info("do_prov for %s completed successfully.", prov)
     sys.stderr.flush()
-    return results
+    return True
 
 
 def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
