@@ -6,7 +6,7 @@ import sys
 import os
 import logging
 import multiprocessing
-from multiprocessing import Pool, Process, Queue
+from multiprocessing import Pool, Process, Queue, Manager
 import multiprocessing_logging
 from pathlib import Path
 import argparse
@@ -179,7 +179,13 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
 
             # Start dedicated DB writer process. All worker processes send rows to this
             # queue and it writes them to the DB one at a time, avoiding lock contention.
-            db_queue = Queue()
+            #
+            # NB: A raw multiprocessing.Queue() cannot be pickled and therefore cannot be
+            # passed as an argument to Pool workers ("Queue objects should only be shared
+            # between processes through inheritance"). A Manager().Queue() returns a
+            # picklable proxy that can be passed to pool workers via starmap_async.
+            mgr = Manager()
+            db_queue = mgr.Queue()
             writer_proc = Process(
                 target=db_writer,
                 args=(db_queue, db_name, db_params, tsg_meta_df),
