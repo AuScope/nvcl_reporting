@@ -528,7 +528,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
             # Put the completed row onto the queue for the db_writer process to save
             db_queue.put((key, new_data))
             rows_queued[key] = rows_queued.get(key, 0) + 1
-            _log.info("Queued '%s' row for nvcl_id=%s log_id=%s (queued so far: %s)",
+            _log.debug("Queued '%s' row for nvcl_id=%s log_id=%s (queued so far: %s)",
                       key, nvcl_id, getattr(new_row, 'log_id', 'N/A'), dict(rows_queued))
             sys.stderr.flush()
 
@@ -537,8 +537,6 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     sys.stderr.flush()
 
     # Return True to signal success; all rows have already been queued for the db_writer
-    _log.info("do_prov for %s completed successfully.", prov)
-    sys.stderr.flush()
     return True
 
 
