@@ -12,8 +12,14 @@ from db.schema import Meas
 
 logger = logging.getLogger(__name__)
 
-def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: str, tsg_meta_df: pd.DataFrame):
-    engine = make_engine(db_name, db_params)
+def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: str, tsg_meta_df: pd.DataFrame, engine=None):
+    # Reuse a caller-supplied engine when provided (e.g. the long-lived db_writer
+    # process). Only create - and therefore only dispose - an engine when one was
+    # not passed in. Creating a fresh engine per call leaks connection pools and
+    # eventually exhausts Postgres ("sorry, too many clients already").
+    own_engine = engine is None
+    if own_engine:
+        engine = make_engine(db_name, db_params)
 
     rows = []
     for _, row_series in df.iterrows():
@@ -32,35 +38,40 @@ def export_db(db_name: str, db_params: dict, df: pd.DataFrame, report_category: 
         d.pop("hl_scan_date", None)
         rows.append(d)
 
-    if len(rows) == 0:
-        logger.info("No rows inserted")
-        return
+    try:
+        if len(rows) == 0:
+            logger.info("No rows inserted")
+            return
 
+        BATCH_SIZE = 1000
 
-    BATCH_SIZE = 1000
+        def batched(iterable, n):
+            for i in range(0, len(iterable), n):
+                logger.info("Inserting rows - %d:%d.", i, i+n)
+                sys.stderr.flush()
+                yield iterable[i:i+n]
 
-    def batched(iterable, n):
-        for i in range(0, len(iterable), n):
-            logger.info("Inserting rows - %d:%d.", i, i+n)
-            sys.stderr.flush()
-            yield iterable[i:i+n]
-
-    with Session(engine) as session:
-        for chunk in batched(rows, BATCH_SIZE):
-            stmt = (
-                insert(Meas)
-                .values(chunk)
-                .on_conflict_do_nothing(
-                    index_elements=[
-                        "report_category",
-                        "provider",
-                        "nvcl_id",
-                        "log_id",
-                        "algorithm",
-                        "log_type",
-                        "algorithm_id",
-                    ]
+        with Session(engine) as session:
+            for chunk in batched(rows, BATCH_SIZE):
+                stmt = (
+                    insert(Meas)
+                    .values(chunk)
+                    .on_conflict_do_nothing(
+                        index_elements=[
+                            "report_category",
+                            "provider",
+                            "nvcl_id",
+                            "log_id",
+                            "algorithm",
+                            "log_type",
+                            "algorithm_id",
+                        ]
+                    )
                 )
-            )
-            session.execute(stmt)
-            session.commit()
+                session.execute(stmt)
+                session.commit()
+    finally:
+        # Only dispose the engine if this function created it. A caller-supplied
+        # engine is owned by the caller and must stay open for reuse.
+        if own_engine:
+            engine.dispose()

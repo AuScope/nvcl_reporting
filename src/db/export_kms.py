@@ -49,3 +49,5 @@ def export_kms(db_name: str, db_params: dict, prov_list: list, y_list, q_list):
             logger.error("Bad param error: %s", e)
             logger.error("Tried to insert %r", rows)
             sys.exit(1)
+        finally:
+            engine.dispose()
