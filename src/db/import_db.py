@@ -16,6 +16,8 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
     try:
         sql = text(f"SELECT {db_col_str()} FROM meas WHERE report_category = :cat")
 
+        logger.info(f"Fetching from DB using {sql}")
+
         with engine.connect() as conn:
             try:
                 src_df = pd.read_sql(sql, conn, params={"cat": report_datacat})
@@ -28,6 +30,7 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
                     logger.info("Creating tables")
                     Base.metadata.create_all(engine)
 
+        logger.info(f"DONE! Fetched data for {cat}")
 
         assert type(src_df.get("modified_datetime")) is not pd.Timestamp
 
@@ -43,11 +46,15 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
             else:
                 new_df[col] = src_df[col]
 
+        logger.info(f"Converted to 'new_df'")
+
         if not new_df.empty:
             merged_df = pd.merge(new_df, tsg_meta_df, left_on="nvcl_id", right_on="nvcl_id")
             merged_df = merged_df.rename(columns={"hl scan date": "hl_scan_date", "tsg publish date": "publish_date"})
+            logger.info(f"Merging done, returning")
             return merged_df
 
+        logger.info("Returning empty df")
         return pd.DataFrame(columns=DF_COLUMNS)
     finally:
         engine.dispose()
