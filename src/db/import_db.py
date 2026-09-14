@@ -30,7 +30,7 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
                     logger.info("Creating tables")
                     Base.metadata.create_all(engine)
 
-        logger.info(f"DONE! Fetched data for {cat}")
+        logger.info(f"DONE! Fetched data for {report_datacat}")
 
         assert type(src_df.get("modified_datetime")) is not pd.Timestamp
 
