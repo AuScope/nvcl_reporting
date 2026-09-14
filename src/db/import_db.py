@@ -35,7 +35,7 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
         assert type(src_df.get("modified_datetime")) is not pd.Timestamp
 
         # Drop date columns
-        src_df = src_df.drop(columns=["publish_date", "hl_scan_date"])
+        src_df = src_df.drop(columns=["publish_date", "hl_scan_date"], errors="ignore")
 
         # Convert columns in-situ
         for col in src_df.columns:
