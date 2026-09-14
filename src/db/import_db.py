@@ -34,22 +34,20 @@ def import_db(db_name: str, db_params: dict, report_datacat: str, tsg_meta_df: p
 
         assert type(src_df.get("modified_datetime")) is not pd.Timestamp
 
-        new_df = pd.DataFrame(columns=DF_COLUMNS).drop(columns=["publish_date", "hl_scan_date"])
+        # Drop date columns
+        src_df = src_df.drop(columns=["publish_date", "hl_scan_date"])
 
+        # Convert columns in-situ
         for col in src_df.columns:
             #if col in ["modified_datetime"]:
-            #    new_df[col] = src_df[col].apply(conv_str2dt)
+            #    src_df[col] = src_df[col].apply(conv_str2dt)
             if col in ["minerals", "mincnts", "data"]:
-                new_df[col] = src_df[col].apply(conv_str2json)
-            elif col in ["publish_date", "hl_scan_date"]:
-                continue
-            else:
-                new_df[col] = src_df[col]
+                src_df[col] = src_df[col].apply(conv_str2json)
 
-        logger.info(f"Converted to 'new_df'")
+        logger.info(f"Converted to 'src_df'")
 
-        if not new_df.empty:
-            merged_df = pd.merge(new_df, tsg_meta_df, left_on="nvcl_id", right_on="nvcl_id")
+        if not src_df.empty:
+            merged_df = pd.merge(src_df, tsg_meta_df, left_on="nvcl_id", right_on="nvcl_id")
             merged_df = merged_df.rename(columns={"hl scan date": "hl_scan_date", "tsg publish date": "publish_date"})
             logger.info(f"Merging done, returning")
             return merged_df
