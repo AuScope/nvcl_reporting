@@ -4,6 +4,7 @@ import logging
 import datetime
 from pathlib import Path
 import yaml
+import pandas as pd
 from urllib.parse import urlparse
 
 from pyproj.transformer import Transformer
@@ -13,6 +14,23 @@ from collections import OrderedDict
 from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
+
+
+def is_known_logid(log_id, known_logid_df: pd.DataFrame) -> bool:
+    """ Return True if 'log_id' is already present in 'known_logid_df'.
+
+    Used by do_prov() to skip previously-imported log data. Handles the case
+    where known_logid_df is empty (freshly created and thus lacking a 'log_id'
+    column), in which case nothing is known and it returns False.
+
+    :param log_id: the log id to test
+    :param known_logid_df: DataFrame with a 'log_id' column of already-known ids
+    :returns: True if log_id is present, else False
+    """
+    if known_logid_df is None or known_logid_df.empty or 'log_id' not in known_logid_df.columns:
+        return False
+    return log_id in known_logid_df['log_id'].values
+
 
 def load_and_check_config(config_file: str) -> dict:
     """ Loads config file

@@ -5,6 +5,7 @@
 import sys
 import os
 import logging
+import gc
 import multiprocessing
 from multiprocessing import Pool, Process, Queue, Manager
 import multiprocessing_logging
@@ -38,10 +39,10 @@ from db.schema import DF_COLUMNS
 from db.export_db import export_db
 from db.export_kms import export_kms
 from db.tsg_metadata import TSGMeta
-from calculations import calc_stats, assemble_report, calc_kms4db
+from calculations import calc_stats, assemble_report, calc_kms4db, has_no_data, get_fy_date_ranges
 from constants import HEIGHT_RESOLUTION, ANALYSIS_CLASS, DATA_CATS, CONFIG_FILE, PROV_LIST
 from constants import REPORT_DATE, REPORT_RANGE, DATA_CATS_NUMS, USE_NVCL_STORE
-from helpers import conv_mindata, make_row
+from helpers import conv_mindata, make_row, is_known_logid
 from helpers import load_and_check_config, get_last_url_part
 from tsg_harvest.harvest import TSG_PUBLISH_DATE, HL_SCAN_DATE, process
 from tsg_harvest.nvcl_store import download_csv
@@ -61,9 +62,6 @@ except AssertionError as ve:
     print(f"WARNING - multiprocessing logging does not work on Windows, using single process: {ve}", flush=True)
 logger = logging.getLogger(__name__)
 
-
-# Dataset dictionary - stores current NVCL datasets
-g_dfs = {}
 
 # If true, then will ignore previous downloads
 SW_ignore_importedIDs = True
@@ -157,20 +155,35 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         prov_list = new_prov_list
 
 
-    # Compile a dataframe of known NVCL ids & providers to avoid duplicates
+    # Compile lightweight dataframes of known NVCL ids and known log ids so
+    # do_prov() can skip already-imported data. Only 'provider'/'nvcl_id' and
+    # 'log_id' are needed, so load WITHOUT the heavy JSON columns (load_json=False)
+    # to keep memory low during the long polling phase.
+    #
+    # 'dfs' is a LOCAL working dict here: the loaded frames are only used to build
+    # the two 'known_*' frames below and are then discarded. They are NOT the same
+    # thing as the report-time dataframes.
     known_id_df = pd.DataFrame()
+    known_logid_df = pd.DataFrame()
+    dfs = {}
     # Loop over data categories
     for data_cat in DATA_CATS:
         # Import data frame from database
         logger.info("Importing db %s, %s", db_name, data_cat)
-        g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+        dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df, load_json=False)
         # Check column values
-        s1 = set(list(g_dfs[data_cat].columns))
+        s1 = set(list(dfs[data_cat].columns))
         s2 = set(DF_COLUMNS)
         if s1 != s2:
             logger.error("Cannot read database %s, wrong columns: %s != %s", db_name, s1, s2)
             sys.exit(1)
-        known_id_df = pd.concat([known_id_df, g_dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
+        known_id_df = pd.concat([known_id_df, dfs[data_cat].filter(items=['provider', 'nvcl_id']).drop_duplicates()]).reset_index(drop=True)
+        # log_id dedup set is drawn from 'log1' and 'empty' (see do_prov)
+        if data_cat in ('log1', 'empty'):
+            known_logid_df = pd.concat([known_logid_df, dfs[data_cat].filter(items=['log_id']).drop_duplicates()]).reset_index(drop=True)
+    # The working frames are no longer needed; release them.
+    dfs.clear()
+    del dfs
     sys.stderr.flush()
     
 
@@ -209,7 +222,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             logger.info("db_writer process started (pid %d)", writer_proc.pid)
             sys.stderr.flush()
 
-            param_list = [(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir) for prov in prov_list]
+            param_list = [(prov, known_id_df, known_logid_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir) for prov in prov_list]
             logger.info("Running in parallel with %d processes and parallel logging for %s", proc_num, prov_list)
 
             with Pool(processes=proc_num) as pool:
@@ -230,12 +243,9 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             logger.info("db_writer process finished (exit code %d)", writer_proc.exitcode)
             sys.stderr.flush()
 
-            # Re-import so g_dfs reflects everything now in the DB (written incrementally by db_writer)
-            logger.info("Re-importing DB into g_dfs after incremental writes ...")
-            for data_cat in DATA_CATS:
-                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
-                logger.info("Re-imported '%s': %d rows", data_cat, len(g_dfs[data_cat]))
-            sys.stderr.flush()
+            # NB: We deliberately do NOT re-import all providers here.
+            # update_kms() (called next) loads each provider one at a time to bound
+            # memory, so a full all-provider re-import would defeat the purpose.
                 
         else:
             # Single-threaded: use an in-process queue so db_writer handles writes the same way
@@ -251,7 +261,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             sys.stderr.flush()
 
             for prov in prov_list:
-                do_prov(prov, known_id_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir)
+                do_prov(prov, known_id_df, known_logid_df, tsg_meta_df, MAX_BOREHOLES, db_queue, pickle_dir)
 
             logger.info("All providers done. Sending sentinel to db_writer ...")
             sys.stderr.flush()
@@ -260,12 +270,7 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
             logger.info("db_writer process finished (exit code %d)", writer_proc.exitcode)
             sys.stderr.flush()
 
-            # Re-import so g_dfs reflects everything now in the DB
-            logger.info("Re-importing DB into g_dfs after incremental writes ...")
-            for data_cat in DATA_CATS:
-                g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
-                logger.info("Re-imported '%s': %d rows", data_cat, len(g_dfs[data_cat]))
-            sys.stderr.flush()
+            # NB: No full re-import here either — update_kms() loads per-provider.
 
 
     ## If user presses Ctrl-C then save out data to db & exit
@@ -282,26 +287,77 @@ def update_data(prov_list: [], db_name: str, db_params: dict, tsg_meta_df: pd.Da
         sys.exit(int(signal.SIGINT))
 
 
-def update_kms(prov_list: list, db_name: str, db_params: dict, report_date: datetime.date, date_fieldname: str):
+def update_kms(prov_list: list, db_name: str, db_params: dict, report_date: datetime.date, date_fieldname: str,
+               tsg_meta_df: pd.DataFrame):
     """
-    Update the kms tables
+    Update the kms tables.
+
+    Loads and processes ONE provider at a time to bound peak memory: for each
+    provider we import just that provider's rows (all log categories, full data),
+    compute its yearly/quarterly kms + counts across REPORT_RANGE years, then
+    release the data before moving to the next provider. Peak memory is therefore
+    one provider's worth of 'data', not all providers at once.
 
     :param report_date: report is centred on this date
     :param date_fieldname: name of field used to filter rows by date
     :param prov_list: list of providers
     :param db_name: name of db
     :param db_params: db connection parameters
+    :param tsg_meta_df: TSG metadata dataframe (needed to merge on import)
     """
-    y_list = []
-    q_list = []
-    # Go back REPORT_RANGE years
-    for year_diff in range(REPORT_RANGE):
-        rel_date = report_date - relativedelta(years=year_diff)
-        y, q = calc_kms4db(rel_date, date_fieldname, g_dfs, prov_list)
-        y_list.append(y)
-        q_list.append(q)
+    # Pre-compute the year offsets/dates once.
+    rel_dates = [report_date - relativedelta(years=year_diff) for year_diff in range(REPORT_RANGE)]
+
+    # Per-year SimpleNamespaces holding full-provider-length lists, assembled
+    # incrementally as each provider is processed.
+    y_list = [SimpleNamespace(start=None, end=None,
+                              cnt_list=[None] * len(prov_list),
+                              kms_list=[None] * len(prov_list)) for _ in rel_dates]
+    q_list = [SimpleNamespace(start=None, end=None,
+                              cnt_list=[None] * len(prov_list),
+                              kms_list=[None] * len(prov_list)) for _ in rel_dates]
+
+    for p_idx, prov in enumerate(prov_list):
+        # Load THIS provider only (all categories, full data incl. 'data' JSON).
+        logger.info("update_kms: loading provider %s (%d of %d)", prov, p_idx + 1, len(prov_list))
+        g_prov = {}
+        for data_cat in DATA_CATS:
+            g_prov[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df, provider=prov)
+        sys.stderr.flush()
+
+        # Compute this provider's yearly/quarterly stats for each year offset.
+        # If the provider has no data in ANY category, calc_kms4db would exit, so
+        # fill zeros for this provider and skip (matches contributing nothing).
+        prov_empty = has_no_data(g_prov)
+        for yr_idx, rel_date in enumerate(rel_dates):
+            if prov_empty:
+                if y_list[yr_idx].start is None:
+                    ys, ye, qs, qe = get_fy_date_ranges(rel_date)
+                    y_list[yr_idx].start, y_list[yr_idx].end = ys, ye
+                    q_list[yr_idx].start, q_list[yr_idx].end = qs, qe
+                y_list[yr_idx].cnt_list[p_idx] = 0
+                y_list[yr_idx].kms_list[p_idx] = 0.0
+                q_list[yr_idx].cnt_list[p_idx] = 0
+                q_list[yr_idx].kms_list[p_idx] = 0.0
+                continue
+            y, q = calc_kms4db(rel_date, date_fieldname, g_prov, [prov])
+            # y/q .cnt_list/.kms_list are single-element (one provider); place them
+            # into the full-length per-year lists at this provider's index.
+            if y_list[yr_idx].start is None:
+                y_list[yr_idx].start, y_list[yr_idx].end = y.start, y.end
+                q_list[yr_idx].start, q_list[yr_idx].end = q.start, q.end
+            y_list[yr_idx].cnt_list[p_idx] = y.cnt_list[0]
+            y_list[yr_idx].kms_list[p_idx] = y.kms_list[0]
+            q_list[yr_idx].cnt_list[p_idx] = q.cnt_list[0]
+            q_list[yr_idx].kms_list[p_idx] = q.kms_list[0]
+
+        # Release this provider's data before loading the next.
+        g_prov.clear()
+        del g_prov
+        gc.collect()
+
     # Creates a stats table with kms and bh counts
-    export_kms(db_name, db_params, prov_list, y_list, q_list) 
+    export_kms(db_name, db_params, prov_list, y_list, q_list)
 
 
 def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (datetime.date, datetime.date, datetime.date):
@@ -365,13 +421,14 @@ def get_dates(ld: SimpleNamespace, tsg_meta_df: pd.DataFrame, nvcl_id: str) -> (
     return scan_date, modified_date, publish_date
 
 
-def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_queue: Queue, pickle_dir: str):
+def do_prov(prov: str, known_id_df: pd.DataFrame, known_logid_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max_boreholes: int, db_queue: Queue, pickle_dir: str):
     """ Ask a provider for NVCL data, runs in its own process. Rows are put onto
     db_queue as soon as they are assembled so the db_writer process saves them
     incrementally — partial progress is preserved even if this worker stalls.
 
     :param prov: name of provider, e.g. 'NSW'
     :param known_id_df: known NVCL ID dataframe
+    :param known_logid_df: known log_id dataframe (from previously-imported log1 & empty)
     :param tsg_meta_df: TSG metadata dataframe
     :param max_boreholes: maximum number of boreholes to fetch
     :param db_queue: multiprocessing Queue shared with the db_writer process
@@ -484,8 +541,7 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
         # If this borehole has NVCL data
         ###
         for ld in logs_data_list:
-            if SW_ignore_importedIDs and \
-              ((ld.log_id in g_dfs['log1'].log_id.values) or (ld.log_id in g_dfs['empty'].log_id.values)):
+            if SW_ignore_importedIDs and is_known_logid(ld.log_id, known_logid_df):
                 _log.info("Log id %s already imported, next...", ld.log_id)
                 sys.stderr.flush()
                 continue
@@ -540,17 +596,21 @@ def do_prov(prov: str, known_id_df: pd.DataFrame, tsg_meta_df: pd.DataFrame, max
     return True
 
 
-def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame):
-    """ Load NVCL data from database
+def load_data(db_name: str, db_params: dict, tsg_meta_df: pd.DataFrame) -> dict:
+    """ Load NVCL data from database into a dataframe dict (keyed by log category).
 
     :param db_name: database name
     :param db_params: database connection parameters
+    :param tsg_meta_df: TSG metadata dataframe
+    :returns: dict mapping data category -> DataFrame
     """
     logger.info("Loading database %s", db_name)
+    dfs = {}
     for idx, data_cat in enumerate(DATA_CATS):
-        g_dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
+        dfs[data_cat] = import_db(db_name, db_params, data_cat, tsg_meta_df)
         logger.info("%d of %d: %s done", idx+1, len(DATA_CATS), data_cat)
     logger.info("Loading database done.")
+    return dfs
 
 
 
@@ -641,8 +701,6 @@ def main(sys_argv):
     logger.info("NVCL_REPORTING running on %s", now.strftime("%A %d %B %Y %H:%M:%S"))
     sys.stderr.flush()
 
-    data_loaded = False
-
     # Set report date if not supplied on command line
     report_date = REPORT_DATE
     if args.report_date is not None:
@@ -677,18 +735,18 @@ def main(sys_argv):
         logger.info("Updating database")
         sys.stderr.flush()
         update_data(PROV_LIST, db_name, db_params, tsg_meta_df, pickle_dir)
-        update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME)
-        data_loaded = True
+        update_kms(PROV_LIST, db_name, db_params, report_date, DATE_FIELDNAME, tsg_meta_df)
         logger.info("Database update complete")
         sys.stderr.flush()
-
-    # Load database from designated database
-    if not data_loaded:
-        load_data(db_name, db_params, tsg_meta_df)
 
     # Create report
     if args.full or args.brief:
         logger.info("Creating reports")
+        sys.stderr.flush()
+        # Report generation needs the full frames (incl. JSON columns). Neither the
+        # --update path (per-provider) nor a bare run leaves them loaded, so load
+        # them into a LOCAL dict here. This replaces the former module-global g_dfs.
+        report_dfs = load_data(db_name, db_params, tsg_meta_df)
         sys.stderr.flush()
         # Create plot dir if doesn't exist
         plot_path = Path(plot_dir)
@@ -696,11 +754,11 @@ def main(sys_argv):
             os.mkdir(plot_dir)
         # Calculate stats for graphs
         if args.full:
-            calc_stats(g_dfs, PROV_LIST, db_name, db_params)
+            calc_stats(report_dfs, PROV_LIST, db_name, db_params)
         # FIXME: This is a sorting prefix, used to be pickle_dir name
         prefix = "version"
         # Create plots and report
-        assemble_report(args.output, report_date, DATE_FIELDNAME, g_dfs, plot_dir, prefix, args.brief)
+        assemble_report(args.output, report_date, DATE_FIELDNAME, report_dfs, plot_dir, prefix, args.brief)
 
     now = datetime.datetime.now()
     logger.info("NVCL_REPORTING Done @ %s", now.strftime("%A %d %B %Y %H:%M:%S"))

@@ -21,15 +21,26 @@ more complex types
 i.e. pandas won't convert a column of arrays or json for your db even if you use sqlalchemy
 '''
 
-def db_col_str() -> str:
+# Heavy JSON-encoded columns. Expanding these into Python objects dominates
+# memory use, so callers that don't need them can exclude them.
+JSON_COLS = ['minerals', 'mincnts', 'data']
+
+
+def db_col_str(include_json: bool = True) -> str:
     '''
     Makes a comma sep string of column names for converting the database table to a DataFrame
+
+    :param include_json: if False, omit the heavy JSON columns (minerals, mincnts, data)
     '''
     # Get dataframe columns
     db_cols = DF_COLUMNS.copy()
     # Remove columns sourced from TSG files
     db_cols.remove('hl_scan_date')
     db_cols.remove('publish_date')
+    if not include_json:
+        for col in JSON_COLS:
+            if col in db_cols:
+                db_cols.remove(col)
     return ', '.join(db_cols)
 
 def conv_str2dt(dt_str: str) -> date:
